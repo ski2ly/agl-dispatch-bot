@@ -210,28 +210,36 @@ class Database:
                 except:
                     pass
 
-                # --- Robust Migrations ---
-                # Ensure 'user_name' exists in comments
-                try:
-                    await conn.execute("ALTER TABLE comments ADD COLUMN IF NOT EXISTS user_name TEXT")
-                except Exception: pass
-
-                # Handle 'text' column in comments (rename from 'comment' if needed)
-                cols = await conn.fetch("SELECT column_name FROM information_schema.columns WHERE table_name = 'comments' AND table_schema = 'public'")
+                # --- Aggressive Comments Migration ---
+                # 1. Get all columns
+                cols = await conn.fetch("SELECT column_name, is_nullable FROM information_schema.columns WHERE table_name = 'comments' AND table_schema = 'public'")
                 col_names = [c['column_name'] for c in cols]
                 
+                # 2. Make all columns nullable to prevent 'NOT NULL' violations on legacy/phantom columns
+                for c in cols:
+                    if c['column_name'] not in ('id', 'request_id'):
+                        await conn.execute(f'ALTER TABLE comments ALTER COLUMN "{c["column_name"]}" DROP NOT NULL')
+
+                # 3. Handle 'text' column (rename from 'comment' if 'text' is missing)
                 if 'text' not in col_names:
                     if 'comment' in col_names:
-                        await conn.execute("ALTER TABLE comments RENAME COLUMN comment TO text")
+                        await conn.execute('ALTER TABLE comments RENAME COLUMN comment TO text')
                     else:
-                        await conn.execute("ALTER TABLE comments ADD COLUMN text TEXT")
+                        await conn.execute('ALTER TABLE comments ADD COLUMN text TEXT')
 
-                # Ensure 'login_key' exists in users
+                # 4. Ensure 'user_name' exists
+                if 'user_name' not in col_names:
+                    await conn.execute('ALTER TABLE comments ADD COLUMN user_name TEXT')
+
+                # 5. Ensure 'type' exists
+                if 'type' not in col_names:
+                    await conn.execute("ALTER TABLE comments ADD COLUMN type TEXT DEFAULT 'user'")
+
+                # --- Users Migration ---
                 try:
                     await conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS login_key TEXT")
                 except Exception: pass
                 
-                # Ensure login_key index exists
                 try:
                     await conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_login_key ON users(login_key)")
                 except Exception as e:

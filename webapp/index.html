@@ -364,11 +364,22 @@
                 if (tr) endpoint += `&transport=${encodeURIComponent(tr)}`;
             }
             const sep = endpoint.includes('?') ? '&' : '?';
-            fetch(`${endpoint}${sep}initData=${encodeURIComponent(tg.initData)}`).then(r => r.json()).then(data => {
+            fetch(`${endpoint}${sep}initData=${encodeURIComponent(tg.initData)}`)
+            .then(r => r.json())
+            .then(data => {
                 clear(cont);
-                (data.requests || data.bids || []).forEach(r => {
+                const items = data.requests || data.bids || [];
+                if (items.length === 0) {
+                    cont.appendChild(el('div', { class: 'p-10 text-center opacity-40 text-xs', text: 'Пока ничего нет' }));
+                    return;
+                }
+                items.forEach(r => {
                     const idText = fmtId(r.id || r.request_id);
-                    const route = (r.route_from || r.request_route || '...') + ' → ' + (r.route_to || '...');
+                    // Use request_route_from/to for bids, or route_from/to for requests
+                    const from = r.route_from || r.request_route_from || '...';
+                    const to = r.route_to || r.request_route_to || '...';
+                    const route = from + ' → ' + to;
+                    
                     const header = el('div', { class: 'flex justify-between items-start' },
                         el('div', null,
                             el('div', { class: 'text-[9px] font-extrabold text-[var(--corp-emerald)]', text: idText }),
@@ -384,16 +395,25 @@
                             text: 'СДЕЛАТЬ СТАВКУ'
                         });
                     } else {
-                        actionEl = el('div', { class: 'p-3 bg-[var(--secondary-bg)] rounded-xl text-xs font-bold text-[var(--corp-emerald)]', text: 'Ваша ставка: ' + (r.amount || '') + ' ' + (r.currency || '') });
+                        actionEl = el('div', { class: 'p-3 bg-[var(--secondary-bg)] rounded-xl text-xs font-bold text-[var(--corp-emerald)]', text: 'Ваша ставка: ' + (r.amount || '0') + ' ' + (r.currency || '') });
                     }
-                    cont.appendChild(el('div', { class: 'glass-card p-6 space-y-4' }, header, actionEl));
+                    cont.appendChild(el('div', { class: 'glass-card p-6 space-y-4 animate-fade' }, header, actionEl));
                 });
+            })
+            .catch(err => {
+                console.error("switchBidView error:", err);
+                clear(cont);
+                cont.appendChild(el('div', { class: 'p-10 text-center text-red-500 text-xs', text: 'Ошибка загрузки данных' }));
             });
         }
 
         function openBidModal(reqId) {
             activeBidReqId = reqId;
             document.getElementById('bid-amount').value = '';
+            document.getElementById('bid-currency').value = 'USD';
+            document.getElementById('bid-validity').value = '';
+            document.getElementById('bid-loading-hours').value = '24ч';
+            document.getElementById('bid-payment').value = 'Безнал с НДС';
             document.getElementById('bid-demurrage').value = '';
             document.getElementById('bid-comment').value = '';
             document.getElementById('bid-modal').classList.remove('hidden');

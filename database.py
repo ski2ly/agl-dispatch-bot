@@ -647,7 +647,7 @@ class Database:
                 await conn.execute("""
                     INSERT INTO users (name, role, login_key, login_key_hash)
                     VALUES ($1, $2, $3, $4)
-                    ON CONFLICT (login_key_hash) DO UPDATE SET name = EXCLUDED.name, role = EXCLUDED.role, login_key = EXCLUDED.login_key
+                    ON CONFLICT (login_key) DO UPDATE SET name = EXCLUDED.name, role = EXCLUDED.role, login_key_hash = EXCLUDED.login_key_hash
                 """, name, role, key, key_hash)
 
     # LOGGING

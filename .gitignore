@@ -1,0 +1,11 @@
+.env
+venv/
+.venv/
+__pycache__/
+requests.json
+*.pyc
+*.json.tmp
+
+# Sensitive files — never commit
+canvas-fulcrum-493911-n7-460511f20f1e.json
+credentials.txt

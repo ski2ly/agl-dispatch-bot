@@ -1,0 +1,875 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AGL Dispatch — Enterprise Platform</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800&display=swap');
+        :root {
+            --corp-deep: #004341; --corp-emerald: #1B8056; --corp-light-emerald: #1B9E61; --corp-lime: #86BF6B; --corp-cream: #E3EDC4;
+            --bg: #ffffff; --secondary-bg: #f5f7f5; --text-main: #004341; --text-hint: rgba(0, 67, 65, 0.6); --input-bg: #ffffff; --card-shadow: 0 10px 25px -5px rgba(0, 67, 65, 0.1);
+        }
+        [data-theme="dark"] {
+            --bg: #002a29; --secondary-bg: #003635; --text-main: #E3EDC4; --text-hint: rgba(227, 237, 196, 0.6); --input-bg: #004341; --card-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+        }
+        body { background-color: var(--bg); color: var(--text-main); font-family: 'Outfit', sans-serif; transition: all 0.3s ease; -webkit-tap-highlight-color: transparent; }
+        .glass-card { background: var(--input-bg); border: 1px solid rgba(27, 128, 86, 0.1); box-shadow: var(--card-shadow); border-radius: 1.5rem; }
+        .tg-input { background: var(--input-bg); color: var(--text-main); border: 1.5px solid rgba(27, 128, 86, 0.1); border-radius: 1rem; transition: all 0.2s ease; }
+        .tg-input:focus { border-color: var(--corp-lime); box-shadow: 0 0 0 3px rgba(134, 191, 107, 0.15); outline: none; }
+        .btn-primary { background: linear-gradient(135deg, var(--corp-emerald), var(--corp-deep)); color: #ffffff; font-weight: 700; border-radius: 1rem; }
+        .tab-active { color: var(--corp-emerald); font-weight: 800; border-bottom: 3px solid var(--corp-emerald); }
+        .choice-active { background: var(--corp-emerald) !important; color: white !important; border-color: var(--corp-lime); }
+        .step-container { display: none; } .step-container.active { display: block; }
+        .bottom-nav { background: var(--bg); border-top: 1px solid rgba(27, 128, 86, 0.1); backdrop-filter: blur(10px); }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-fade { animation: fadeIn 0.4s ease forwards; }
+        .admin-tab { display: none; } .admin-tab.active { display: block; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+    </style>
+</head>
+<body class="antialiased min-h-screen pb-24">
+    <!-- LOGIN -->
+    <div id="login-screen" class="fixed inset-0 z-[100] bg-[var(--bg)] flex items-center justify-center hidden">
+        <div class="w-full max-w-xs p-8 text-center space-y-8">
+            <img src="/logo/arrow_default.png" class="w-24 h-24 mx-auto object-contain">
+            <div><h1 class="text-3xl font-extrabold tracking-tight">AGL Premium</h1><p class="text-xs text-[var(--text-hint)] mt-2">Введите ключ доступа</p></div>
+            <input type="password" id="login-key-input" class="w-full p-4 tg-input text-center font-bold tracking-[0.5em]">
+            <button onclick="attemptLogin()" id="login-btn" class="w-full py-5 btn-primary uppercase tracking-widest text-xs">Войти</button>
+        </div>
+    </div>
+
+    <div id="app-content" class="hidden">
+        <!-- HEADER -->
+        <header class="px-6 pt-6 pb-4 flex justify-between items-center sticky top-0 bg-[var(--bg)] z-50">
+            <div class="flex items-center space-x-3">
+                <img src="/logo/arrow_default.png" class="w-10 h-10 object-contain">
+                <div><h2 class="text-xl font-extrabold leading-none">AGL</h2><p class="text-[8px] font-bold text-[var(--corp-lime)] tracking-widest uppercase">Platform</p></div>
+            </div>
+            <div id="user-profile-badge" class="px-3 py-1 bg-[var(--secondary-bg)] rounded-full border border-[var(--corp-lime)]/20 text-[10px] font-bold uppercase tracking-tighter">
+                <span id="user-name-display">...</span>
+            </div>
+        </header>
+
+        <main id="view-form" class="view-tab px-6 pt-4">
+            <div id="step-1" class="step-container active space-y-8 animate-fade">
+                <h1 class="text-3xl font-extrabold">Направление</h1>
+                <div class="grid grid-cols-2 gap-4">
+                    <div onclick="selectDirection('СНГ')" class="glass-card p-6 flex flex-col items-center space-y-3 cursor-pointer" id="dir-cis"><span class="text-3xl">🗺️</span><span class="font-bold text-xs uppercase tracking-widest">СНГ</span></div>
+                    <div onclick="selectDirection('Европа')" class="glass-card p-6 flex flex-col items-center space-y-3 cursor-pointer" id="dir-eu"><span class="text-3xl">🇪🇺</span><span class="font-bold text-xs uppercase tracking-widest">Европа</span></div>
+                    <div onclick="selectDirection('Китай')" class="glass-card p-6 flex flex-col items-center space-y-3 cursor-pointer" id="dir-cn"><span class="text-3xl">🇨🇳</span><span class="font-bold text-xs uppercase tracking-widest">Китай</span></div>
+                    <div onclick="selectDirection('Другое')" class="glass-card p-6 flex flex-col items-center space-y-3 cursor-pointer" id="dir-other"><span class="text-3xl">🌐</span><span class="font-bold text-xs uppercase tracking-widest">Другое</span></div>
+                </div>
+            </div>
+
+            <div id="step-2" class="step-container space-y-8 animate-fade">
+                <h1 class="text-3xl font-extrabold">Способ доставки</h1>
+                <div class="grid grid-cols-2 gap-3">
+                    <button onclick="selectMethod('Авто')" id="met-road" class="p-5 tg-input font-bold text-xs">АВТО</button>
+                    <button onclick="selectMethod('Контейнер')" id="met-cont" class="p-5 tg-input font-bold text-xs">КОНТЕЙНЕР</button>
+                    <button onclick="selectMethod('Ж/Д Вагон')" id="met-rail" class="p-5 tg-input font-bold text-xs">ВАГОН</button>
+                    <button onclick="selectMethod('Авиа')" id="met-air" class="p-5 tg-input font-bold text-xs">АВИА</button>
+                    <button onclick="selectMethod('Мультимодальная')" id="met-multi" class="p-5 tg-input font-bold text-xs">МУЛЬТИ</button>
+                </div>
+                <button onclick="goToStep1()" class="w-full py-4 text-[var(--corp-emerald)] font-bold text-xs uppercase opacity-60">← Назад</button>
+            </div>
+
+            <div id="step-3" class="step-container space-y-8 animate-fade pb-12">
+                <div class="flex items-center justify-between">
+                    <button onclick="goToStep2()" id="btn-back-step3" class="text-[var(--corp-emerald)] font-bold text-sm">← Способ</button>
+                    <div class="px-4 py-1.5 bg-[var(--corp-cream)] text-[var(--corp-deep)] rounded-full text-[10px] font-extrabold uppercase tracking-tighter" id="summary-badge">---</div>
+                </div>
+                <form id="requestForm" class="space-y-8">
+                    <div id="edit-only-fields" class="hidden space-y-4 p-6 bg-[var(--secondary-bg)] rounded-[2rem] border border-[var(--corp-lime)]/30">
+                        <div class="space-y-2">
+                            <label class="block text-[10px] font-bold uppercase opacity-40">Статус заявки</label>
+                            <select id="status-select" class="w-full p-4 tg-input text-sm font-bold" onchange="toggleStatusDetails()"></select>
+                        </div>
+                        <div id="winner-block" class="hidden space-y-2">
+                            <label class="block text-[10px] font-bold uppercase opacity-40">Победитель</label>
+                            <select id="winner-select" class="w-full p-4 tg-input text-sm bg-green-50/50"></select>
+                        </div>
+                        <div id="cancel-block" class="hidden space-y-2">
+                            <label class="block text-[10px] font-bold uppercase opacity-40">Причина отмены</label>
+                            <select id="cancel_reason" class="w-full p-4 tg-input text-sm bg-red-50/50"></select>
+                        </div>
+                        <button type="button" onclick="pingLogistics()" id="btn-ping-logistics" class="w-full py-4 mt-2 bg-blue-900 text-white rounded-2xl font-bold text-xs uppercase shadow border border-blue-400">🔔 Напомнить в канал</button>
+                        
+                        <!-- BIDS LIST INSIDE FORM -->
+                        <div class="pt-4 border-t border-[var(--corp-lime)]/10">
+                            <label class="block text-[10px] font-bold uppercase opacity-40 mb-3">Ставки от логистов</label>
+                            <div id="request-bids-list" class="space-y-3"></div>
+                        </div>
+
+                        <button type="button" onclick="mainButtonClicked()" class="w-full py-5 bg-[var(--corp-emerald)] text-white text-xs font-bold uppercase rounded-2xl shadow-xl mt-6">СОХРАНИТЬ ИЗМЕНЕНИЯ</button>
+                    </div>
+                    <section class="space-y-4">
+                        <div class="grid grid-cols-2 gap-4"><input type="text" id="route_from" placeholder="Откуда *" class="w-full p-4 tg-input text-sm"><input type="text" id="route_to" placeholder="Куда *" class="w-full p-4 tg-input text-sm"></div>
+                        <div class="grid grid-cols-2 gap-4"><input type="text" id="loading_address" placeholder="Адрес погрузки" class="w-full p-4 tg-input text-xs"><input type="text" id="customs_address" placeholder="Затаможка" class="w-full p-4 tg-input text-xs"></div>
+                        <div class="grid grid-cols-2 gap-4"><input type="text" id="clearance_address" placeholder="Растаможка" class="w-full p-4 tg-input text-xs"><input type="text" id="unloading_address" placeholder="Адрес выгрузки" class="w-full p-4 tg-input text-xs"></div>
+                    </section>
+                    <div id="dynamic-fields" class="space-y-6 bg-[var(--secondary-bg)] p-6 rounded-[2rem] border border-[var(--corp-lime)]/10"></div>
+                    <section class="space-y-5">
+                        <input type="text" id="cargo_name" placeholder="Груз *" class="w-full p-4 tg-input text-sm">
+                        <div class="grid grid-cols-2 gap-4"><input type="text" id="cargo_value" placeholder="Стоимость *" class="w-full p-4 tg-input text-sm"><input type="text" id="hs_code" placeholder="ТН ВЭД *" class="w-full p-4 tg-input text-sm"></div>
+                        <div class="grid grid-cols-2 gap-4"><input type="text" id="cargo_weight" placeholder="Вес (т) *" class="w-full p-4 tg-input text-sm"><input type="text" id="cargo_places" placeholder="Объем/Места *" class="w-full p-4 tg-input text-sm"></div>
+                        <div class="grid grid-cols-2 gap-4"><input type="text" id="packaging" placeholder="Упаковка" class="w-full p-4 tg-input text-sm"><select id="dangerous_cargo" class="w-full p-4 tg-input text-sm"><option value="Нет">Обычный</option><option value="Да">ОПАСНЫЙ (ADR)</option></select></div>
+                        <select id="urgency_type" class="w-full p-4 tg-input text-sm"><option value="Стандарт">Срочность: Стандарт</option><option value="Срочно">🔥 СРОЧНО</option></select>
+                    </section>
+                    <section class="space-y-5">
+                        <input type="text" id="client_company" placeholder="Компания клиента" class="w-full p-4 tg-input text-sm">
+                        <div class="grid grid-cols-2 gap-4"><input type="text" id="responsible" class="w-full p-4 tg-input text-xs bg-[var(--secondary-bg)] opacity-60" readonly><input type="text" id="target" placeholder="Таргет $" class="w-full p-4 tg-input text-xs"></div>
+                        <textarea id="message_text" placeholder="Комментарии..." class="w-full p-4 tg-input text-sm" rows="3"></textarea>
+                    </section>
+                </form>
+            </div>
+        </main>
+
+        <main id="view-list" class="view-tab hidden px-6 pt-4 animate-fade space-y-4">
+            <h1 class="text-3xl font-extrabold tracking-tight">Заявки</h1>
+            <div class="flex space-x-2">
+                <input type="text" id="search-input" placeholder="Поиск..." class="flex-1 p-4 tg-input text-sm" oninput="debounceListSearch()">
+                <button onclick="toggleMyRequests()" id="my-req-toggle" class="px-4 py-2 bg-[var(--secondary-bg)] opacity-40 rounded-xl text-[10px] font-bold uppercase">МОИ</button>
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+                <select id="filter-status" class="p-3 tg-input text-[10px] font-bold" onchange="loadRequests()">
+                    <option value="">Все статусы</option>
+                    <option value="Открыта">Открыта</option>
+                    <option value="В работе">В работе</option>
+                    <option value="Успешно реализована">Успешно</option>
+                    <option value="Отменена">Отменена</option>
+                </select>
+                <select id="filter-region" class="p-3 tg-input text-[10px] font-bold" onchange="loadRequests()">
+                    <option value="">Все регионы</option>
+                    <option value="Европа">Европа</option>
+                    <option value="Китай">Китай</option>
+                    <option value="СНГ">СНГ</option>
+                    <option value="Индия/ЮВА">Индия/ЮВА</option>
+                    <option value="Турция">Турция</option>
+                </select>
+            </div>
+            <div id="requests-container" class="space-y-4 pb-12"></div>
+        </main>
+
+        <main id="view-bids" class="view-tab hidden px-6 pt-4 animate-fade space-y-4">
+             <h1 class="text-3xl font-extrabold tracking-tight">Ставки</h1>
+             <div class="flex p-1 bg-[var(--secondary-bg)] rounded-2xl">
+                <button onclick="switchBidView('tenders')" id="bv-tenders" class="flex-1 py-3 text-[10px] font-extrabold rounded-xl">ТЕНДЕРЫ</button>
+                <button onclick="switchBidView('my')" id="bv-my" class="flex-1 py-3 text-[10px] font-extrabold rounded-xl opacity-40">МОИ СТАВКИ</button>
+            </div>
+            <div id="tender-filters" class="grid grid-cols-2 gap-2">
+                <select id="tf-region" class="p-3 tg-input text-[10px] font-bold" onchange="switchBidView('tenders')">
+                    <option value="">Все регионы</option>
+                    <option value="Европа">Европа</option>
+                    <option value="Китай">Китай</option>
+                    <option value="СНГ">СНГ</option>
+                </select>
+                <select id="tf-transport" class="p-3 tg-input text-[10px] font-bold" onchange="switchBidView('tenders')">
+                    <option value="">Весь транспорт</option>
+                    <option value="Авто">Авто</option>
+                    <option value="Ж/Д">Ж/Д</option>
+                    <option value="Авиа">Авиа</option>
+                    <option value="Мультимодальная">Мультимодал</option>
+                </select>
+            </div>
+            <div id="bids-container" class="space-y-5 pb-12"></div>
+        </main>
+
+        <main id="view-users" class="view-tab hidden animate-fade">
+            <div class="px-6 pt-4 pb-6 space-y-2 border-b border-[var(--corp-lime)]/10">
+                <h1 class="text-3xl font-extrabold tracking-tight">Управление</h1>
+                <div class="flex space-x-2 overflow-x-auto no-scrollbar py-2">
+                    <button onclick="switchAdminTab('users')" id="at-users" class="admin-tab-btn flex-shrink-0 px-4 py-2 bg-[var(--corp-cream)] text-[var(--corp-deep)] rounded-xl text-[10px] font-bold uppercase">Сотрудники</button>
+                    <button onclick="switchAdminTab('dict')" id="at-dict" class="admin-tab-btn flex-shrink-0 px-4 py-2 bg-[var(--secondary-bg)] opacity-40 rounded-xl text-[10px] font-bold uppercase">Списки</button>
+                    <button onclick="switchAdminTab('stats')" id="at-stats" class="admin-tab-btn flex-shrink-0 px-4 py-2 bg-[var(--secondary-bg)] opacity-40 rounded-xl text-[10px] font-bold uppercase">Аналитика</button>
+                    <button onclick="switchAdminTab('settings')" id="at-settings" class="admin-tab-btn flex-shrink-0 px-4 py-2 bg-[var(--secondary-bg)] opacity-40 rounded-xl text-[10px] font-bold uppercase">Настройки</button>
+                </div>
+            </div>
+            <!-- USERS -->
+            <div id="admin-users" class="admin-tab active p-6 space-y-6">
+                <div class="flex space-x-2">
+                    <input type="text" id="user-search" placeholder="Поиск по имени..." class="flex-1 p-4 tg-input text-xs" oninput="renderUsersList()">
+                </div>
+                <div class="flex p-1 bg-[var(--secondary-bg)] rounded-2xl">
+                    <button onclick="filterUsers('all')" id="uf-all" class="flex-1 py-3 text-[9px] font-extrabold rounded-xl bg-[var(--corp-cream)] text-[var(--corp-deep)]">ВСЕ</button>
+                    <button onclick="filterUsers('admin')" id="uf-admin" class="flex-1 py-3 text-[9px] font-extrabold rounded-xl opacity-40">АДМИНЫ</button>
+                    <button onclick="filterUsers('manager')" id="uf-manager" class="flex-1 py-3 text-[9px] font-extrabold rounded-xl opacity-40">МЕНЕДЖЕРЫ</button>
+                </div>
+                
+                <div id="user-editor-form" class="glass-card p-5 space-y-4 hidden animate-fade">
+                    <div class="text-[10px] font-extrabold uppercase opacity-40">Редактор сотрудника</div>
+                    <input type="hidden" id="edit-user-id">
+                    <input type="text" id="edit-user-name" placeholder="Имя Фамилия" class="w-full p-4 tg-input text-xs">
+                    <select id="edit-user-role" class="w-full p-4 tg-input text-xs font-bold">
+                        <option value="manager">Менеджер (Manager)</option>
+                        <option value="admin">Админ (Admin)</option>
+                    </select>
+                    <div id="edit-user-rotate-row" class="hidden">
+                        <button type="button" onclick="rotateUserKey()" class="w-full py-3 bg-[var(--corp-cream)] text-[var(--corp-deep)] text-[10px] font-bold rounded-xl uppercase">🔑 Сгенерировать новый ключ</button>
+                    </div>
+                    <div class="flex space-x-2 pt-2">
+                        <button onclick="saveUser()" class="flex-1 py-4 btn-primary text-[10px] uppercase shadow-md">Сохранить</button>
+                        <button onclick="hideUserEditor()" class="px-6 py-4 bg-gray-100 text-gray-500 text-[10px] uppercase font-bold rounded-2xl">Отмена</button>
+                    </div>
+                </div>
+
+                <button id="add-user-btn" onclick="showUserEditor()" class="w-full py-4 btn-primary text-[10px] uppercase shadow-md">+ Добавить сотрудника</button>
+                <div id="users-list-full" class="space-y-4 pb-12"></div>
+            </div>
+            <!-- DICT (Interactive List Editor) -->
+            <div id="admin-dict" class="admin-tab p-6 space-y-6">
+                <div id="dict-selector-view" class="space-y-3">
+                    <button onclick="openDictEditor('incoterms')" class="w-full p-5 glass-card flex justify-between items-center font-bold text-xs uppercase">Инкотермс <span>➔</span></button>
+                    <button onclick="openDictEditor('ports')" class="w-full p-5 glass-card flex justify-between items-center font-bold text-xs uppercase">Порты <span>➔</span></button>
+                    <button onclick="openDictEditor('border_crossings')" class="w-full p-5 glass-card flex justify-between items-center font-bold text-xs uppercase">Погранпереходы <span>➔</span></button>
+                    <button onclick="openDictEditor('transport_subtypes')" class="w-full p-5 glass-card flex justify-between items-center font-bold text-xs uppercase">Типы транспорта <span>➔</span></button>
+                </div>
+                <div id="dict-editor-view" class="hidden space-y-4">
+                    <button onclick="closeDictEditor()" class="text-[10px] font-bold uppercase text-[var(--corp-emerald)]">← Назад</button>
+                    <div class="flex space-x-2"><input type="text" id="new-dict-item" placeholder="Новый..." class="flex-1 p-3 tg-input text-xs"><button onclick="addDictItem()" class="px-4 py-3 btn-primary text-[10px] font-bold">ДОБАВИТЬ</button></div>
+                    <div id="dict-items-list" class="space-y-2 max-h-[50vh] overflow-y-auto no-scrollbar"></div>
+                    <button onclick="saveDictChanges()" class="w-full py-4 btn-primary text-xs uppercase">Сохранить</button>
+                </div>
+            </div>
+            <!-- STATS (Excel Export) -->
+            <div id="admin-stats" class="admin-tab p-6 space-y-8">
+                <button onclick="exportXLSX()" class="w-full py-4 bg-[var(--corp-emerald)] text-white rounded-xl text-[10px] font-extrabold uppercase">Выгрузить EXCEL 📊</button>
+                <div class="glass-card p-6 text-center"><div class="text-[10px] font-bold opacity-40 uppercase">Среднее время закрытия</div><div class="text-4xl font-extrabold text-[var(--corp-emerald)]" id="stat-avg-time">0 ч</div></div>
+                <canvas id="managerChart"></canvas>
+                <canvas id="regionChart"></canvas>
+            </div>
+            <!-- SETTINGS -->
+            <div id="admin-settings" class="admin-tab p-6 space-y-6">
+                <textarea id="set-ai-prompt" class="w-full p-4 tg-input text-xs" rows="5" placeholder="AI Prompt"></textarea>
+                <input type="text" id="set-channel-id" placeholder="Channel ID" class="w-full p-4 tg-input text-xs">
+                <button onclick="saveSettings()" class="w-full py-4 btn-primary text-xs uppercase">Сохранить</button>
+            </div>
+        </main>
+
+        <nav class="bottom-nav fixed bottom-0 left-0 right-0 px-6 py-4 flex justify-between items-center z-50">
+            <button onclick="switchTab('form')" id="tab-form" class="flex flex-col items-center space-y-1 tab-active transition-all"><span class="text-xl">📝</span><span class="text-[8px] font-extrabold uppercase">Форма</span></button>
+            <button onclick="switchTab('list')" id="tab-list" class="flex flex-col items-center space-y-1 opacity-40 transition-all"><span class="text-xl">🗂️</span><span class="text-[8px] font-extrabold uppercase">База</span></button>
+            <button onclick="switchTab('bids')" id="tab-bids" class="flex flex-col items-center space-y-1 opacity-40 transition-all"><span class="text-xl">🤝</span><span class="text-[8px] font-extrabold uppercase">Ставки</span></button>
+            <button onclick="switchTab('users')" id="tab-users" class="hidden flex flex-col items-center space-y-1 opacity-40 transition-all"><span class="text-xl">⚙️</span><span class="text-[8px] font-extrabold uppercase">Упр.</span></button>
+        </nav>
+    </div>
+
+    <!-- BID MODAL -->
+    <div id="bid-modal" class="fixed inset-0 z-[110] bg-black/60 flex items-center justify-center hidden backdrop-blur-sm">
+        <div class="w-[90%] glass-card p-8 space-y-6 animate-fade">
+            <div class="flex justify-between items-center"><h2 class="text-xl font-extrabold uppercase">Сделать ставку</h2><button onclick="closeBidModal()" class="text-2xl">×</button></div>
+            <div class="space-y-4">
+                <div class="grid grid-cols-2 gap-4"><input type="text" id="bid-amount" placeholder="Сумма *" class="w-full p-4 tg-input text-sm font-bold"><select id="bid-currency" class="w-full p-4 tg-input text-sm"><option value="USD">USD</option><option value="EUR">EUR</option><option value="CNY">CNY</option><option value="RUB">RUB</option></select></div>
+                <div class="grid grid-cols-2 gap-4"><input type="text" id="bid-validity" placeholder="Валидность" class="w-full p-4 tg-input text-sm"><select id="bid-loading-hours" class="w-full p-4 tg-input text-sm"><option value="12ч">12ч погр/выгр</option><option value="24ч" selected>24ч погр/выгр</option><option value="48ч">48ч погр/выгр</option></select></div>
+                <select id="bid-payment" class="w-full p-4 tg-input text-sm"><option value="Безнал с НДС">Безнал с НДС</option><option value="Безнал без НДС">Безнал без НДС</option><option value="Наличные">Наличные / Перевод</option></select>
+                <textarea id="bid-demurrage" placeholder="Условия простоя..." class="w-full p-4 tg-input text-xs" rows="2"></textarea>
+                <textarea id="bid-comment" placeholder="Комментарий..." class="w-full p-4 tg-input text-xs" rows="2"></textarea>
+            </div>
+            <button onclick="confirmBid()" class="w-full py-5 btn-primary text-xs uppercase shadow-2xl">Подтвердить ставку</button>
+        </div>
+    </div>
+
+    <script>
+        const tg = window.Telegram.WebApp; tg.expand();
+        let currentStep = 1, currentTab = 'form', currentAdminTab = 'users', selectedDirection = '', selectedMethod = '', editModeId = null, activeBidReqId = null, myRequestsOnly = false;
+        let managerChartInstance = null, regionChartInstance = null, currentDictName = '', currentDictItems = [];
+
+        // --- XSS-safe helpers ---
+        function escapeHtml(s) {
+            if (s === null || s === undefined) return '';
+            return String(s)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+        // Build DOM element with attributes and children. Children can be strings (used as textContent) or Nodes.
+        function el(tag, attrs, ...children) {
+            const node = document.createElement(tag);
+            if (attrs) {
+                for (const k in attrs) {
+                    const v = attrs[k];
+                    if (v === null || v === undefined || v === false) continue;
+                    if (k === 'class' || k === 'className') node.className = v;
+                    else if (k === 'text') node.textContent = v;
+                    else if (k === 'html') node.innerHTML = v; // ONLY for trusted constants
+                    else if (k === 'on' && typeof v === 'object') {
+                        for (const ev in v) node.addEventListener(ev, v[ev]);
+                    } else if (k.startsWith('on') && typeof v === 'function') {
+                        node.addEventListener(k.slice(2), v);
+                    } else if (k === 'dataset' && typeof v === 'object') {
+                        for (const dk in v) node.dataset[dk] = v[dk];
+                    } else {
+                        node.setAttribute(k, v);
+                    }
+                }
+            }
+            for (const child of children) {
+                if (child === null || child === undefined || child === false) continue;
+                if (Array.isArray(child)) {
+                    child.forEach(c => { if (c !== null && c !== undefined && c !== false) node.appendChild(typeof c === 'string' ? document.createTextNode(c) : c); });
+                } else if (typeof child === 'string' || typeof child === 'number') {
+                    node.appendChild(document.createTextNode(String(child)));
+                } else {
+                    node.appendChild(child);
+                }
+            }
+            return node;
+        }
+        function clear(node) { while (node.firstChild) node.removeChild(node.firstChild); }
+        function fmtId(id) { return '#' + String(id || 0).padStart(4, '0'); }
+
+        function checkProfile() {
+            fetch(`/api/profile?initData=${encodeURIComponent(tg.initData)}`).then(r => r.json()).then(data => {
+                if (data.profile) {
+                    document.getElementById('login-screen').classList.add('hidden'); document.getElementById('app-content').classList.remove('hidden');
+                    document.getElementById('user-name-display').textContent = data.profile.name; document.getElementById('responsible').value = data.profile.name;
+                    if (['admin', 'superuser'].includes(data.profile.role)) document.getElementById('tab-users').classList.remove('hidden');
+                    loadRequests();
+                } else document.getElementById('login-screen').classList.remove('hidden');
+            });
+        }
+
+        function attemptLogin() {
+            const key = document.getElementById('login-key-input').value;
+            fetch('/api/login_with_key', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ initData: tg.initData, login_key: key }) })
+            .then(r => r.json()).then(res => { if(res.ok) { tg.showAlert(`Добро пожаловать, ${res.name}!`); checkProfile(); } else tg.showAlert("Неверный ключ"); });
+        }
+
+        function switchTab(t) {
+            currentTab = t; document.querySelectorAll('nav button').forEach(b => { b.classList.add('opacity-40'); b.classList.remove('tab-active'); });
+            document.getElementById('tab-' + t).classList.remove('opacity-40'); document.getElementById('tab-' + t).classList.add('tab-active');
+            document.querySelectorAll('.view-tab').forEach(v => v.classList.add('hidden')); document.getElementById('view-' + t).classList.remove('hidden');
+            if(t === 'users') switchAdminTab(currentAdminTab); if(t === 'bids') switchBidView('tenders'); updateMainButton();
+        }
+
+        function switchBidView(view) {
+            document.getElementById('bv-tenders').classList.toggle('opacity-40', view !== 'tenders');
+            document.getElementById('bv-my').classList.toggle('opacity-40', view !== 'my');
+            document.getElementById('tender-filters').classList.toggle('hidden', view !== 'tenders');
+            const cont = document.getElementById('bids-container'); cont.innerHTML = '<div class="p-10 text-center opacity-40 text-xs">Загрузка...</div>';
+            
+            let endpoint = view === 'tenders' ? '/api/requests?status=Открыта' : '/api/my_bids';
+            if (view === 'tenders') {
+                const reg = document.getElementById('tf-region').value;
+                const tr = document.getElementById('tf-transport').value;
+                if (reg) endpoint += `&region=${encodeURIComponent(reg)}`;
+                if (tr) endpoint += `&transport=${encodeURIComponent(tr)}`;
+            }
+            fetch(`${endpoint}&initData=${encodeURIComponent(tg.initData)}`).then(r => r.json()).then(data => {
+                clear(cont);
+                (data.requests || data.bids || []).forEach(r => {
+                    const idText = fmtId(r.id || r.request_id);
+                    const route = (r.route_from || r.request_route || '...') + ' → ' + (r.route_to || '...');
+                    const header = el('div', { class: 'flex justify-between items-start' },
+                        el('div', null,
+                            el('div', { class: 'text-[9px] font-extrabold text-[var(--corp-emerald)]', text: idText }),
+                            el('div', { class: 'font-bold text-sm', text: route })
+                        ),
+                        el('div', { class: 'text-[8px] font-bold opacity-40 uppercase', text: r.transport_cat || '' })
+                    );
+                    let actionEl;
+                    if (view === 'tenders') {
+                        actionEl = el('button', {
+                            class: 'w-full py-4 btn-primary text-[10px] font-bold',
+                            onclick: () => openBidModal(r.id),
+                            text: 'СДЕЛАТЬ СТАВКУ'
+                        });
+                    } else {
+                        actionEl = el('div', { class: 'p-3 bg-[var(--secondary-bg)] rounded-xl text-xs font-bold text-[var(--corp-emerald)]', text: 'Ваша ставка: ' + (r.amount || '') + ' ' + (r.currency || '') });
+                    }
+                    cont.appendChild(el('div', { class: 'glass-card p-6 space-y-4' }, header, actionEl));
+                });
+            });
+        }
+
+        function openBidModal(reqId) {
+            activeBidReqId = reqId;
+            document.getElementById('bid-modal').classList.remove('hidden');
+        }
+        function closeBidModal() {
+            activeBidReqId = null;
+            document.getElementById('bid-modal').classList.add('hidden');
+        }
+        function confirmBid() {
+            const amount = document.getElementById('bid-amount').value;
+            if(!amount) { tg.showAlert("⚠️ Введите сумму ставки"); return; }
+            const payload = {
+                initData: tg.initData,
+                request_id: activeBidReqId,
+                amount: amount,
+                currency: document.getElementById('bid-currency').value,
+                validity: document.getElementById('bid-validity').value,
+                loading_hours: document.getElementById('bid-loading-hours').value,
+                payment_method: document.getElementById('bid-payment').value,
+                demurrage: document.getElementById('bid-demurrage').value,
+                comment: document.getElementById('bid-comment').value
+            };
+            tg.MainButton.showProgress();
+            fetch('/api/bid', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) })
+            .then(r => r.json()).then(res => {
+                tg.MainButton.hideProgress();
+                if(res.ok) {
+                    tg.showAlert("✅ Ставка принята");
+                    closeBidModal();
+                    switchBidView('tenders');
+                } else {
+                    tg.showAlert("❌ Ошибка: " + res.error);
+                }
+            });
+        }
+
+        function switchAdminTab(t) {
+            currentAdminTab = t; document.querySelectorAll('.admin-tab-btn').forEach(b => { b.classList.add('opacity-40'); b.classList.remove('bg-[var(--corp-cream)]'); });
+            document.getElementById('at-' + t).classList.remove('opacity-40'); document.getElementById('at-' + t).classList.add('bg-[var(--corp-cream)]');
+            document.querySelectorAll('.admin-tab').forEach(tab => tab.classList.remove('active')); document.getElementById('admin-' + t).classList.add('active');
+            if(t === 'users') loadUsersList(); if(t === 'settings') loadSettings(); if(t === 'stats') loadStats();
+        }
+
+        function openDictEditor(name) {
+            currentDictName = name; document.getElementById('dict-selector-view').classList.add('hidden'); document.getElementById('dict-editor-view').classList.remove('hidden');
+            fetch(`/api/dictionary?initData=${encodeURIComponent(tg.initData)}&name=${name}`).then(r => r.json()).then(data => { currentDictItems = data.items || []; renderDictItems(); });
+        }
+        function closeDictEditor() { document.getElementById('dict-selector-view').classList.remove('hidden'); document.getElementById('dict-editor-view').classList.add('hidden'); }
+        function renderDictItems() {
+            const list = document.getElementById('dict-items-list');
+            clear(list);
+            currentDictItems.forEach((item, idx) => {
+                const controls = el('div', { class: 'flex space-x-2' },
+                    el('button', { class: 'opacity-40', onclick: () => moveDict(idx, -1), text: '↑' }),
+                    el('button', { class: 'opacity-40', onclick: () => moveDict(idx, 1), text: '↓' }),
+                    el('button', { class: 'text-red-500 font-bold ml-2', onclick: () => delDict(idx), text: '×' })
+                );
+                list.appendChild(el('div',
+                    { class: 'flex justify-between items-center p-4 bg-[var(--secondary-bg)] rounded-xl border border-[var(--corp-lime)]/10' },
+                    el('span', { class: 'text-xs font-bold', text: String(item) }),
+                    controls
+                ));
+            });
+        }
+        function moveDict(idx, dir) { let n = idx + dir; if(n<0||n>=currentDictItems.length) return; [currentDictItems[idx],currentDictItems[n]]=[currentDictItems[n],currentDictItems[idx]]; renderDictItems(); }
+        function delDict(idx) { currentDictItems.splice(idx,1); renderDictItems(); }
+        function addDictItem() { const inp = document.getElementById('new-dict-item'); const v = inp.value.trim(); if(!v) return; currentDictItems.push(v); inp.value=''; renderDictItems(); }
+        function saveDictChanges() { fetch('/api/settings/update', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ initData: tg.initData, key: currentDictName, value: currentDictItems }) }).then(() => { tg.showAlert("Сохранено ✅"); loadDictionaries(); }); }
+
+        function selectDirection(dir) { selectedDirection = dir; document.querySelectorAll('#step-1 .glass-card').forEach(c => c.classList.remove('choice-active')); const idMap = { 'СНГ': 'dir-cis', 'Европа': 'dir-eu', 'Китай': 'dir-cn', 'Другое': 'dir-other' }; if(idMap[dir]) document.getElementById(idMap[dir]).classList.add('choice-active'); currentStep = 2; document.getElementById('step-1').classList.remove('active'); document.getElementById('step-2').classList.add('active'); }
+        function selectMethod(met) { selectedMethod = met; document.querySelectorAll('#step-2 button').forEach(b => b.classList.remove('choice-active')); const idMap = { 'Авто': 'met-road', 'Контейнер': 'met-cont', 'Ж/Д Вагон': 'met-rail', 'Авиа': 'met-air', 'Мультимодальная': 'met-multi' }; if(idMap[met]) document.getElementById(idMap[met]).classList.add('choice-active'); currentStep = 3; document.getElementById('step-2').classList.remove('active'); document.getElementById('step-3').classList.add('active'); document.getElementById('summary-badge').textContent = `${selectedDirection} | ${selectedMethod}`; setupFields(); updateMainButton(); }
+        function goToStep1() { currentStep = 1; document.getElementById('step-2').classList.remove('active'); document.getElementById('step-1').classList.add('active'); }
+        function goToStep2() { 
+            if (editModeId) { resetForm(); switchTab('list'); return; }
+            currentStep = 2; document.getElementById('step-3').classList.remove('active'); document.getElementById('step-2').classList.add('active'); tg.MainButton.hide(); 
+        }
+
+        function setupFields(cb) {
+            const container = document.getElementById('dynamic-fields'); 
+            container.innerHTML = '';
+            let html = '';
+
+            // Region Specific
+            if(selectedDirection === 'Европа') {
+                html += `<div class="space-y-4"><label class="block text-[10px] font-bold uppercase opacity-40">Европа: Специфика</label>`;
+                html += `<select id="delivery_terms_eu" class="w-full p-4 tg-input text-sm font-bold"></select>`;
+                if (selectedMethod === 'Авто') {
+                    html += `<select id="route_type" class="w-full p-4 tg-input text-sm"><option value="через РФ + КЗ">Маршрут: через РФ + КЗ</option><option value="через Турцию">Маршрут: через Турцию (Т3)</option></select>`;
+                } else if (selectedMethod === 'Ж/Д Вагон' || selectedMethod === 'Контейнер') {
+                    html += `<select id="route_type" class="w-full p-4 tg-input text-sm"><option value="через РФ + КЗ">Маршрут: через РФ + КЗ</option><option value="через Турцию–Иран">Маршрут: через Турцию–Иран</option><option value="ТРАСЕКА (Поти)">Маршрут: ТРАСЕКА (Поти)</option></select>`;
+                }
+                html += `</div>`;
+            } else if(selectedDirection === 'Китай') {
+                html += `<div class="space-y-4"><label class="block text-[10px] font-bold uppercase opacity-40">Китай: Специфика</label>`;
+                html += `<div class="grid grid-cols-2 gap-4"><select id="export_decl" class="w-full p-4 tg-input text-xs"><option value="Не нужна">Экспортная: Нет</option><option value="Нужна">Экспортная: Да</option></select><select id="origin_cert" class="w-full p-4 tg-input text-xs"><option value="Не нужен">Серт: Нет</option><option value="Нужен">Серт: Да</option></select></div>`;
+                if (selectedMethod === 'Авто') {
+                    html += `<select id="border_crossing_cn" class="w-full p-4 tg-input text-sm font-bold"><option value="КЗ (Хоргос)">Погранпереход: КЗ (Хоргос)</option><option value="Кашгар (Иркештам)">Погранпереход: Кашгар (Иркештам)</option></select>`;
+                    html += `<select id="road_type_cn" class="w-full p-4 tg-input text-sm"><option value="Целая фура">Тип: Целая фура</option><option value="Сборная">Тип: Сборная (LTL)</option></select>`;
+                } else if (selectedMethod === 'Ж/Д Вагон' || selectedMethod === 'Контейнер') {
+                    html += `<select id="route_type" class="w-full p-4 tg-input text-sm"><option value="через КЗ (Хоргос)">Маршрут: через КЗ (Хоргос)</option><option value="через КЗ (Достык)">Маршрут: через КЗ (Достык)</option></select>`;
+                }
+                html += `</div>`;
+            } else if(selectedDirection === 'СНГ') {
+                html += `<div class="space-y-4"><label class="block text-[10px] font-bold uppercase opacity-40">СНГ: Специфика</label>`;
+                if (selectedMethod === 'Авто') {
+                    html += `<select id="route_type" class="w-full p-4 tg-input text-sm"><option value="Прямой">Маршрут: Прямой</option><option value="Глонас-пломба">Маршрут: Глонас-пломба</option></select>`;
+                }
+                html += `<div class="grid grid-cols-2 gap-4"><input type="number" id="loading_days" placeholder="Дней на погр." class="w-full p-4 tg-input text-xs"><input type="number" id="customs_days" placeholder="Дней на затам." class="w-full p-4 tg-input text-xs"></div></div>`;
+            } else if(selectedDirection === 'Турция') {
+                html += `<div class="space-y-4"><label class="block text-[10px] font-bold uppercase opacity-40">Турция: Специфика</label>`;
+                if (selectedMethod === 'Авто') {
+                    html += `<select id="route_type" class="w-full p-4 tg-input text-sm"><option value="Прямой">Маршрут: Прямой</option><option value="через Иран">Маршрут: через Иран</option><option value="через Грузию">Маршрут: через Грузию</option></select>`;
+                } else if (selectedMethod === 'Ж/Д Вагон' || selectedMethod === 'Контейнер') {
+                    html += `<select id="route_type" class="w-full p-4 tg-input text-sm"><option value="BTK → Иран">Маршрут: BTK → Иран</option></select>`;
+                }
+                html += `</div>`;
+            }
+
+            // Transport Specific
+            if(selectedMethod === 'Авиа') {
+                html += `<div class="space-y-4 pt-4 border-t border-[var(--corp-lime)]/10"><label class="block text-[10px] font-bold uppercase opacity-40">Авиа: Детали</label>`;
+                html += `<div class="grid grid-cols-2 gap-4"><select id="flight_type" class="w-full p-4 tg-input text-xs"><option value="Прямой">Рейс: Прямой</option><option value="Транзитный">Рейс: Транзит</option></select><select id="stackable" class="w-full p-4 tg-input text-xs"><option value="Штабелируемый">Штаб: Да</option><option value="НЕ штабелируемый">Штаб: Нет</option></select></div></div>`;
+            } else if(selectedMethod === 'Мультимодальная' || selectedMethod === 'Море') {
+                html += `<div class="space-y-4 pt-4 border-t border-[var(--corp-lime)]/10"><label class="block text-[10px] font-bold uppercase opacity-40">Мультимодал / Море</label>`;
+                if (selectedDirection === 'Европа') {
+                    html += `<select id="ports_list" class="w-full p-4 tg-input text-sm"><option value="Поти → авто/ж/д">Порт: Поти → авто/ж/д</option><option value="Констанца → ...">Порт: Констанца → ...</option></select>`;
+                } else if (selectedDirection === 'Индия/ЮВА') {
+                    html += `<select id="ports_list" class="w-full p-4 tg-input text-sm"><option value="Поти (Грузия)">Порт: Поти (Грузия)</option><option value="Иран (Бандар-Аббас)">Порт: Иран (Бандар-Аббас)</option><option value="Пакистан (Карачи)">Порт: Пакистан (Карачи)</option><option value="Владивосток">Порт: Владивосток</option></select>`;
+                } else {
+                    html += `<select id="ports_list" class="w-full p-4 tg-input text-sm font-bold"><option value="">Выберите порт...</option></select>`;
+                }
+                html += `</div>`;
+            }
+
+            container.innerHTML = html;
+            loadDictionaries(cb);
+        }
+
+        tg.MainButton.onClick(() => mainButtonClicked());
+        function mainButtonClicked() {
+            const reqAll = ['route_from', 'route_to', 'cargo_name', 'cargo_value', 'hs_code', 'cargo_weight', 'cargo_places'];
+            for(let id of reqAll) {
+                const el = document.getElementById(id);
+                if(el && !el.value.trim()) {
+                    tg.showAlert(`⚠️ Заполните обязательное поле: ${el.placeholder.replace('*','').trim()}`);
+                    return;
+                }
+            }
+            if (selectedDirection !== 'СНГ') {
+                if(!document.getElementById('customs_address').value.trim() || !document.getElementById('clearance_address').value.trim()) {
+                    tg.showAlert("⚠️ Для направлений вне СНГ обязательны адреса затаможки и растаможки!");
+                    return;
+                }
+            }
+            const payload = { regions: selectedDirection, transport_cat: selectedMethod, route_from: document.getElementById('route_from').value, route_to: document.getElementById('route_to').value, loading_address: document.getElementById('loading_address').value, customs_address: document.getElementById('customs_address').value, clearance_address: document.getElementById('clearance_address').value, unloading_address: document.getElementById('unloading_address').value, cargo_name: document.getElementById('cargo_name').value, cargo_value: document.getElementById('cargo_value').value, hs_code: document.getElementById('hs_code').value, cargo_weight: document.getElementById('cargo_weight').value, cargo_places: document.getElementById('cargo_places').value, packaging: document.getElementById('packaging').value, dangerous_cargo: document.getElementById('dangerous_cargo').value, urgency_type: document.getElementById('urgency_type').value, client_company: document.getElementById('client_company').value, responsible: document.getElementById('responsible').value, target: document.getElementById('target').value, message_text: document.getElementById('message_text').value, status: editModeId ? document.getElementById('status-select').value : 'Открыта' };
+            ['delivery_terms_eu','route_type','transit_rf_allowed','export_decl','origin_cert','border_crossing_cn','road_type_cn','container_owner','container_type_cn','urgency_days','loading_days','customs_days','glonass_seal','ports_list','flight_type','stackable'].forEach(id => { const el = document.getElementById(id); if(el) payload[id] = el.value; });
+            tg.MainButton.showProgress(); fetch('/api/submit', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ initData: tg.initData, action: editModeId ? 'edit' : 'new', id: editModeId, payload }) }).then(r => r.json()).then(res => { tg.MainButton.hideProgress(); if(res.ok) { tg.showAlert("✅ Готово"); resetForm(); switchTab('list'); } });
+        }
+
+        function resetForm() { editModeId = null; currentStep = 1; document.getElementById('requestForm').reset(); document.querySelectorAll('.step-container').forEach(s => s.classList.remove('active')); document.getElementById('step-1').classList.add('active'); document.getElementById('edit-only-fields').classList.add('hidden'); document.getElementById('btn-back-step3').textContent = '← Способ'; }
+        function updateMainButton() { if(currentTab==='form' && currentStep===3) { tg.MainButton.setText(editModeId ? "СОХРАНИТЬ" : "ОТПРАВИТЬ"); tg.MainButton.show(); } else tg.MainButton.hide(); }
+
+        function pingLogistics() {
+            if(!editModeId) return;
+            tg.MainButton.showProgress();
+            fetch('/api/ping_logistics', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({initData: tg.initData, request_id: editModeId})
+            }).then(r=>r.json()).then(res=>{
+                tg.MainButton.hideProgress();
+                if(res.ok) tg.showAlert("✅ Напоминание отправлено в канал!");
+                else tg.showAlert("❌ Ошибка: " + res.error);
+            });
+        }
+
+        function toggleMyRequests() {
+            myRequestsOnly = !myRequestsOnly;
+            const btn = document.getElementById('my-req-toggle');
+            btn.classList.toggle('opacity-40', !myRequestsOnly);
+            btn.classList.toggle('bg-[var(--corp-lime)]', myRequestsOnly);
+            btn.classList.toggle('text-[var(--corp-deep)]', myRequestsOnly);
+            loadRequests();
+        }
+
+        function loadRequests() {
+            const s = document.getElementById('search-input').value;
+            const status = document.getElementById('filter-status').value;
+            const region = document.getElementById('filter-region').value;
+            
+            let url = myRequestsOnly ? `/api/my_requests?initData=${encodeURIComponent(tg.initData)}` : `/api/requests?initData=${encodeURIComponent(tg.initData)}`;
+            url += `&search=${encodeURIComponent(s)}&status=${encodeURIComponent(status)}&region=${encodeURIComponent(region)}`;
+            
+            fetch(url).then(r => r.json()).then(data => {
+                const cont = document.getElementById('requests-container');
+                clear(cont);
+                const list = data.requests || [];
+                if (list.length === 0) {
+                    cont.appendChild(el('div', { class: 'p-10 text-center opacity-40 text-xs', text: 'Заявок не найдено' }));
+                    return;
+                }
+                list.forEach(r => {
+                    const card = el('div',
+                        { class: 'glass-card p-5 animate-fade cursor-pointer hover:bg-white/5 transition-colors', onclick: () => openRequestForEdit(r.id) },
+                        el('div', { class: 'flex justify-between items-center' },
+                            el('span', { class: 'text-[9px] font-extrabold text-[var(--corp-lime)]', text: fmtId(r.id) }),
+                            el('span', { class: 'px-2 py-0.5 bg-[var(--corp-cream)] text-[var(--corp-deep)] rounded-full text-[8px] font-bold uppercase', text: r.status || '' })
+                        ),
+                        el('div', { class: 'font-bold text-sm mt-1', text: (r.route_from || '?') + ' → ' + (r.route_to || '?') }),
+                        el('div', { class: 'text-[8px] opacity-40 uppercase mt-1', text: (r.transport_cat || '') + ' | ' + (r.regions || '') })
+                    );
+                    cont.appendChild(card);
+                });
+            });
+        }
+        function debounceListSearch() { clearTimeout(this.tm); this.tm = setTimeout(loadRequests, 400); }
+
+        function openRequestForEdit(id) {
+            editModeId = id; document.getElementById('btn-back-step3').textContent = '← База'; fetch(`/api/request_details?initData=${encodeURIComponent(tg.initData)}&id=${id}`).then(r => r.json()).then(res => {
+                const r = res.request; selectedDirection = r.regions; selectedMethod = r.transport_cat; switchTab('form'); currentStep = 3; document.querySelectorAll('.step-container').forEach(s => s.classList.remove('active')); document.getElementById('step-3').classList.add('active'); document.getElementById('summary-badge').textContent = `${r.regions} | ${r.transport_cat}`; 
+                setupFields(() => {
+                    ['cargo_name','cargo_value','hs_code','route_from','route_to','loading_address','customs_address','clearance_address','unloading_address','client_company','responsible','target','message_text','cargo_weight','cargo_places','packaging','dangerous_cargo','urgency_type','delivery_terms_eu','route_type','transit_rf_allowed','export_decl','origin_cert','border_crossing_cn','road_type_cn','container_owner','container_type_cn','urgency_days','loading_days','customs_days','glonass_seal','ports_list','flight_type','stackable'].forEach(fid => { const el = document.getElementById(fid); if(el) el.value = r[fid] || ''; });
+                    document.getElementById('edit-only-fields').classList.remove('hidden'); const st = document.getElementById('status-select'); st.innerHTML = '<option value="Открыта">Открыта</option><option value="В работе">В работе</option><option value="Успешно реализована">Успешно ✅</option><option value="Отменена">Отменена ❌</option>'; st.value = r.status; 
+                    
+                    // Render Bids
+                    const bidsCont = document.getElementById('request-bids-list');
+                    clear(bidsCont);
+                    if (res.bids && res.bids.length > 0) {
+                        res.bids.forEach(b => {
+                            const leftCol = el('div', null,
+                                el('div', { class: 'font-bold text-xs text-[var(--corp-lime)]', text: (b.amount || '') + ' ' + (b.currency || '') }),
+                                el('div', { class: 'text-[9px] opacity-40 uppercase', text: b.manager_name || '' })
+                            );
+                            const winnerBtn = (r.status === 'Открыта')
+                                ? el('button', {
+                                    type: 'button',
+                                    class: 'px-3 py-1.5 bg-[var(--corp-lime)] text-[var(--corp-deep)] text-[8px] font-bold rounded-lg uppercase',
+                                    onclick: () => confirmBidAsWinner(b.id, b.manager_name, b.amount, b.currency),
+                                    text: 'ВЫБРАТЬ'
+                                })
+                                : null;
+                            bidsCont.appendChild(el('div',
+                                { class: 'p-4 bg-white/5 rounded-xl border border-white/10 space-y-2' },
+                                el('div', { class: 'flex justify-between items-start' }, leftCol, winnerBtn),
+                                el('div', { class: 'text-[9px] opacity-60', text: b.comment || 'Нет комментария' })
+                            ));
+                        });
+                    } else {
+                        bidsCont.appendChild(el('div', { class: 'text-[10px] opacity-40 italic', text: 'Ставок пока нет' }));
+                    }
+
+                    toggleStatusDetails(); updateMainButton();
+                });
+            });
+        }
+        function confirmBidAsWinner(bidId, manager, amount, curr) {
+            if(!confirm(`Выбрать ставку ${amount} ${curr} от ${manager} как выигрышную?`)) return;
+            tg.MainButton.showProgress();
+            fetch('/api/update_status', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ initData: tg.initData, id: editModeId, status: 'Успешно реализована', winner: manager })
+            }).then(r => r.json()).then(res => {
+                tg.MainButton.hideProgress();
+                if(res.ok) { tg.showAlert("✅ Ставка подтверждена!"); openRequestForEdit(editModeId); }
+                else tg.showAlert("❌ Ошибка: " + res.error);
+            });
+        }
+        function toggleStatusDetails() { 
+            const s = document.getElementById('status-select').value; 
+            document.getElementById('winner-block').classList.toggle('hidden', s !== 'Успешно реализована'); 
+            document.getElementById('cancel-block').classList.toggle('hidden', s !== 'Отменена'); 
+            if (s === 'Отменена') {
+                const cb = document.getElementById('cancel_reason');
+                if (!cb.innerHTML.trim()) {
+                    cb.innerHTML = '<option value="">-- Выберите причину --</option>' +
+                                  '<option value="Ставка не прошла">Ставка не прошла</option>' +
+                                  '<option value="Груз отменился">Груз отменился</option>' +
+                                  '<option value="Выбрали другого экспедитора">Выбрали другого экспедитора</option>' +
+                                  '<option value="Не устроили сроки">Не устроили сроки</option>' +
+                                  '<option value="Техническая ошибка">Техническая ошибка</option>' +
+                                  '<option value="Своя причина">Своя причина...</option>';
+                }
+            }
+        }
+
+        let allUsers = [];
+        let userFilter = 'all';
+
+        function loadUsersList() {
+            const list = document.getElementById('users-list-full');
+            list.innerHTML = '<div class="p-10 text-center opacity-40 text-[10px]">Загрузка списка...</div>';
+            fetch(`/api/users?initData=${encodeURIComponent(tg.initData)}`)
+                .then(r => r.json())
+                .then(data => {
+                    allUsers = data.users || [];
+                    renderUsersList();
+                }).catch(err => {
+                    list.innerHTML = `<div class="p-10 text-center text-red-500 text-[10px]">Ошибка сети</div>`;
+                });
+        }
+
+        function filterUsers(f) {
+            userFilter = f;
+            document.querySelectorAll('[id^="uf-"]').forEach(b => { b.classList.add('opacity-40'); b.classList.remove('bg-[var(--corp-cream)]','text-[var(--corp-deep)]'); });
+            document.getElementById('uf-' + f).classList.remove('opacity-40');
+            document.getElementById('uf-' + f).classList.add('bg-[var(--corp-cream)]','text-[var(--corp-deep)]');
+            renderUsersList();
+        }
+
+        function renderUsersList() {
+            const list = document.getElementById('users-list-full');
+            const searchInput = document.getElementById('user-search');
+            const search = searchInput ? searchInput.value.toLowerCase() : '';
+            clear(list);
+
+            const filtered = allUsers.filter(u => {
+                const matchSearch = (u.name || '').toLowerCase().includes(search);
+                const matchRole = userFilter === 'all' || u.role === userFilter;
+                return matchSearch && matchRole;
+            });
+
+            if (filtered.length === 0) {
+                list.appendChild(el('div', { class: 'p-10 text-center opacity-40 text-xs', text: 'Никого не найдено' }));
+                return;
+            }
+
+            filtered.forEach(u => {
+                const roleLine = (u.role || '') + (u.telegram_id ? ' 🔗' : '');
+                const head = el('div', { class: 'flex justify-between items-start' },
+                    el('div', null,
+                        el('div', { class: 'font-bold text-sm', text: u.name || 'Сотрудник' }),
+                        el('div', { class: 'text-[9px] opacity-40 uppercase font-extrabold tracking-widest', text: roleLine })
+                    ),
+                    el('div', { class: 'text-[10px] font-mono opacity-30', text: '••••' })
+                );
+                const actions = el('div', { class: 'flex space-x-2 border-t pt-3' },
+                    el('button', {
+                        class: 'flex-1 py-2 bg-[var(--corp-cream)] text-[var(--corp-deep)] text-[9px] font-extrabold rounded-lg uppercase',
+                        onclick: () => editUser(u),
+                        text: 'Редактировать'
+                    }),
+                    el('button', {
+                        class: 'px-4 py-2 bg-red-50 text-red-500 text-[9px] font-bold rounded-lg uppercase',
+                        onclick: () => deleteUser(u.id, u.name),
+                        text: 'УДАЛИТЬ'
+                    })
+                );
+                list.appendChild(el('div', { class: 'glass-card p-5 space-y-3 animate-fade' }, head, actions));
+            });
+        }
+
+        function showUserEditor() {
+            document.getElementById('add-user-btn').classList.add('hidden');
+            document.getElementById('user-editor-form').classList.remove('hidden');
+            document.getElementById('edit-user-id').value = '';
+            document.getElementById('edit-user-name').value = '';
+            document.getElementById('edit-user-role').value = 'manager';
+            // New users: ключ генерируется и показывается после Сохранить.
+            document.getElementById('edit-user-rotate-row').classList.add('hidden');
+        }
+
+        function hideUserEditor() {
+            document.getElementById('add-user-btn').classList.remove('hidden');
+            document.getElementById('user-editor-form').classList.add('hidden');
+        }
+
+        function editUser(u) {
+            document.getElementById('add-user-btn').classList.add('hidden');
+            document.getElementById('user-editor-form').classList.remove('hidden');
+            document.getElementById('edit-user-id').value = u.id;
+            document.getElementById('edit-user-name').value = u.name || '';
+            document.getElementById('edit-user-role').value = u.role || 'manager';
+            document.getElementById('edit-user-rotate-row').classList.remove('hidden');
+        }
+
+        function saveUser() {
+            const userId = document.getElementById('edit-user-id').value;
+            const name = document.getElementById('edit-user-name').value.trim();
+            const role = document.getElementById('edit-user-role').value;
+            if (!name) { tg.showAlert("⚠️ Введите имя"); return; }
+            if (role !== 'manager' && role !== 'admin') { tg.showAlert("⚠️ Роль должна быть manager или admin"); return; }
+
+            if (userId) {
+                // UPDATE existing
+                fetch('/api/user_update', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ initData: tg.initData, user_id: Number(userId), name, role })
+                }).then(r => r.json()).then(res => {
+                    if (res.ok) { tg.showAlert("✅ Сохранено"); hideUserEditor(); loadUsersList(); }
+                    else tg.showAlert("❌ Ошибка: " + (res.error || 'unknown'));
+                });
+            } else {
+                // CREATE new — server generates the key and returns it once.
+                fetch('/api/user_create', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ initData: tg.initData, name, role })
+                }).then(r => r.json()).then(res => {
+                    if (res.ok && res.login_key) {
+                        tg.showAlert("✅ Сотрудник создан\n\nКлюч (показывается один раз):\n" + res.login_key + "\n\nПередайте его сотруднику — повторно ключ узнать нельзя.");
+                        hideUserEditor();
+                        loadUsersList();
+                    } else {
+                        tg.showAlert("❌ Ошибка: " + (res.error || 'unknown'));
+                    }
+                });
+            }
+        }
+
+        function loadDictionaries(callback) {
+            fetch(`/api/settings?initData=${encodeURIComponent(tg.initData)}`)
+            .then(r => r.json())
+            .then(res => {
+                const s = res.settings;
+                if (s) {
+                    const fillSelect = (id, items) => {
+                        const sel = document.getElementById(id);
+                        if (!sel || !items) return;
+                        const itemsArr = Array.isArray(items) ? items : [];
+                        if (itemsArr.length === 0) return;
+                        clear(sel);
+                        itemsArr.forEach(t => {
+                            const opt = document.createElement('option');
+                            opt.value = String(t);
+                            opt.textContent = String(t);
+                            sel.appendChild(opt);
+                        });
+                    };
+
+                    fillSelect('delivery_terms_eu', s.incoterms);
+                    fillSelect('border_crossing_cn', s.border_crossings);
+                    fillSelect('container_type_cn', s.transport_subtypes);
+
+                    // Only fill ports_list if it doesn't have options yet (avoids overwriting regional specific ports)
+                    const pl = document.getElementById('ports_list');
+                    if (pl && pl.options.length <= 1 && s.ports && s.ports.length > 0) {
+                        fillSelect('ports_list', s.ports);
+                    }
+                }
+                if (callback) callback();
+            }).catch(err => {
+                console.error("loadDictionaries error:", err);
+                if (callback) callback();
+            });
+        }
+        function exportXLSX() { tg.MainButton.showProgress(); fetch('/api/export_xlsx', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ initData: tg.initData }) }).then(r => r.json()).then(res => { tg.MainButton.hideProgress(); if(res.ok) tg.showAlert("📊 Файл отправлен вам в ЛС!"); }); }
+        function loadStats() {
+            fetch(`/api/stats?initData=${encodeURIComponent(tg.initData)}`).then(r => r.json()).then(res => { const s = res.stats; document.getElementById('stat-avg-time').textContent = s.avg_closing_hours + " ч"; if(managerChartInstance) managerChartInstance.destroy(); managerChartInstance = new Chart(document.getElementById('managerChart'), { type: 'bar', data: { labels: s.managers.map(m => m.name), datasets: [{ label: 'Заявок', data: s.managers.map(m => m.count), backgroundColor: '#1B8056', borderRadius: 8 }] }, options: { scales: { y: { beginAtZero: true } }, plugins: { legend: { display: false } } } }); if(regionChartInstance) regionChartInstance.destroy(); regionChartInstance = new Chart(document.getElementById('regionChart'), { type: 'doughnut', data: { labels: s.regions.map(r => r.name), datasets: [{ data: s.regions.map(r => r.count), backgroundColor: ['#004341', '#1B8056', '#1B9E61', '#86BF6B', '#E3EDC4'] }] } }); });
+        }
+        function saveSettings() { const batch = [{ key: 'ai_prompt_extra', value: document.getElementById('set-ai-prompt').value }, { key: 'channel_id', value: document.getElementById('set-channel-id').value }]; Promise.all(batch.map(item => fetch('/api/settings/update', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ initData: tg.initData, key: item.key, value: item.value }) }))).then(() => tg.showAlert("✅ Сохранено")); }
+        function rotateUserKey() {
+            const userId = document.getElementById('edit-user-id').value;
+            if (!userId) return;
+            if (!confirm("Сгенерировать новый ключ доступа? Старый перестанет работать сразу.")) return;
+            fetch('/api/user_rotate_key', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ initData: tg.initData, user_id: Number(userId) })
+            }).then(r => r.json()).then(res => {
+                if (res.ok) {
+                    tg.showAlert("🔑 Новый ключ (показывается один раз):\n\n" + res.new_key + "\n\nПередайте сотруднику — повторно его узнать нельзя.");
+                    loadUsersList();
+                } else {
+                    tg.showAlert("❌ Ошибка: " + (res.error || 'unknown'));
+                }
+            });
+        }
+        function deleteUser(userId, name) {
+            if (!confirm("Удалить сотрудника" + (name ? " «" + name + "»" : "") + "?")) return;
+            fetch('/api/user_update', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ initData: tg.initData, user_id: Number(userId), action: 'delete' })
+            }).then(r => r.json()).then(res => {
+                if (res.ok) loadUsersList();
+                else tg.showAlert("❌ Ошибка: " + (res.error || 'unknown'));
+            });
+        }
+        function loadSettings() { fetch(`/api/settings?initData=${encodeURIComponent(tg.initData)}`).then(r => r.json()).then(res => { const s = res.settings; document.getElementById('set-ai-prompt').value = s.ai_prompt_extra || ''; document.getElementById('set-channel-id').value = s.channel_id || ''; }); }
+
+        checkProfile();
+    </script>
+</body>
+</html>

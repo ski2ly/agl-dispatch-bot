@@ -133,25 +133,20 @@ async def handle_text_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     low_text = text.lower().strip()
     if low_text in ["отмена", "/cancel"]:
-        context.user_data.pop("ai_parsed", None)
+        await db.clear_ai_context(update.effective_user.id)
         context.user_data.pop("last_ai_msg_id", None)
-        await update.message.reply_text("❌ Создание заявки отменено.")
+        await update.message.reply_text("❌ Создание заявки отменено. Черновик очищен.")
         return
 
-    # Trigger AI only via /ai or if already in dialogue
-    is_ai_cmd = text.startswith("/ai")
-    in_dialogue = "ai_parsed" in context.user_data
-    
-    if is_ai_cmd or in_dialogue:
-        # If it's a command, remove the prefix
-        content = text
-        if is_ai_cmd:
-            content = text[3:].strip()
-            if not content and not in_dialogue:
-                await update.message.reply_text("🤖 Я слушаю! Напишите подробности заявки после команды /ai или отправьте голосовое.")
-                return
-        
-        await process_ai_message(update, context, content)
+    # In private chat, the bot treats all messages as conversation with the AI.
+    content = text
+    if text.startswith("/ai"):
+        content = text[3:].strip()
+        if not content:
+            await update.message.reply_text("🤖 Я слушаю! Напишите подробности заявки или отправьте голосовое.")
+            return
+
+    await process_ai_message(update, context, content)
 
 @requires_auth
 async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -191,12 +186,14 @@ async def confirm_ai_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     
-    parsed = context.user_data.get("ai_parsed")
-    if not parsed: return
-    
     try:
-        profile = context.user_data.get("profile", {})
         user_id = update.effective_user.id
+        profile = context.user_data.get("profile", {})
+        
+        parsed = await db.get_ai_context(user_id)
+        if not parsed:
+            await query.edit_message_text("❌ Черновик не найден или уже опубликован.")
+            return
         
         fields = ai_assistant.to_request_fields(parsed)
         fields.update({
@@ -220,8 +217,8 @@ async def confirm_ai_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await db.update_request(req_id, {"channel_msg_id": msg.message_id})
         
         # Cleanup
-        for key in ["ai_parsed", "last_ai_msg_id"]:
-            context.user_data.pop(key, None)
+        await db.clear_ai_context(user_id)
+        context.user_data.pop("last_ai_msg_id", None)
             
         await query.edit_message_text(f"✅ Готово! Заявка #{req_id:04d} создана и отправлена в канал.")
         

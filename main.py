@@ -4,7 +4,7 @@ import logging
 from datetime import datetime
 from dotenv import load_dotenv
 from telegram import Update, BotCommand
-from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, CallbackQueryHandler, filters
+from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, CallbackQueryHandler, filters, PicklePersistence
 
 # Load env before other imports
 load_dotenv()
@@ -90,7 +90,11 @@ def main():
         logger.error("BOT_TOKEN not found in .env")
         return
 
-    application = Application.builder().token(token).post_init(post_init).post_shutdown(post_shutdown).build()
+    data_dir = os.getenv("DATA_DIR", "data")
+    os.makedirs(data_dir, exist_ok=True)
+    persistence = PicklePersistence(filepath=os.path.join(data_dir, "bot_data.pickle"))
+
+    application = Application.builder().token(token).persistence(persistence).post_init(post_init).post_shutdown(post_shutdown).build()
     application.add_error_handler(_error_handler)
 
     # Commands

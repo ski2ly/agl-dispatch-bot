@@ -210,21 +210,28 @@ class Database:
                 except:
                     pass
 
+                # --- Robust Migrations ---
                 # Ensure 'user_name' exists in comments
-                comm_cols = [c['column_name'] for c in await conn.fetch("SELECT column_name FROM information_schema.columns WHERE table_name = 'comments'")]
-                if 'user_name' not in comm_cols:
-                    await conn.execute("ALTER TABLE comments ADD COLUMN user_name TEXT")
-                if 'text' not in comm_cols:
-                    if 'comment' in comm_cols:
+                try:
+                    await conn.execute("ALTER TABLE comments ADD COLUMN IF NOT EXISTS user_name TEXT")
+                except Exception: pass
+
+                # Handle 'text' column in comments (rename from 'comment' if needed)
+                cols = await conn.fetch("SELECT column_name FROM information_schema.columns WHERE table_name = 'comments' AND table_schema = 'public'")
+                col_names = [c['column_name'] for c in cols]
+                
+                if 'text' not in col_names:
+                    if 'comment' in col_names:
                         await conn.execute("ALTER TABLE comments RENAME COLUMN comment TO text")
                     else:
                         await conn.execute("ALTER TABLE comments ADD COLUMN text TEXT")
 
-                # Ensure 'login_key' exists in users (we want to keep it for superusers and legacy logins)
-                if 'login_key' not in user_cols:
+                # Ensure 'login_key' exists in users
+                try:
                     await conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS login_key TEXT")
+                except Exception: pass
                 
-                # Try to create index if it doesn't exist, safely
+                # Ensure login_key index exists
                 try:
                     await conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_login_key ON users(login_key)")
                 except Exception as e:

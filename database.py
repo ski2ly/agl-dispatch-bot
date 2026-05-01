@@ -73,7 +73,7 @@ class Database:
             telegram_id BIGINT UNIQUE,
             name TEXT NOT NULL,
             role TEXT DEFAULT 'manager',
-            login_key TEXT UNIQUE,
+            login_key TEXT,
             login_key_hash TEXT UNIQUE,
             created_at TIMESTAMPTZ DEFAULT NOW()
         );
@@ -197,19 +197,33 @@ class Database:
                 # login_key_hash column + migrate plaintext keys away
                 await conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS login_key_hash TEXT UNIQUE")
                 await conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_login_key_hash ON users(login_key_hash)")
-                # If old plaintext column still exists with data — hash it and drop the column.
-                user_cols2 = [c['column_name'] for c in await conn.fetch(
-                    "SELECT column_name FROM information_schema.columns WHERE table_name = 'users'")]
-                if 'login_key' in user_cols2:
-                    rows = await conn.fetch("SELECT id, login_key FROM users WHERE login_key IS NOT NULL AND (login_key_hash IS NULL OR login_key_hash = '')")
-                    for row in rows:
-                        try:
-                            h = hash_login_key(row['login_key'])
-                            await conn.execute("UPDATE users SET login_key_hash = $1 WHERE id = $2", h, row['id'])
-                        except Exception as e:
-                            logger.error(f"Failed to hash login_key for user {row['id']}: {e}")
-                    await conn.execute("ALTER TABLE users DROP COLUMN login_key")
-                    logger.info("Migrated login_key → login_key_hash and dropped plaintext column")
+                
+                # Check for legacy 'manager' column in bids and make it nullable to prevent Internal Error
+                try:
+                    await conn.execute("ALTER TABLE bids ALTER COLUMN manager DROP NOT NULL")
+                except:
+                    pass
+
+                # Ensure 'user_name' exists in comments
+                comm_cols = [c['column_name'] for c in await conn.fetch("SELECT column_name FROM information_schema.columns WHERE table_name = 'comments'")]
+                if 'user_name' not in comm_cols:
+                    await conn.execute("ALTER TABLE comments ADD COLUMN user_name TEXT")
+                
+                # Ensure 'login_key' exists in users (we want to keep it for superusers)
+                if 'login_key' not in user_cols:
+                    await conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS login_key TEXT")
+
+                # CLEANUP: Remove duplicates (users with NULL login_key_hash or duplicates)
+                # We keep the one with telegram_id or the newest one.
+                await conn.execute("""
+                    DELETE FROM users 
+                    WHERE id NOT IN (
+                        SELECT MIN(id) 
+                        FROM users 
+                        GROUP BY COALESCE(login_key_hash, name || role || id::text)
+                    )
+                """)
+                logger.info("Database migrations and cleanup completed")
                 
                 # 2. Requests table columns
                 cols = await conn.fetch("SELECT column_name FROM information_schema.columns WHERE table_name = 'requests'")
@@ -498,6 +512,17 @@ class Database:
             rows = await conn.fetch("SELECT * FROM bids WHERE request_id = $1 ORDER BY created_at DESC", request_id)
             return [dict(r) for r in rows]
 
+    async def get_user_bids(self, user_id: int):
+        async with self._pool.acquire() as conn:
+            rows = await conn.fetch("""
+                SELECT b.*, r.route_from as request_route_from, r.route_to as request_route_to, r.transport_cat 
+                FROM bids b 
+                JOIN requests r ON b.request_id = r.id 
+                WHERE b.user_id = $1 
+                ORDER BY b.created_at DESC
+            """, user_id)
+            return [dict(r) for r in rows]
+
     # COMMENTS
     async def add_comment(self, request_id: int, user_id: int, user_name: str, text: str, type="user"):
         async with self._pool.acquire() as conn:
@@ -596,10 +621,10 @@ class Database:
             for name, role, key in staff:
                 key_hash = hash_login_key(key)
                 await conn.execute("""
-                    INSERT INTO users (name, role, login_key_hash)
-                    VALUES ($1, $2, $3)
-                    ON CONFLICT (login_key_hash) DO UPDATE SET name = EXCLUDED.name, role = EXCLUDED.role
-                """, name, role, key_hash)
+                    INSERT INTO users (name, role, login_key, login_key_hash)
+                    VALUES ($1, $2, $3, $4)
+                    ON CONFLICT (login_key_hash) DO UPDATE SET name = EXCLUDED.name, role = EXCLUDED.role, login_key = EXCLUDED.login_key
+                """, name, role, key, key_hash)
 
     # LOGGING
     async def log_activity(self, request_id: int, user_id: int, user_name: str, action: str, details: dict = None):

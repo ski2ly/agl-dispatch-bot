@@ -360,7 +360,8 @@
                 if (reg) endpoint += `&region=${encodeURIComponent(reg)}`;
                 if (tr) endpoint += `&transport=${encodeURIComponent(tr)}`;
             }
-            fetch(`${endpoint}&initData=${encodeURIComponent(tg.initData)}`).then(r => r.json()).then(data => {
+            const sep = endpoint.includes('?') ? '&' : '?';
+            fetch(`${endpoint}${sep}initData=${encodeURIComponent(tg.initData)}`).then(r => r.json()).then(data => {
                 clear(cont);
                 (data.requests || data.bids || []).forEach(r => {
                     const idText = fmtId(r.id || r.request_id);
@@ -389,6 +390,9 @@
 
         function openBidModal(reqId) {
             activeBidReqId = reqId;
+            document.getElementById('bid-amount').value = '';
+            document.getElementById('bid-demurrage').value = '';
+            document.getElementById('bid-comment').value = '';
             document.getElementById('bid-modal').classList.remove('hidden');
         }
         function closeBidModal() {
@@ -716,12 +720,15 @@
 
             filtered.forEach(u => {
                 const roleLine = (u.role || '') + (u.telegram_id ? ' 🔗' : '');
+                const keyDisplay = u.login_key ? u.login_key : '••••';
                 const head = el('div', { class: 'flex justify-between items-start' },
                     el('div', null,
                         el('div', { class: 'font-bold text-sm', text: u.name || 'Сотрудник' }),
                         el('div', { class: 'text-[9px] opacity-40 uppercase font-extrabold tracking-widest', text: roleLine })
                     ),
-                    el('div', { class: 'text-[10px] font-mono opacity-30', text: '••••' })
+                    el('div', { class: 'text-[10px] font-mono opacity-60 bg-gray-100 px-2 py-1 rounded cursor-pointer', 
+                             onclick: (e) => { e.stopPropagation(); tg.showAlert(`Ключ: ${u.login_key || "Не назначен"}`); },
+                             text: keyDisplay })
                 );
                 const actions = el('div', { class: 'flex space-x-2 border-t pt-3' },
                     el('button', {

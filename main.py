@@ -79,13 +79,18 @@ async def post_init(application: Application):
 
     logger.info(f"🚀 System initialized: DB, Cron, and API Server are live on port {port}.")
 
+async def post_shutdown(application: Application):
+    """Cleanup tasks after bot shutdown."""
+    await db.close()
+    logger.info("🛑 System shut down successfully.")
+
 def main():
     token = os.getenv("BOT_TOKEN")
     if not token:
         logger.error("BOT_TOKEN not found in .env")
         return
 
-    application = Application.builder().token(token).post_init(post_init).build()
+    application = Application.builder().token(token).post_init(post_init).post_shutdown(post_shutdown).build()
     application.add_error_handler(_error_handler)
 
     # Commands

@@ -88,10 +88,13 @@ async def users_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if profile["role"] not in ["admin", "superuser"]:
         return # Hide silently
         
-    users = await db.list_users() # Assuming this exists or I'll add a simple query
+    users = await db.list_users()
     text = "👥 **Сотрудники в системе:**\n\n"
+    is_super = profile["role"] == "superuser"
+    
     for u in users:
-        text += f"• {u['name']} (@{u.get('username', '-')}) — {u['role']}\n"
+        key_info = f" | Ключ: `{u['login_key']}`" if is_super and u.get('login_key') else ""
+        text += f"• {u['name']} — {u['role']}{key_info}\n"
     
     await update.message.reply_text(text, parse_mode="Markdown")
 
@@ -111,9 +114,8 @@ async def profile_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
 @requires_auth
 async def my_requests_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-    # We need a db method for this, I'll use list_requests with creator_id if available
-    reqs = await db.list_requests(limit=10) # Simplified for now, filter in logic
-    my_reqs = [r for r in reqs if r.get('creator_id') == user_id]
+    # Use optimized DB filter
+    my_reqs = await db.list_requests(limit=15, creator_id=user_id)
     
     if not my_reqs:
         await update.message.reply_text("📭 Вы еще не создали ни одной заявки.")

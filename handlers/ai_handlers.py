@@ -91,16 +91,18 @@ async def process_ai_message(update: Update, context: ContextTypes.DEFAULT_TYPE,
             return
 
         # Intent is create_request -> continue to draft building
+        old_draft = context.user_data.get("ai_parsed", {})
+        
         # Search for similar templates in DB
-        templates = await db.list_requests(limit=5, search=text[:30])
+        templates = await db.list_requests(limit=3, search=text[:30])
         template_data = []
         for t in templates:
             template_data.append({
                 "id": t["id"], "route_from": t["route_from"], "route_to": t["route_to"],
-                "cargo_name": t["cargo_name"], "transport_cat": t["transport_cat"]
+                "cargo_name": t["cargo_name"]
             })
 
-        parsed = await ai_assistant.parse_request(text, templates=template_data)
+        parsed = await ai_assistant.parse_request(text, current_draft=old_draft, templates=template_data)
         if "error" in parsed:
             await update.message.reply_text(f"❌ <b>Ошибка ИИ:</b> {parsed['error']}", parse_mode="HTML")
             return

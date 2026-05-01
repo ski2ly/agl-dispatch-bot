@@ -81,10 +81,18 @@ async def api_users(request):
     
     try:
         users = await db.list_users()
-        # Strictly hide any superuser account from the employee list
-        users = [u for u in users if u.get('role') != 'superuser']
+        is_superuser = profile.get('role') == 'superuser'
         
-        return safe_json_response({"ok": True, "users": users})
+        # Superuser sees everything, including login keys. 
+        # Regular admins see the list but NOT the keys.
+        clean_users = []
+        for u in users:
+            user_data = dict(u)
+            if not is_superuser:
+                user_data.pop('login_key', None)
+            clean_users.append(user_data)
+        
+        return safe_json_response({"ok": True, "users": clean_users})
     except Exception as e:
         logger.error(f"api_users error: {e}")
         return safe_json_response({"error": str(e), "users": []})
@@ -288,15 +296,11 @@ async def api_my_bids(request):
     if err: return safe_json_response({"error": err, "auth_needed": True})
     
     user_id = profile['telegram_id']
-    async with db._pool.acquire() as conn:
-        rows = await conn.fetch("""
-            SELECT b.*, r.cargo_name, r.route_from, r.route_to 
-            FROM bids b
-            JOIN requests r ON b.request_id = r.id
-            WHERE b.user_id = $1
-            ORDER BY b.created_at DESC
-        """, user_id)
-        return safe_json_response({"bids": [dict(r) for r in rows]})
+    if not user_id:
+        return safe_json_response({"error": "Invalid user identity", "bids": []})
+        
+    bids = await db.get_user_bids(user_id)
+    return safe_json_response({"bids": bids})
 
 async def api_my_requests(request):
     """List requests created by the current user."""

@@ -31,35 +31,35 @@ Your goal is to collect data for a transport request. YOU MUST BE SMART AND UNDE
 {strict_note}
 {extra}
 
-DATA UNDERSTANDING RULES (VERY IMPORTANT):
-- If the client writes "customs on site", "customs there", "TT on site" - you MUST copy the Loading City/Address into the `customs_address` field!
-- If the client writes "clearance on site", "clearance there", "RT on site" - you MUST copy the Unloading City/Address into the `clearance_address` field!
-- "20ka", "40ft", "ref" - these are transport types (Container/Auto).
-- "price 2000", "for two thousand" - this is cargo_value (be sure to add currency, e.g. "2000 USD").
+ПРАВИЛА ПОНИМАНИЯ ДАННЫХ (ОЧЕНЬ ВАЖНО):
+- Если клиент пишет "затаможка на месте", "затаможка там же", "ТТ на месте" — ты ОБЯЗАН скопировать Город/Адрес погрузки в поле `customs_address`!
+- Если клиент пишет "растаможка на месте", "растаможка там же", "РТ на месте" — ты ОБЯЗАН скопировать Город/Адрес выгрузки в поле `clearance_address`!
+- "20ка", "сорокафутовый", "реф" — это типы транспорта (Контейнер/Авто).
+- "цена 2000", "за две тысячи" — это cargo_value (обязательно добавь валюту, например "2000 USD").
 
-MANDATORY FIELDS FOR `ready_to_publish: true`:
-1. Transport (transport_cat).
-2. From/To (route_from/route_to).
-3. Customs/Clearance (customs_address/clearance_address) - MANDATORY for everyone EXCEPT CIS. If not specified - set false.
-4. Value (cargo_value) and HS Code (hs_code) - MANDATORY. If not specified - set false.
-5. Weight (cargo_weight) and Places (cargo_places) - MANDATORY.
+ОБЯЗАТЕЛЬНЫЕ ПОЛЯ ДЛЯ `ready_to_publish: true`:
+1. 🚛 Транспорт (transport_cat).
+2. 📍 Откуда/Куда (route_from/route_to).
+3. 📍 Затаможка/Растаможка (customs_address/clearance_address) — ОБЯЗАТЕЛЬНО для всех, КРОМЕ СНГ. Если не указаны — ставь false.
+4. 💰 Стоимость (cargo_value) и 📝 ТН ВЭД (hs_code) — ОБЯЗАТЕЛЬНО. Если не указаны — ставь false.
+5. ⚖️ Вес (cargo_weight) и 📦 Места (cargo_places) — ОБЯЗАТЕЛЬНО.
 
-RESPONSE FORMAT (JSON):
+ФОРМАТ ОТВЕТА (JSON):
 {{
-  "regions": "CIS|Europe|China|Turkey|India/SEA|Other",
-  "transport_cat": "Auto|Container|Wagon|Air|Multimodal",
+  "regions": "СНГ|Европа|Китай|Турция|Индия/ЮВА|Другое",
+  "transport_cat": "Авто|Контейнер|Ж/Д Вагон|Авиа|Мультимодальная",
   "route_from": "...", "route_to": "...",
   "loading_address": "...", "customs_address": "...", "clearance_address": "...", "unloading_address": "...",
   "cargo_name": "...", "hs_code": "...", "cargo_value": "...", "cargo_weight": "...", "cargo_places": "...",
-  "missing_fields": ["fields that are missing"],
-  "next_question": "Your polite question to clarify details",
+  "missing_fields": ["поля, которых не хватает"],
+  "next_question": "Твой вежливый вопрос для уточнения деталей",
   "ready_to_publish": boolean,
   "not_logistics": boolean
 }}
 
-If `ready_to_publish` = false, in `next_question` you must ask exactly for the fields that are missing.
-
-Today's date: {today}
+Если `ready_to_publish` = false, в `next_question` ты должен спросить именно те поля, которых не хватает.
+Если пользователь попросил "укажи отдельно текстом что затаможка на месте", добавь это в `next_question` или просто заполни поля адресов.
+Сегодняшняя дата: {today}
 """
 
     async def parse_request(self, text, current_draft=None, templates=None):

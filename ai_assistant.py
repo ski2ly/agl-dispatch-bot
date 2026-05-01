@@ -16,49 +16,50 @@ class AIAssistant:
         self.enabled = bool(api_key)
         self.client = AsyncOpenAI(api_key=api_key) if self.enabled else None
         if self.enabled:
-            logger.info(f"🤖 AI Assistant enabled (model: {self.model})")
+            logger.info(f"AI Assistant enabled (model: {self.model})")
 
     def _get_system_prompt(self, settings=None):
         today = datetime.now(TZ).strftime("%d.%m.%Y %H:%M")
         extra = settings.get("ai_prompt_extra", "") if settings else ""
         strictness = settings.get("ai_strictness", "medium") if settings else "medium"
         
-        strict_note = "БУДЬ ОЧЕНЬ СТРОГИМ." if strictness == "high" else ""
+        strict_note = "BE VERY STRICT." if strictness == "high" else ""
 
-        return f"""Ты — профессиональный логистический координатор компании AGL.
-Твоя цель — собрать данные для транспортной заявки. ТЫ ДОЛЖЕН БЫТЬ УМНЫМ И ПОНИМАТЬ СЛЕНГ.
+        return f"""You are a professional logistics coordinator for AGL.
+Your goal is to collect data for a transport request. YOU MUST BE SMART AND UNDERSTAND SLANG.
 
 {strict_note}
 {extra}
 
-ПРАВИЛА ПОНИМАНИЯ ДАННЫХ (ОЧЕНЬ ВАЖНО):
-- Если клиент пишет "затаможка на месте", "затаможка там же" — ты ОБЯЗАН скопировать Город/Адрес погрузки в поле `customs_address`! Ни в коем случае не оставляй его пустым! Пиши туда город загрузки!
-- Если клиент пишет "растаможка на месте", "растаможка там же" — ты ОБЯЗАН скопировать Город/Адрес выгрузки в поле `clearance_address`!
-- "20ка", "сорокафутовый", "реф" — это типы транспорта (Контейнер/Авто).
-- "цена 2000", "за две тысячи" — это cargo_value (обязательно добавь валюту, например "2000 USD").
+DATA UNDERSTANDING RULES (VERY IMPORTANT):
+- If the client writes "customs on site", "customs there", "TT on site" - you MUST copy the Loading City/Address into the `customs_address` field!
+- If the client writes "clearance on site", "clearance there", "RT on site" - you MUST copy the Unloading City/Address into the `clearance_address` field!
+- "20ka", "40ft", "ref" - these are transport types (Container/Auto).
+- "price 2000", "for two thousand" - this is cargo_value (be sure to add currency, e.g. "2000 USD").
 
-ОБЯЗАТЕЛЬНЫЕ ПОЛЯ (БЕЗ НИХ `ready_to_publish` ДОЛЖЕН БЫТЬ false):
-1. 🌍 Регион (regions): СНГ, Европа, Китай, Турция, Индия/ЮВА, Другое. ОПРЕДЕЛЯЙ САМ ПО МАРШРУТУ.
-2. 🚛 Транспорт (transport_cat): Авто, Контейнер, Ж/Д Вагон, Авиа, Мультимодальная.
-3. 📍 Откуда/Куда (route_from/route_to).
-4. 📍 Затаможка/Растаможка (customs_address/clearance_address) — ОБЯЗАТЕЛЬНО для всех, КРОМЕ СНГ.
-5. 💰 Стоимость (cargo_value) и 📝 ТН ВЭД (hs_code) — ОБЯЗАТЕЛЬНО.
+MANDATORY FIELDS FOR `ready_to_publish: true`:
+1. Transport (transport_cat).
+2. From/To (route_from/route_to).
+3. Customs/Clearance (customs_address/clearance_address) - MANDATORY for everyone EXCEPT CIS. If not specified - set false.
+4. Value (cargo_value) and HS Code (hs_code) - MANDATORY. If not specified - set false.
+5. Weight (cargo_weight) and Places (cargo_places) - MANDATORY.
 
-ФОРМАТ ОТВЕТА (JSON):
+RESPONSE FORMAT (JSON):
 {{
-  "regions": "...", "transport_cat": "...",
+  "regions": "CIS|Europe|China|Turkey|India/SEA|Other",
+  "transport_cat": "Auto|Container|Wagon|Air|Multimodal",
   "route_from": "...", "route_to": "...",
   "loading_address": "...", "customs_address": "...", "clearance_address": "...", "unloading_address": "...",
   "cargo_name": "...", "hs_code": "...", "cargo_value": "...", "cargo_weight": "...", "cargo_places": "...",
-  "missing_fields": ["поля, которых не хватает для публикации"],
-  "next_question": "Твой вежливый и короткий вопрос менеджеру для уточнения недостающих деталей",
-  "ready_to_publish": false,
-  "not_logistics": false
+  "missing_fields": ["fields that are missing"],
+  "next_question": "Your polite question to clarify details",
+  "ready_to_publish": boolean,
+  "not_logistics": boolean
 }}
 
-Если `ready_to_publish` = false, ты ОБЯЗАТЕЛЬНО должен задать `next_question`. 
-Если пользователь прислал не все данные, перечисли их в missing_fields и спроси про них.
-Сегодняшняя дата: {today}
+If `ready_to_publish` = false, in `next_question` you must ask exactly for the fields that are missing.
+
+Today's date: {today}
 """
 
     async def parse_request(self, text, current_draft=None, templates=None):
@@ -68,9 +69,9 @@ class AIAssistant:
             settings = await db.get_settings()
             messages = [{"role": "system", "content": self._get_system_prompt(settings)}]
             if current_draft:
-                messages.append({"role": "system", "content": f"Текущий черновик: {json.dumps(current_draft, ensure_ascii=False)}"})
+                messages.append({"role": "system", "content": f"Current draft: {json.dumps(current_draft, ensure_ascii=False)}"})
             if templates:
-                messages.append({"role": "system", "content": f"Прошлые заявки: {json.dumps(templates, ensure_ascii=False)}"})
+                messages.append({"role": "system", "content": f"Past requests: {json.dumps(templates, ensure_ascii=False)}"})
             
             messages.append({"role": "user", "content": text})
             response = await self.client.chat.completions.create(
@@ -92,20 +93,20 @@ class AIAssistant:
 
     async def process_intent(self, text):
         if not self.enabled: return {"error": "AI disabled"}
-        system_msg = """Ты умный диспетчер. Пойми намерение пользователя.
-- Хочет создать/дополнить заявку -> create_request.
-- Хочет найти старую заявку ('помнишь...', 'найти...') -> recall_request.
-- Хочет отменить текущее действие -> cancel_request.
-- Логист дает ставку -> create_bid.
-- Вопрос по базе/статистике -> query_database.
-- Болтовня -> chat."""
+        system_msg = """You are a smart dispatcher. Understand user intent.
+- Wants to create/update request -> create_request.
+- Wants to find old request -> recall_request.
+- Wants to cancel action -> cancel_request.
+- Giving a bid -> create_bid.
+- Question about DB/stats -> query_database.
+- Chat -> chat."""
 
         tools = [
-            {"type": "function", "function": {"name": "create_request", "description": "Создание/правка заявки", "parameters": {"type": "object", "properties": {}}}},
-            {"type": "function", "function": {"name": "recall_request", "description": "Найти старую заявку", "parameters": {"type": "object", "properties": {"query": {"type": "string"}}, "required": ["query"]}}},
-            {"type": "function", "function": {"name": "cancel_request", "description": "Отмена черновика", "parameters": {"type": "object", "properties": {"confirmed": {"type": "boolean"}}, "required": ["confirmed"]}}},
-            {"type": "function", "function": {"name": "create_bid", "description": "Подать ставку", "parameters": {"type": "object", "properties": {"route_search": {"type": "string"}, "amount": {"type": "number"}, "currency": {"type": "string"}}, "required": ["route_search", "amount", "currency"]}}},
-            {"type": "function", "function": {"name": "query_database", "description": "Поиск/статистика", "parameters": {"type": "object", "properties": {"query": {"type": "string"}}, "required": ["query"]}}}
+            {"type": "function", "function": {"name": "create_request", "description": "Create/edit request", "parameters": {"type": "object", "properties": {}}}},
+            {"type": "function", "function": {"name": "recall_request", "description": "Find old request", "parameters": {"type": "object", "properties": {"query": {"type": "string"}}, "required": ["query"]}}},
+            {"type": "function", "function": {"name": "cancel_request", "description": "Cancel draft", "parameters": {"type": "object", "properties": {"confirmed": {"type": "boolean"}}, "required": ["confirmed"]}}},
+            {"type": "function", "function": {"name": "create_bid", "description": "Submit a bid", "parameters": {"type": "object", "properties": {"route_search": {"type": "string"}, "amount": {"type": "number"}, "currency": {"type": "string"}}, "required": ["route_search", "amount", "currency"]}}},
+            {"type": "function", "function": {"name": "query_database", "description": "Search/stats", "parameters": {"type": "object", "properties": {"query": {"type": "string"}}, "required": ["query"]}}}
         ]
 
         try:
@@ -122,18 +123,18 @@ class AIAssistant:
             logger.error(f"Intent router error: {e}"); return {"error": str(e)}
 
     async def answer_db_query(self, text, db):
-        if not self.enabled: return "ИИ отключен."
-        open_reqs = await db.list_requests(status="Открыта", limit=10)
+        if not self.enabled: return "AI disabled."
+        open_reqs = await db.list_requests(status="Open", limit=10)
         stats = await db.get_stats()
-        context = f"Статистика: {json.dumps(stats, ensure_ascii=False)}\nЗаявки: {json.dumps(open_reqs, ensure_ascii=False)}"
+        context = f"Stats: {json.dumps(stats, ensure_ascii=False)}\nRequests: {json.dumps(open_reqs, ensure_ascii=False)}"
         try:
             res = await self.client.chat.completions.create(
-                model=self.model, messages=[{"role": "system", "content": f"Ты аналитик AGL. Данные: {context}"}, {"role": "user", "content": text}],
+                model=self.model, messages=[{"role": "system", "content": f"You are AGL analyst. Data: {context}"}, {"role": "user", "content": text}],
                 temperature=0.3, timeout=15.0
             )
             return res.choices[0].message.content
         except Exception as e:
-            logger.error(f"DB Query error: {e}"); return "Ошибка при запросе к базе."
+            logger.error(f"DB Query error: {e}"); return "DB error."
 
     def merge_parsed_data(self, old: dict, new: dict):
         merged = old.copy()
@@ -141,7 +142,7 @@ class AIAssistant:
             if k in ["missing_fields", "next_question", "not_logistics", "ready_to_publish"]:
                 merged[k] = v
                 continue
-            if v and str(v).strip() not in ("", "-", "не указано", "None"):
+            if v and str(v).strip() not in ("", "-", "not specified", "None"):
                 merged[k] = v
         return merged
 
@@ -150,14 +151,34 @@ class AIAssistant:
         return {k: str(v) if v is not None else "-" for k, v in parsed.items() if k not in SKIP}
 
     def build_preview(self, parsed: dict):
+        is_sng = parsed.get("regions") == "CIS" or parsed.get("regions") == "СНГ"
+        
         lines = [
             f"🌍 **Направление:** {parsed.get('regions', '-')}",
             f"🚛 **Транспорт:** {parsed.get('transport_cat', '-')}",
             f"📍 **Откуда:** {parsed.get('route_from', '-')} | **Куда:** {parsed.get('route_to', '-')}",
             f"💰 **Стоимость:** {parsed.get('cargo_value') or '⚠️ НЕ УКАЗАНА'}",
             f"📦 **Груз:** {parsed.get('cargo_name', '-')}",
-            f"⚖️ **Вес:** {parsed.get('cargo_weight', '-')}"
+            f"⚖️ **Вес:** {parsed.get('cargo_weight', '-')}",
+            f"📦 **Места:** {parsed.get('cargo_places', '-')}",
+            f"📍 **Погрузка:** {parsed.get('loading_address', '-')}",
+            f"📍 **Выгрузка:** {parsed.get('unloading_address', '-')}",
+            f"🧾 **ТН ВЭД:** {parsed.get('hs_code') or '⚠️ НЕ УКАЗАН'}"
         ]
+        
+        customs = parsed.get("customs_address")
+        clearance = parsed.get("clearance_address")
+        
+        if customs and customs != "-":
+            lines.append(f"🚩 **Затаможка:** {customs}")
+        elif not is_sng:
+            lines.append(f"🚩 **Затаможка:** ⚠️ НЕ УКАЗАНА")
+            
+        if clearance and clearance != "-":
+            lines.append(f"🏁 **Растаможка:** {clearance}")
+        elif not is_sng:
+            lines.append(f"🏁 **Растаможка:** ⚠️ НЕ УКАЗАНА")
+
         if parsed.get("next_question"):
             lines.append(f"\n❓ {parsed['next_question']}")
         return "\n".join(lines)

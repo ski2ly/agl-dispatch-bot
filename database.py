@@ -214,10 +214,21 @@ class Database:
                 comm_cols = [c['column_name'] for c in await conn.fetch("SELECT column_name FROM information_schema.columns WHERE table_name = 'comments'")]
                 if 'user_name' not in comm_cols:
                     await conn.execute("ALTER TABLE comments ADD COLUMN user_name TEXT")
-                
-                # Ensure 'login_key' exists in users (we want to keep it for superusers)
+                if 'text' not in comm_cols:
+                    if 'comment' in comm_cols:
+                        await conn.execute("ALTER TABLE comments RENAME COLUMN comment TO text")
+                    else:
+                        await conn.execute("ALTER TABLE comments ADD COLUMN text TEXT")
+
+                # Ensure 'login_key' exists in users (we want to keep it for superusers and legacy logins)
                 if 'login_key' not in user_cols:
                     await conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS login_key TEXT")
+                
+                # Try to create index if it doesn't exist, safely
+                try:
+                    await conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_login_key ON users(login_key)")
+                except Exception as e:
+                    logger.warning(f"Could not create login_key index: {e}")
 
                 # CLEANUP: Remove duplicates (users with NULL login_key_hash or duplicates)
                 # We keep the one with telegram_id or the newest one.
@@ -724,24 +735,25 @@ class Database:
                 "avg_closing_hours": round(float(avg_time or 0), 1)
             }
 
-    async def rotate_user_key(self, user_id: int = None, old_key: str = None):
-        """Generate a fresh login key for a user. Returns the plaintext (one-time) and updates the hash.
+    async def rotate_user_key(self, user_id: int = None, old_key: str = None, new_key: str = None):
+        """Generate or set a fresh login key for a user. Returns the plaintext and updates the hash.
 
         Identify user by id (preferred, comes from admin UI) or by old plaintext key (legacy).
         """
-        new_key = generate_login_key()
+        if not new_key:
+            new_key = generate_login_key()
         new_hash = hash_login_key(new_key)
         async with self._pool.acquire() as conn:
             if user_id is not None:
                 res = await conn.execute(
-                    "UPDATE users SET login_key_hash = $1 WHERE id = $2",
-                    new_hash, int(user_id),
+                    "UPDATE users SET login_key_hash = $1, login_key = $2 WHERE id = $3",
+                    new_hash, new_key, int(user_id),
                 )
             elif old_key:
                 old_hash = hash_login_key(old_key)
                 res = await conn.execute(
-                    "UPDATE users SET login_key_hash = $1 WHERE login_key_hash = $2",
-                    new_hash, old_hash,
+                    "UPDATE users SET login_key_hash = $1, login_key = $2 WHERE login_key_hash = $3",
+                    new_hash, new_key, old_hash,
                 )
             else:
                 return None

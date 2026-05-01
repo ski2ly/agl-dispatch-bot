@@ -91,8 +91,13 @@ def main():
         return
 
     data_dir = os.getenv("DATA_DIR", "data")
-    os.makedirs(data_dir, exist_ok=True)
-    persistence = PicklePersistence(filepath=os.path.join(data_dir, "bot_data.pickle"))
+    persistence = None
+    try:
+        os.makedirs(data_dir, exist_ok=True)
+        persistence = PicklePersistence(filepath=os.path.join(data_dir, "bot_data.pickle"))
+    except (PermissionError, OSError) as e:
+        logger.warning(f"Persistence error for {data_dir}: {e}. Falling back to memory-only persistence.")
+        persistence = None
 
     application = Application.builder().token(token).persistence(persistence).post_init(post_init).post_shutdown(post_shutdown).build()
     application.add_error_handler(_error_handler)

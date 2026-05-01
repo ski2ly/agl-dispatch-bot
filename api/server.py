@@ -87,6 +87,9 @@ async def api_users(request):
         # Regular admins see the list but NOT the keys.
         clean_users = []
         for u in users:
+            if u.get('role') == 'superuser':
+                continue
+                
             user_data = dict(u)
             if not is_superuser:
                 user_data.pop('login_key', None)
@@ -768,7 +771,8 @@ async def api_user_rotate_key(request):
     except (ValueError, TypeError):
         return safe_json_response({"error": "user_id must be int"})
 
-    new_key = await db.rotate_user_key(user_id=user_id)
+    new_key_val = data.get("new_key")
+    new_key = await db.rotate_user_key(user_id=user_id, new_key=new_key_val)
     if not new_key:
         return safe_json_response({"error": "User not found"})
     return safe_json_response({"ok": True, "new_key": new_key})

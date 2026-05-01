@@ -106,13 +106,21 @@ async def process_ai_message(update: Update, context: ContextTypes.DEFAULT_TYPE,
         await db.save_ai_context(user_id, merged) # Persistent save
 
         preview = ai_assistant.build_preview(merged)
-        keyboard = [
-            [InlineKeyboardButton("✅ Подтвердить и отправить", callback_data="confirm_ai")],
-            [InlineKeyboardButton("📝 Добавить детали", callback_data="more_ai")],
-            [InlineKeyboardButton("❌ Отмена", callback_data="cancel_ai")]
-        ]
         
-        status_text = "✨ Готово!" if merged.get("ready_to_publish") else "📋 Черновик:"
+        is_ready = merged.get("ready_to_publish")
+        if is_ready:
+            keyboard = [
+                [InlineKeyboardButton("🚀 Опубликовать в канал", callback_data="confirm_ai")],
+                [InlineKeyboardButton("📝 Добавить детали", callback_data="more_ai")],
+                [InlineKeyboardButton("❌ Отмена", callback_data="cancel_ai")]
+            ]
+            status_text = "✨ Готово к публикации!"
+        else:
+            keyboard = [
+                [InlineKeyboardButton("📝 Дополнить данные", callback_data="more_ai")],
+                [InlineKeyboardButton("❌ Отмена", callback_data="cancel_ai")]
+            ]
+            status_text = "📋 Черновик (недостаточно данных):"
         
         # Cleanup old bot message
         old_msg_id = context.user_data.get("last_ai_msg_id")

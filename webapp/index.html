@@ -207,8 +207,11 @@
                         <option value="manager">Менеджер (Manager)</option>
                         <option value="admin">Админ (Admin)</option>
                     </select>
-                    <div id="edit-user-rotate-row" class="hidden">
-                        <button type="button" onclick="rotateUserKey()" class="w-full py-3 bg-[var(--corp-cream)] text-[var(--corp-deep)] text-[10px] font-bold rounded-xl uppercase">🔑 Сгенерировать новый ключ</button>
+                    <div id="edit-user-rotate-row" class="hidden space-y-2">
+                        <div class="flex space-x-2">
+                            <input type="text" id="edit-user-manual-key" placeholder="Пароль (пусто для авто)" class="flex-1 p-3 tg-input text-xs">
+                            <button type="button" onclick="rotateUserKey()" class="px-4 py-3 bg-[var(--corp-cream)] text-[var(--corp-deep)] text-[10px] font-bold rounded-xl uppercase">ОБНОВИТЬ КЛЮЧ</button>
+                        </div>
                     </div>
                     <div class="flex space-x-2 pt-2">
                         <button onclick="saveUser()" class="flex-1 py-4 btn-primary text-[10px] uppercase shadow-md">Сохранить</button>
@@ -856,15 +859,18 @@
         function saveSettings() { const batch = [{ key: 'ai_prompt_extra', value: document.getElementById('set-ai-prompt').value }, { key: 'channel_id', value: document.getElementById('set-channel-id').value }]; Promise.all(batch.map(item => fetch('/api/settings/update', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ initData: tg.initData, key: item.key, value: item.value }) }))).then(() => tg.showAlert("✅ Сохранено")); }
         function rotateUserKey() {
             const userId = document.getElementById('edit-user-id').value;
+            const newKey = document.getElementById('edit-user-manual-key').value.trim();
             if (!userId) return;
-            if (!confirm("Сгенерировать новый ключ доступа? Старый перестанет работать сразу.")) return;
+            if (!newKey && !confirm("Сгенерировать новый случайный ключ доступа?")) return;
+            
             fetch('/api/user_rotate_key', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ initData: tg.initData, user_id: Number(userId) })
+                body: JSON.stringify({ initData: tg.initData, user_id: Number(userId), new_key: newKey })
             }).then(r => r.json()).then(res => {
                 if (res.ok) {
-                    tg.showAlert("🔑 Новый ключ (показывается один раз):\n\n" + res.new_key + "\n\nПередайте сотруднику — повторно его узнать нельзя.");
+                    tg.showAlert("🔑 Ключ обновлен: " + res.new_key);
+                    document.getElementById('edit-user-manual-key').value = '';
                     loadUsersList();
                 } else {
                     tg.showAlert("❌ Ошибка: " + (res.error || 'unknown'));

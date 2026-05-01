@@ -662,10 +662,9 @@ async def api_bid(request):
     try:
         logger.info(f"Submitting bid for req_id={req_id} by {profile['name']} (ID: {user_id})")
         await db.upsert_bid(int(req_id), user_id, profile["name"], data)
-        logger.info(f"Bid upserted successfully for req_id={req_id}")
         await db.log_activity(int(req_id), user_id, profile["name"], "bid_submitted", {"amount": data.get("amount")})
         
-        # Add comment with unified template
+        # Add internal comment
         bid_data = {**data, "request_id": int(req_id), "manager_name": profile["name"]}
         bid_card = build_bid_card(bid_data)
         await db.add_comment(int(req_id), user_id, profile["name"], bid_card, "bid")
@@ -674,47 +673,56 @@ async def api_bid(request):
         settings = await db.get_settings()
         discussion_id = settings.get("discussion_id") or os.getenv("DISCUSSION_GROUP_ID")
         
-        # Get request info for notification
         req = await db.get_request(int(req_id))
         bot = request.app["bot"]
 
-        if discussion_id and req and req.get("channel_msg_id"):
+        logger.info(f"Bid process: discussion_id={discussion_id}, req_found={bool(req)}")
+
+        if discussion_id and req:
+            msg_id = req.get("channel_msg_id")
+            logger.info(f"Sending to discussion {discussion_id}, reply_to={msg_id}")
             try:
-                # In linked groups, we can often reply to the channel message ID 
-                # to keep it under the "Comments" thread of that post.
-                await bot.send_message(
-                    chat_id=discussion_id, 
-                    text=bid_card, 
-                    reply_to_message_id=int(req["channel_msg_id"])
-                )
+                # We use HTML for better formatting and safety
+                html_card = bid_card.replace("**", "<b>").replace("**", "</b>") # Basic conversion
+                if msg_id:
+                    try:
+                        await bot.send_message(
+                            chat_id=discussion_id, 
+                            text=html_card, 
+                            parse_mode="HTML",
+                            reply_to_message_id=int(msg_id)
+                        )
+                        logger.info("Sent bid as reply to discussion")
+                    except Exception as re:
+                        logger.warning(f"Reply failed: {re}. Sending as top-level.")
+                        await bot.send_message(chat_id=discussion_id, text=html_card, parse_mode="HTML")
+                else:
+                    await bot.send_message(chat_id=discussion_id, text=html_card, parse_mode="HTML")
             except Exception as e:
-                logger.warning(f"Failed to reply to channel msg in discussion, sending as top-level: {e}")
-                try:
-                    await bot.send_message(chat_id=discussion_id, text=bid_card)
-                except: pass
-        elif discussion_id:
-            try:
-                await bot.send_message(chat_id=discussion_id, text=bid_card)
-            except: pass
+                logger.error(f"Failed to send bid to discussion: {e}")
 
         # Notify the creator of the request
-        if req and req.get("creator_id") and int(req["creator_id"]) != user_id:
+        creator_id = req.get("creator_id") if req else None
+        logger.info(f"Notification check: creator_id={creator_id}, current_user={user_id}")
+        
+        if creator_id and int(creator_id) != user_id:
             try:
                 notify_text = (
-                    f"💰 **Новая ставка по вашей заявке #{int(req_id):05d}**\n"
+                    f"💰 <b>Новая ставка по вашей заявке #{int(req_id):05d}</b>\n"
                     f"📦 Груз: {req.get('cargo_name', '-')}\n"
                     f"📍 Маршрут: {req.get('route_from', '-')} → {req.get('route_to', '-')}\n\n"
-                    f"💵 Сумма: {data.get('amount')} {data.get('currency')}\n"
+                    f"💵 Сумма: <b>{data.get('amount')} {data.get('currency')}</b>\n"
                     f"👤 От: {profile['name']}\n\n"
                     f"Посмотреть подробности можно в Mini App."
                 )
-                await bot.send_message(chat_id=int(req["creator_id"]), text=notify_text, parse_mode="Markdown")
+                await bot.send_message(chat_id=int(creator_id), text=notify_text, parse_mode="HTML")
+                logger.info(f"Notification sent to creator {creator_id}")
             except Exception as e:
-                logger.error(f"Failed to notify creator {req['creator_id']}: {e}")
+                logger.error(f"Failed to notify creator {creator_id}: {e}")
         
         return safe_json_response({"ok": True})
     except Exception as e:
-        logger.error(f"api_bid error: {e}")
+        logger.error(f"api_bid error: {e}", exc_info=True)
         return safe_json_response({"error": "Internal error"})
 
 async def api_comments(request):

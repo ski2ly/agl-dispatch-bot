@@ -161,6 +161,12 @@ class Database:
             details JSONB,
             created_at TIMESTAMPTZ DEFAULT NOW()
         );
+
+        CREATE TABLE IF NOT EXISTS ai_sessions (
+            user_id BIGINT PRIMARY KEY,
+            draft JSONB DEFAULT '{}',
+            updated_at TIMESTAMPTZ DEFAULT NOW()
+        );
         """
         async with self._pool.acquire() as conn:
             await conn.execute(schema)
@@ -759,5 +765,23 @@ class Database:
         vals.append(int(user_id))
         async with self._pool.acquire() as conn:
             await conn.execute(f"UPDATE users SET {', '.join(sets)} WHERE id = ${len(vals)}", *vals)
+
+    # AI CONTEXT & SESSIONS
+    async def get_ai_context(self, user_id: int):
+        async with self._pool.acquire() as conn:
+            row = await conn.fetchrow("SELECT draft FROM ai_sessions WHERE user_id = $1", user_id)
+            return json.loads(row["draft"]) if row else {}
+
+    async def save_ai_context(self, user_id: int, draft: dict):
+        async with self._pool.acquire() as conn:
+            await conn.execute("""
+                INSERT INTO ai_sessions (user_id, draft, updated_at)
+                VALUES ($1, $2, NOW())
+                ON CONFLICT (user_id) DO UPDATE SET draft = EXCLUDED.draft, updated_at = NOW()
+            """, user_id, json.dumps(draft))
+
+    async def clear_ai_context(self, user_id: int):
+        async with self._pool.acquire() as conn:
+            await conn.execute("DELETE FROM ai_sessions WHERE user_id = $1", user_id)
 
 db = Database()

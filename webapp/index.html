@@ -726,8 +726,16 @@
                         el('div', { class: 'font-bold text-sm', text: u.name || 'Сотрудник' }),
                         el('div', { class: 'text-[9px] opacity-40 uppercase font-extrabold tracking-widest', text: roleLine })
                     ),
-                    el('div', { class: 'text-[10px] font-mono opacity-60 bg-gray-100 px-2 py-1 rounded cursor-pointer', 
-                             onclick: (e) => { e.stopPropagation(); tg.showAlert(`Ключ: ${u.login_key || "Не назначен"}`); },
+                    el('div', { class: 'text-[10px] font-mono opacity-60 bg-gray-100 px-2 py-1 rounded cursor-pointer active:bg-green-100 transition-colors', 
+                             onclick: (e) => { 
+                                 e.stopPropagation(); 
+                                 if (u.login_key) {
+                                     navigator.clipboard.writeText(u.login_key);
+                                     tg.showAlert(`Ключ скопирован: ${u.login_key}`);
+                                 } else {
+                                     tg.showAlert("Ключ не назначен");
+                                 }
+                             },
                              text: keyDisplay })
                 );
                 const actions = el('div', { class: 'flex space-x-2 border-t pt-3' },

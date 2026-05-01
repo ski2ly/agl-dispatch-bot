@@ -673,14 +673,44 @@ async def api_bid(request):
         # Notify channel/discussion if possible
         settings = await db.get_settings()
         discussion_id = settings.get("discussion_id") or os.getenv("DISCUSSION_GROUP_ID")
-        if discussion_id:
+        
+        # Get request info for notification
+        req = await db.get_request(int(req_id))
+        bot = request.app["bot"]
+
+        if discussion_id and req and req.get("channel_msg_id"):
             try:
-                bot = request.app["bot"]
-                # Try to find if we can reply to the channel post in the group
-                # For now, just send to the group
-                await bot.send_message(chat_id=discussion_id, text=bid_card)
+                # In linked groups, we can often reply to the channel message ID 
+                # to keep it under the "Comments" thread of that post.
+                await bot.send_message(
+                    chat_id=discussion_id, 
+                    text=bid_card, 
+                    reply_to_message_id=int(req["channel_msg_id"])
+                )
             except Exception as e:
-                logger.error(f"Failed to send bid to discussion: {e}")
+                logger.warning(f"Failed to reply to channel msg in discussion, sending as top-level: {e}")
+                try:
+                    await bot.send_message(chat_id=discussion_id, text=bid_card)
+                except: pass
+        elif discussion_id:
+            try:
+                await bot.send_message(chat_id=discussion_id, text=bid_card)
+            except: pass
+
+        # Notify the creator of the request
+        if req and req.get("creator_id") and int(req["creator_id"]) != user_id:
+            try:
+                notify_text = (
+                    f"💰 **Новая ставка по вашей заявке #{int(req_id):05d}**\n"
+                    f"📦 Груз: {req.get('cargo_name', '-')}\n"
+                    f"📍 Маршрут: {req.get('route_from', '-')} → {req.get('route_to', '-')}\n\n"
+                    f"💵 Сумма: {data.get('amount')} {data.get('currency')}\n"
+                    f"👤 От: {profile['name']}\n\n"
+                    f"Посмотреть подробности можно в Mini App."
+                )
+                await bot.send_message(chat_id=int(req["creator_id"]), text=notify_text, parse_mode="Markdown")
+            except Exception as e:
+                logger.error(f"Failed to notify creator {req['creator_id']}: {e}")
         
         return safe_json_response({"ok": True})
     except Exception as e:

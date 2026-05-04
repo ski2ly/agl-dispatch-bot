@@ -37,10 +37,10 @@ class AIAssistant:
         region_rules = """
 ПРАВИЛА ОПРЕДЕЛЕНИЯ РЕГИОНА (ПРИОРИТЕТЫ):
 1. ЕСЛИ одна из точек (Откуда или Куда) — КИТАЙ (Shenzhen, Ningbo, Guangzhou и др.), регион = "Китай".
-2. ЕСЛИ одна из точек — ЕВРОПА (Австрия, Германия, Польша, Италия, Литва и др.), регион = "Европа".
+2. ЕСЛИ одна из точек — ЕВРОПА (Австрия, Германия, Польша, Италия, Литва, Латвия, Эстония, Чехия и др.), регион = "Европа".
 3. ЕСЛИ одна из точек — ТУРЦИЯ (Стамбул, Измир и др.), регион = "Турция". ВАЖНО: Транзит "через Турцию" не делает регион Турцией!
-4. ЕСЛИ одна из точек — ИНДИЯ, Вьетнам, Малайзия, Индонезия, Тайвань, Пакистан, регион = "Индия/ЮВА".
-5. ЕСЛИ ОБЕ точки (Откуда и Куда) находятся внутри СНГ (РФ, РБ, КЗ, УЗ, Киргизия, Таджикистан, Армения, Азербайджан), регион = "СНГ".
+4. ЕСЛИ одна из точек — ИНДИЯ, Вьетнам, Малайзия, Индонезия, Тайвань, Пакистан, Южная Корея, регион = "Индия/ЮВА".
+5. ЕСЛИ ОБЕ точки (Откуда и Куда) находятся внутри СНГ (РФ, РБ, КЗ, УЗ, Киргизия, Таджикистан, Армения, Азербайджан, Грузия), регион = "СНГ".
 6. В остальных случаях — "Другое".
 
 ПРИМЕРЫ:
@@ -80,6 +80,20 @@ Your goal is to collect data for a transport request. YOU MUST BE SMART AND UNDE
 - Срочность: "горим", "ASAP", "вчера", "срочно" — ставь urgency_type = "Срочно".
 - ТРАНЗИТ: Если указано "через Турцию", "через РФ", "Т1", "Т3" — ОБЯЗАТЕЛЬНО записывай это в поле `transit_info`. Это критически важно для цены!
 - ПОЛНОТА ДАННЫХ: Любая информация, которую дает пользователь (упаковка, температурный режим, ADR, особенности склада, время работы), ОБЯЗАНА попасть в JSON. Если для данных нет специального поля — записывай их в `extra_info`. НИЧЕГО НЕ ВЫБРАСЫВАЙ.
+- ТРЕБОВАНИЯ: Если пользователь пишет "нужна ставка", "нужен EX1", "нужно время транзита" — ОБЯЗАТЕЛЬНО пиши это в поле `requirements`.
+- ЖАРГОН И СЛЕНГ:
+  - "20-ка", "двадцатка" -> Контейнер 20'DC.
+  - "40-ка", "сороковка", "HQ", "HC" -> Контейнер 40'HC.
+  - "тент", "штора", "борт" -> Авто (Тент).
+  - "реф" -> Авто/Контейнер (Рефрижератор).
+  - "ТТ", "затам" -> Затаможка (customs_address).
+  - "РТ", "раст" -> Растаможка (clearance_address).
+  - "сборка", "LTL" -> Тип перевозки.
+  - "инвойс", "цена" -> cargo_value.
+  - "пакинг", "места" -> cargo_places.
+  - "EX1", "экспортная" -> export_decl.
+  - "COO", "СТ-1", "серт" -> origin_cert.
+  - "штабель" -> stackable.
 
 ДОСТУПНЫЕ РЕГИОНЫ: {regions_str}
 Ты ОБЯЗАН выбрать regions ТОЛЬКО из списка выше. ИСКЛЮЧЕНИЕ: если пользователь ЯВНО просит поставить значение, которого нет в списке (например, "исправь направление на Марс"), ты обязан выполнить просьбу пользователя.
@@ -102,9 +116,16 @@ Your goal is to collect data for a transport request. YOU MUST BE SMART AND UNDE
   "loading_address": "...", "customs_address": "...", "clearance_address": "...", "unloading_address": "...",
   "cargo_name": "...", "hs_code": "...", "cargo_value": "...", "cargo_weight": "...", "cargo_places": "...",
   "transit_info": "...",
-  "packaging": "упаковка (коробки, паллеты и т.д.)",
-  "dangerous_cargo": "класс опасности (ADR), если есть",
-  "extra_info": "ЛЮБЫЕ ДРУГИЕ ДЕТАЛИ (температурный режим, доп. пожелания, особенности)",
+  "packaging": "...", "dangerous_cargo": "...",
+  "loading_date": "...",
+  "requirements": "...",
+  "delivery_terms": "Incoterms (EXW, FCA, DAP...)",
+  "container_type": "тип контейнера (20DC, 40HC...)",
+  "road_type": "тип авто (Тент, Реф, Мега...)",
+  "export_decl": "нужна ли EX1 (true/false или текст)",
+  "origin_cert": "нужен ли СТ-1/COO (true/false или текст)",
+  "stackable": "можно ли штабелировать (true/false)",
+  "extra_info": "...",
   "missing_fields": ["поля, которых не хватает"],
   "next_question": "Твой ответ пользователю",
   "ready_to_publish": boolean,
@@ -197,6 +218,10 @@ Respond in JSON: {"intent": "...", "args": {...}, "text": "..."} """},
             "unloading_address": "📍 Выгрузка", "urgency_type": "🕒 Срочность",
             "transit_info": "🛣 Транзит", "packaging": "📦 Упаковка",
             "dangerous_cargo": "⚠️ Опасность", "extra_info": "📝 Доп. инфо",
+            "loading_date": "📅 Дата готовности", "requirements": "🎯 Требуется",
+            "delivery_terms": "📦 Инкотермс", "container_type": "🏗 Контейнер",
+            "road_type": "🚛 Тип авто", "export_decl": "📄 EX1",
+            "origin_cert": "📜 Сертификат", "stackable": "🔝 Штабель",
         }
         for key, label in field_labels.items():
             val = draft.get(key)
@@ -253,6 +278,10 @@ Respond in JSON: {"intent": "...", "args": {...}, "text": "..."} """},
             "cargo_places": "cargo_places", "urgency_type": "urgency_type",
             "transit_info": "transit_rf_allowed", "packaging": "packaging",
             "dangerous_cargo": "dangerous_cargo", "extra_info": "message_text",
+            "loading_date": "loading_days", "requirements": "target",
+            "delivery_terms": "delivery_terms", "container_type": "container_type",
+            "road_type": "road_type", "export_decl": "export_decl",
+            "origin_cert": "origin_cert", "stackable": "stackable",
         }
         for draft_key, db_key in field_map.items():
             val = draft.get(draft_key)

@@ -663,11 +663,14 @@ class Database:
 
     async def update_setting(self, key, value):
         async with self._pool.acquire() as conn:
-            # Pass raw Python object; asyncpg handles JSONB serialization
+            # Explicitly dump to JSON string to ensure compatibility with both TEXT and JSONB columns
+            # and to avoid asyncpg type inference issues.
+            import json
+            json_value = json.dumps(value, ensure_ascii=False)
             await conn.execute(
                 "INSERT INTO settings (key, value, updated_at) VALUES ($1, $2, NOW()) "
                 "ON CONFLICT (key) DO UPDATE SET value = $2, updated_at = NOW()",
-                key, value
+                key, json_value
             )
 
     async def init_default_settings(self):

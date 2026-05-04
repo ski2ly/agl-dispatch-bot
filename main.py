@@ -65,9 +65,8 @@ async def post_init(application: Application):
     asyncio.create_task(_supervised_cron(lambda: reminder_cron(bot), "reminder_cron"))
 
     # 4. Start web server
-    # client_max_size limits a single request body. Default in aiohttp is 1MB —
-    # we tighten to 256KB since we never accept file uploads on JSON endpoints.
-    app = web.Application(client_max_size=256 * 1024)
+    # Increased limit to 32MB to allow photo and document uploads via MiniApp.
+    app = web.Application(client_max_size=32 * 1024 * 1024)
     app["bot"] = application.bot
     setup_api(app)
 

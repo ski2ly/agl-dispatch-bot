@@ -163,13 +163,11 @@ async def sync_bid_to_discussion(bot, discussion_id, channel_id, channel_msg_id,
         # This call finds the forwarded message in the group
         discussion_msg = await bot.get_discussion_message(chat_id=target_chat, message_id=int(channel_msg_id))
         
-        # Reply to that message in the group — this makes it a "Comment"
-        log.info(f"Discussion msg found: {discussion_msg.message_id}. Sending reply to {target_discussion}")
+        # Using reply_text on the discussion message object is the most reliable way to post a comment
+        log.info(f"Discussion msg found: {discussion_msg.message_id}. Replying directly.")
         
-        await bot.send_message(
-            chat_id=target_discussion,
+        await discussion_msg.reply_text(
             text=bid_card_text,
-            reply_to_message_id=discussion_msg.message_id,
             parse_mode="HTML"
         )
         return True
@@ -178,6 +176,12 @@ async def sync_bid_to_discussion(bot, discussion_id, channel_id, channel_msg_id,
         # Fallback to top-level message if get_discussion_message fails
         if target_discussion:
             try:
+                # Ensure target_discussion is cleaned for fallback
+                if isinstance(target_discussion, str):
+                    target_discussion = target_discussion.strip()
+                    if target_discussion.startswith("-") or target_discussion.isdigit():
+                        target_discussion = int(target_discussion)
+                
                 log.info(f"Fallback: sending top-level message to {target_discussion}")
                 await bot.send_message(chat_id=target_discussion, text=bid_card_text, parse_mode="HTML")
                 return True

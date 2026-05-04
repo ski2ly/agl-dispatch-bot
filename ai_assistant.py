@@ -178,6 +178,7 @@ Respond in JSON: {"intent": "...", "args": {...}, "text": "..."} """},
 
     def build_preview(self, draft: dict) -> str:
         """Build a human-readable preview of the current draft for the user."""
+        import html
         lines = []
         field_labels = {
             "regions": "🌍 Направление", "transport_cat": "🚛 Транспорт",
@@ -191,15 +192,18 @@ Respond in JSON: {"intent": "...", "args": {...}, "text": "..."} """},
         for key, label in field_labels.items():
             val = draft.get(key)
             if val and str(val).strip() not in ("", "-", "None", "False"):
-                lines.append(f"{label}: *{val}*")
+                safe_val = html.escape(str(val))
+                lines.append(f"{label}: <b>{safe_val}</b>")
 
         missing = draft.get("missing_fields", [])
         if missing:
-            lines.append(f"\n⚠️ Не хватает: {', '.join(missing)}")
+            safe_missing = html.escape(", ".join(missing))
+            lines.append(f"\n⚠️ Не хватает: {safe_missing}")
 
         question = draft.get("next_question")
         if question:
-            lines.append(f"\n🤖 {question}")
+            safe_question = html.escape(str(question))
+            lines.append(f"\n🤖 {safe_question}")
 
         return "\n".join(lines) if lines else "📋 Черновик пуст"
 

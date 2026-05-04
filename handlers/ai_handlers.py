@@ -139,7 +139,7 @@ async def process_ai_message(update: Update, context: ContextTypes.DEFAULT_TYPE,
             try: await context.bot.delete_message(update.effective_chat.id, old_msg_id)
             except: pass
             
-        sent_msg = await update.message.reply_text(f"{info_prefix}\n{status_text}\n\n{preview}\n\nВсе верно?", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
+        sent_msg = await update.message.reply_text(f"{info_prefix}\n{status_text}\n\n{preview}\n\nВсе верно?", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="HTML")
         context.user_data["last_ai_msg_id"] = sent_msg.message_id
         
     except Exception as e:
@@ -199,7 +199,9 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     await wait_msg.delete()
-    await process_ai_message(update, context, text, info_prefix=f"🎤 _«{text}»_")
+    import html
+    safe_text = html.escape(text)
+    await process_ai_message(update, context, text, info_prefix=f"🎤 <i>«{safe_text}»</i>")
 
 async def confirm_ai_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -232,7 +234,7 @@ async def confirm_ai_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"• {', '.join(missing)}\n\n"
                 f"{preview}\n\n"
                 f"Допишите недостающие данные.",
-                parse_mode="Markdown",
+                parse_mode="HTML",
                 reply_markup=InlineKeyboardMarkup([
                     [InlineKeyboardButton("📝 Дополнить данные", callback_data="more_ai")],
                     [InlineKeyboardButton("❌ Отмена", callback_data="cancel_ai")]

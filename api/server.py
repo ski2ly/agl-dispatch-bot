@@ -7,13 +7,15 @@ from aiohttp import web
 import aiohttp_cors
 from database import db
 from utils.security import verify_init_data, extract_user_from_init_data
-from utils.helpers import build_card, build_bid_card
+from utils.helpers import build_card, build_bid_card, sync_bid_to_discussion
+import hashlib
 
 logger = logging.getLogger(__name__)
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHANNEL_ID = os.getenv("CHANNEL_ID")
 _upload_counts = {}
 _upload_counts_last_gc = 0.0
+_bid_cooldowns = {} # (user_id, req_id) -> (hash, timestamp)
 
 
 def _gc_upload_counts(now: float):
@@ -292,7 +294,8 @@ async def api_request_details(request):
         return safe_json_response({"error": "Not found"})
     bids = await db.get_bids(req_id)
     comments = await db.get_comments(req_id)
-    return safe_json_response({"request": req, "bids": bids, "comments": comments})
+    attachments = await db.get_attachments(req_id)
+    return safe_json_response({"request": req, "bids": bids, "comments": comments, "attachments": attachments})
 
 async def api_my_bids(request):
     """List bids for the current user."""
@@ -410,7 +413,7 @@ async def api_export_xlsx(request):
         return safe_json_response({"error": "Forbidden"})
     
     try:
-        all_reqs = await db.list_requests()
+        all_reqs = await db.get_requests_for_export()
         if not all_reqs:
             return safe_json_response({"error": "No data to export"})
             
@@ -421,15 +424,29 @@ async def api_export_xlsx(request):
             # Format ID: 29 -> #00029
             if row.get('id'):
                 row['id'] = f"#{int(row['id']):05d}"
-            # Format datetime
+            # Format datetimes
             if row.get('created_at'):
                 row['created_at'] = row['created_at'].strftime('%d.%m.%Y %H:%M')
+            if row.get('first_bid_at'):
+                row['first_bid_at'] = row['first_bid_at'].strftime('%d.%m.%Y %H:%M')
+            else:
+                row['first_bid_at'] = "-"
+            
+            # Round response time
+            if row.get('response_time_min') is not None:
+                row['response_time_min'] = round(float(row['response_time_min']), 1)
+            else:
+                row['response_time_min'] = "-"
+                
             data_list.append(row)
             
         # Define pretty mapping and order
         mapping = {
             'id': 'ID Заявки',
             'created_at': 'Дата создания',
+            'first_bid_at': 'Первая ставка',
+            'response_time_min': 'Время до 1-й ставки (мин)',
+            'bids_count': 'Кол-во ставок',
             'responsible': 'Ответственный',
             'status': 'Статус',
             'regions': 'Регион',
@@ -599,6 +616,11 @@ async def api_submit(request):
             req = await db.create_request(payload)
             final_id = req["id"]
             
+            # Link attachments if any
+            attachment_ids = data.get("attachment_ids", [])
+            if attachment_ids:
+                await db.link_attachments(final_id, attachment_ids)
+            
             await db.log_activity(final_id, user_id, profile["name"], "created_via_webapp")
             
             # Post to channel
@@ -661,6 +683,20 @@ async def api_bid(request):
         return web.json_response({"error": err}, status=400)
 
     try:
+        # Deduplication: prevent same bid from same user on same request within 5 seconds
+        bid_content = json.dumps(data, sort_keys=True)
+        bid_hash = hashlib.md5(bid_content.encode()).hexdigest()
+        now = time.time()
+        cooldown_key = (user_id, int(req_id))
+        
+        if cooldown_key in _bid_cooldowns:
+            old_hash, old_time = _bid_cooldowns[cooldown_key]
+            if old_hash == bid_hash and now - old_time < 5:
+                logger.info(f"Deduplicated bid for req_id={req_id} by user={user_id}")
+                return safe_json_response({"ok": True, "note": "duplicate ignored"})
+        
+        _bid_cooldowns[cooldown_key] = (bid_hash, now)
+
         logger.info(f"Submitting bid for req_id={req_id} by {profile['name']} (ID: {user_id})")
         await db.upsert_bid(int(req_id), user_id, profile["name"], data)
         await db.log_activity(int(req_id), user_id, profile["name"], "bid_submitted", {"amount": data.get("amount")})
@@ -673,32 +709,18 @@ async def api_bid(request):
         # Notify channel/discussion if possible
         settings = await db.get_settings()
         discussion_id = settings.get("discussion_id") or os.getenv("DISCUSSION_GROUP_ID")
+        target_channel = settings.get("channel_id") or os.getenv("CHANNEL_ID")
         
         req = await db.get_request(int(req_id))
         bot = request.app["bot"]
 
-        logger.info(f"Bid process: discussion_id={discussion_id}, req_found={bool(req)}")
-
-        if discussion_id and req:
+        if discussion_id and req and target_channel:
             msg_id = req.get("channel_msg_id")
-            logger.info(f"Sending to discussion {discussion_id}, reply_to={msg_id}")
-            try:
-                # bid_card is plain text — send without parse_mode for reliability
-                if msg_id:
-                    try:
-                        await bot.send_message(
-                            chat_id=discussion_id, 
-                            text=bid_card, 
-                            reply_to_message_id=int(msg_id)
-                        )
-                        logger.info("Sent bid as reply to discussion")
-                    except Exception as re:
-                        logger.warning(f"Reply failed: {re}. Sending as top-level.")
-                        await bot.send_message(chat_id=discussion_id, text=bid_card)
-                else:
-                    await bot.send_message(chat_id=discussion_id, text=bid_card)
-            except Exception as e:
-                logger.error(f"Failed to send bid to discussion: {e}")
+            if msg_id:
+                logger.info(f"Syncing bid to discussion: channel={target_channel}, msg={msg_id}")
+                await sync_bid_to_discussion(bot, discussion_id, target_channel, msg_id, bid_card)
+            else:
+                await bot.send_message(chat_id=discussion_id, text=bid_card)
 
         # Notify the creator of the request
         creator_id = req.get("creator_id") if req else None
@@ -749,13 +771,56 @@ async def api_upload(request):
     now = time.time()
     _gc_upload_counts(now)
     times = [t for t in _upload_counts.get(user_id, []) if now - t < 60]
-    if len(times) >= 10:
-        return web.json_response({"error": "Rate limit (10 files/min)"}, status=429)
+    if len(times) >= 20: # Increased limit for photos
+        return web.json_response({"error": "Rate limit (20 files/min)"}, status=429)
     times.append(now)
     _upload_counts[user_id] = times
 
-    # Storage backend not implemented yet — placeholder for future S3/Telegram-files integration.
-    return web.json_response({"ok": True, "file_id": "placeholder"})
+    try:
+        reader = await request.multipart()
+        field = await reader.next()
+        if not field or field.name != 'file':
+            return web.json_response({"error": "No file field"}, status=400)
+
+        filename = field.filename
+        if not filename:
+            return web.json_response({"error": "Empty filename"}, status=400)
+
+        upload_dir = "uploads"
+        if not os.path.exists(upload_dir):
+            os.makedirs(upload_dir)
+
+        # Generate a safe unique name
+        import uuid
+        ext = os.path.splitext(filename)[1]
+        unique_name = f"{uuid.uuid4().hex}{ext}"
+        file_path = os.path.join(upload_dir, unique_name)
+
+        size = 0
+        with open(file_path, 'wb') as f:
+            while True:
+                chunk = await field.read_chunk()
+                if not chunk:
+                    break
+                size += len(chunk)
+                f.write(chunk)
+                if size > 20 * 1024 * 1024: # 20MB limit
+                    return web.json_response({"error": "File too large (max 20MB)"}, status=413)
+
+        file_type = field.headers.get('Content-Type', 'application/octet-stream')
+        # Store in DB without request_id for now
+        attachment_id = await db.add_attachment(None, filename, f"/uploads/{unique_name}", file_type, size)
+
+        return web.json_response({
+            "ok": True,
+            "attachment_id": attachment_id,
+            "url": f"/uploads/{unique_name}",
+            "name": filename,
+            "type": file_type
+        })
+    except Exception as e:
+        logger.error(f"Upload error: {e}")
+        return web.json_response({"error": "Upload failed"}, status=500)
 
 async def index_handler(request):
     return web.FileResponse('webapp/index.html')
@@ -949,6 +1014,7 @@ def setup_api(app):
     app.router.add_post("/api/export_xlsx", api_export_xlsx)
     app.router.add_get("/api/comments", api_comments)
     app.router.add_post("/api/upload", api_upload)
+    app.router.add_static("/uploads", "uploads")
     app.router.add_static("/logo", "logo")
     
     # CORS — restrict to the configured WEBAPP_URL origin (Telegram MiniApp).

@@ -3,7 +3,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 from handlers.ai_handlers import confirm_ai_logic
 from handlers.commands import view_request_handler
-from utils.helpers import build_bid_card
+from utils.helpers import build_bid_card, sync_bid_to_discussion
 
 logger = logging.getLogger(__name__)
 
@@ -138,27 +138,17 @@ async def handle_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
         import os
         settings = await db.get_settings()
         discussion_id = settings.get("discussion_id") or os.getenv("DISCUSSION_GROUP_ID")
+        channel_id = settings.get("channel_id") or os.getenv("CHANNEL_ID")
         req = await db.get_request(req_id)
-
-        if discussion_id and req:
+        
+        if discussion_id and req and channel_id:
             msg_id = req.get("channel_msg_id")
-            try:
-                # Use plain text for discussion — no HTML/Markdown parsing issues
+            if msg_id:
                 plain_card = bid_card_text.replace("**", "")
-                if msg_id:
-                    try:
-                        await context.bot.send_message(
-                            chat_id=discussion_id,
-                            text=plain_card,
-                            reply_to_message_id=int(msg_id)
-                        )
-                    except Exception as re:
-                        logger.warning(f"Reply to discussion failed: {re}. Sending as top-level.")
-                        await context.bot.send_message(chat_id=discussion_id, text=plain_card)
-                else:
-                    await context.bot.send_message(chat_id=discussion_id, text=plain_card)
-            except Exception as e:
-                logger.error(f"Failed to send AI bid to discussion: {e}")
+                await sync_bid_to_discussion(context.bot, discussion_id, channel_id, msg_id, plain_card)
+            else:
+                plain_card = bid_card_text.replace("**", "")
+                await context.bot.send_message(chat_id=discussion_id, text=plain_card)
 
         # Notify creator
         creator_id = req.get("creator_id") if req else None

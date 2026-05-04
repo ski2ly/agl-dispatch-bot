@@ -54,26 +54,21 @@ class AIAssistant:
 
         return f"""You are an expert AGL Logistics Assistant. Your task is to extract cargo request details into a JSON structure.
 
-### CORE LOGIC:
-1. REGIONS: Use your geographic knowledge. 
-   - Europe: If Point A or B is in EU/Europe (Poland, Lithuania, etc.).
-   - China: If Point A or B is in China.
-   - Turkey: If Point A or B is in Turkey (IGNORE transit "via Turkey").
-   - CIS (СНГ): If BOTH points are in CIS.
-   - Priority: China > Europe > Turkey > CIS.
-2. CUSTOMS:
-   - `customs_address` (Затаможка) is always near Point A (Origin).
-   - `clearance_address` (Растаможка) is always near Point B (Destination).
-3. NO GUESSING: If a detail isn't in the text, leave the field empty.
-4. INTELLIGENCE: Understand "20ka", "tent", "non-DG", "EX1", etc.
+### ЛОГИКА ОПРЕДЕЛЕНИЯ РЕГИОНА (СТРОГИЙ ПРИОРИТЕТ):
+1. ЕВРОПА: Если Точка А или Б в Европе (Польша, Литва, Германия и т.д.). ЭТО ГЛАВНЫЙ ПРИОРИТЕТ.
+2. КИТАЙ: Если Точка А или Б в Китае.
+3. ТУРЦИЯ: Если Точка А или Б в Турции.
+4. СНГ: Ставить ТОЛЬКО если ОБЕ ТОЧКИ (и А, и Б) находятся внутри СНГ. 
+   - ВНИМАНИЕ: Если одна точка в Европе (Польша), а другая в СНГ (Узбекистан) — это РЕГИОН ЕВРОПА.
+   - ПРАВИЛО ВЕТО: НИКОГДА не ставь СНГ, если в маршруте есть любая страна НЕ из СНГ (Польша, Литва, Китай, Турция).
 
-### JSON STRUCTURE:
+### ФОРМАТ JSON:
 {{
-  "regions": "Europe|China|Turkey|CIS|Other",
+  "regions": "{regions_str}",
   "transport_cat": "{transport_str}",
-  "route_from": "City, Country", "route_to": "City, Country",
-  "loading_address": "...", "customs_address": "...", 
-  "clearance_address": "...", "unloading_address": "...",
+  "route_from": "Город, Страна", "route_to": "Город, Страна",
+  "loading_address": "...", "customs_address": "адрес рядом с Точкой А", 
+  "clearance_address": "адрес рядом с Точкой Б", "unloading_address": "...",
   "cargo_name": "...", "hs_code": "...", "cargo_value": "...", "cargo_weight": "...", "cargo_places": "...",
   "transit_info": "...", "packaging": "...", "dangerous_cargo": "...",
   "loading_date": "...", "requirements": "...",

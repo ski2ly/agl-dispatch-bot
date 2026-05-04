@@ -141,6 +141,16 @@ class Database:
             last_notified_at TIMESTAMPTZ
         );
 
+        CREATE TABLE IF NOT EXISTS attachments (
+            id SERIAL PRIMARY KEY,
+            request_id INTEGER REFERENCES requests(id) ON DELETE CASCADE,
+            file_name TEXT,
+            file_path TEXT,
+            file_type TEXT,
+            file_size BIGINT,
+            created_at TIMESTAMPTZ DEFAULT NOW()
+        );
+
         CREATE TABLE IF NOT EXISTS settings (
             key TEXT PRIMARY KEY,
             value JSONB,
@@ -647,6 +657,31 @@ class Database:
             )
             return [dict(r) for r in rows]
 
+    # ATTACHMENTS
+    async def add_attachment(self, request_id, file_name, file_path, file_type, file_size):
+        async with self._pool.acquire() as conn:
+            row = await conn.fetchrow(
+                "INSERT INTO attachments (request_id, file_name, file_path, file_type, file_size) VALUES ($1, $2, $3, $4, $5) RETURNING id",
+                request_id, file_name, file_path, file_type, file_size
+            )
+            return row["id"]
+
+    async def link_attachments(self, request_id: int, attachment_ids: list[int]):
+        if not attachment_ids: return
+        async with self._pool.acquire() as conn:
+            await conn.execute(
+                "UPDATE attachments SET request_id = $1 WHERE id = ANY($2::int[])",
+                request_id, attachment_ids
+            )
+
+    async def get_attachments(self, request_id: int):
+        async with self._pool.acquire() as conn:
+            rows = await conn.fetch(
+                "SELECT * FROM attachments WHERE request_id = $1 ORDER BY created_at",
+                request_id
+            )
+            return [dict(r) for r in rows]
+
     # SETTINGS
     async def get_settings(self):
         async with self._pool.acquire() as conn:
@@ -764,16 +799,25 @@ class Database:
             return [dict(r) for r in rows]
 
     async def get_requests_for_export(self, start_date=None, end_date=None):
-        query = "SELECT * FROM requests WHERE 1=1"
+        query = """
+            SELECT 
+                r.*,
+                COUNT(b.id) as bids_count,
+                MIN(b.created_at) as first_bid_at,
+                EXTRACT(EPOCH FROM (MIN(b.created_at) - r.created_at)) / 60 as response_time_min
+            FROM requests r
+            LEFT JOIN bids b ON r.id = b.request_id
+            WHERE 1=1
+        """
         params = []
         if start_date:
             params.append(start_date)
-            query += f" AND created_at >= ${len(params)}"
+            query += f" AND r.created_at >= ${len(params)}"
         if end_date:
             params.append(end_date)
-            query += f" AND created_at <= ${len(params)}"
+            query += f" AND r.created_at <= ${len(params)}"
         
-        query += " ORDER BY id DESC"
+        query += " GROUP BY r.id ORDER BY r.id DESC"
         async with self._pool.acquire() as conn:
             rows = await conn.fetch(query, *params)
             return [dict(r) for r in rows]

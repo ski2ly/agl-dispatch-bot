@@ -115,3 +115,31 @@ def build_bid_card(bid: dict) -> str:
         "#ставка"
     ]
     return "\n".join(lines)
+
+async def sync_bid_to_discussion(bot, discussion_id, channel_id, channel_msg_id, bid_card_text):
+    """
+    Sends a bid card to the discussion group as a proper comment.
+    Uses get_discussion_message to find the correct thread ID in the group.
+    """
+    if not discussion_id or not channel_msg_id:
+        return False
+        
+    try:
+        # Try to find the forwarded message in the discussion group
+        # channel_id can be @channel_username or numeric ID
+        discussion_msg = await bot.get_discussion_message(chat_id=channel_id, message_id=int(channel_msg_id))
+        
+        # Reply to that message in the group — this makes it a "Comment"
+        await bot.send_message(
+            chat_id=discussion_id,
+            text=bid_card_text,
+            reply_to_message_id=discussion_msg.message_id
+        )
+        return True
+    except Exception:
+        # Fallback to top-level message if get_discussion_message fails
+        try:
+            await bot.send_message(chat_id=discussion_id, text=bid_card_text)
+            return True
+        except:
+            return False

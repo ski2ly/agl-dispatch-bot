@@ -195,16 +195,30 @@ async def sync_bid_to_discussion(bot, discussion_id, channel_id, channel_msg_id,
                     if res.get("error_code") == 404 and target_discussion:
                         log.info(f"Attempting Forum Thread fallback: chat={target_discussion}, thread={channel_msg_id}")
                         try:
+                            # In Topic-enabled groups, to make it a "comment", it must be a reply 
+                            # to the first message of the topic. Often that message ID == thread ID.
                             await bot.send_message(
                                 chat_id=target_discussion,
                                 text=bid_card_text,
                                 message_thread_id=int(channel_msg_id),
+                                reply_to_message_id=int(channel_msg_id),
                                 parse_mode="HTML"
                             )
-                            log.info("Forum Thread fallback SUCCESS")
+                            log.info(f"Forum Thread fallback SUCCESS (sent to thread/reply {channel_msg_id})")
                             return True
                         except Exception as e_forum:
-                            log.error(f"Forum Thread fallback failed: {e_forum}")
+                            log.warning(f"Forum Thread fallback (reply mode) failed: {e_forum}. Trying without reply...")
+                            try:
+                                await bot.send_message(
+                                    chat_id=target_discussion,
+                                    text=bid_card_text,
+                                    message_thread_id=int(channel_msg_id),
+                                    parse_mode="HTML"
+                                )
+                                log.info("Forum Thread fallback SUCCESS (no-reply mode)")
+                                return True
+                            except Exception as e_final:
+                                log.error(f"Forum Thread fallback totally failed: {e_final}")
                     
                     raise Exception(f"API error: {res.get('description')}")
         

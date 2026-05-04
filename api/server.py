@@ -837,6 +837,58 @@ async def api_request_bids(request):
         return safe_json_response({"error": "Invalid id"})
     bids = await db.list_bids(req_id)
     return safe_json_response({"bids": bids})
+async def api_list_tariffs(request):
+    profile, err = await check_auth(request)
+    if err: return safe_json_response({"error": err, "auth_needed": True})
+    tariffs = await db.list_tariffs()
+    return safe_json_response({"tariffs": tariffs})
+
+async def api_upload_tariff(request):
+    profile, err = await check_auth(request)
+    if err or profile["role"] not in ["admin", "superuser"]:
+        return safe_json_response({"error": "Forbidden"})
+
+    try:
+        reader = await request.multipart()
+        # Field 1: title
+        field_title = await reader.next()
+        title = await field_title.text()
+        
+        # Field 2: file
+        field_file = await reader.next()
+        filename = field_file.filename
+        
+        upload_dir = "uploads"
+        import uuid
+        ext = os.path.splitext(filename)[1]
+        unique_name = f"tariff_{uuid.uuid4().hex}{ext}"
+        file_path = os.path.join(upload_dir, unique_name)
+        
+        size = 0
+        with open(file_path, 'wb') as f:
+            while True:
+                chunk = await field_file.read_chunk()
+                if not chunk: break
+                size += len(chunk)
+                f.write(chunk)
+        
+        file_type = field_file.headers.get('Content-Type', 'application/octet-stream')
+        await db.add_tariff(title, filename, f"/uploads/{unique_name}", file_type, size, profile["name"])
+        return safe_json_response({"ok": True})
+    except Exception as e:
+        logger.error(f"Tariff upload error: {e}")
+        return safe_json_response({"error": "Upload failed"})
+
+async def api_delete_tariff(request):
+    profile, err = await check_auth(request)
+    if err or profile["role"] not in ["admin", "superuser"]:
+        return safe_json_response({"error": "Forbidden"})
+    
+    data = await request.json()
+    tariff_id = data.get("id")
+    await db.delete_tariff(int(tariff_id))
+    return safe_json_response({"ok": True})
+
 async def verify_admin(init_data):
     """Helper to check if user is admin/superuser via init_data."""
     user_id, _ = extract_user_from_init_data(init_data)
@@ -1014,6 +1066,16 @@ def setup_api(app):
     app.router.add_post("/api/export_xlsx", api_export_xlsx)
     app.router.add_get("/api/comments", api_comments)
     app.router.add_post("/api/upload", api_upload)
+    
+    app.router.add_get("/api/tariffs", api_list_tariffs)
+    app.router.add_post("/api/tariffs/upload", api_upload_tariff)
+    app.router.add_post("/api/tariffs/delete", api_delete_tariff)
+    
+    # Ensure directories exist before adding static routes
+    for d in ["uploads", "logo"]:
+        if not os.path.exists(d):
+            os.makedirs(d)
+            
     app.router.add_static("/uploads", "uploads")
     app.router.add_static("/logo", "logo")
     

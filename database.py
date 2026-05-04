@@ -65,6 +65,11 @@ class Database:
                 await asyncio.sleep(3 * (attempt + 1))
         raise RuntimeError("Cannot connect to database after 10 attempts")
 
+    async def close(self):
+        if self._pool:
+            await self._pool.close()
+            logger.info("Database connection pool closed")
+
     async def _run_schema(self):
         """Run initial schema setup."""
         schema = """
@@ -148,6 +153,17 @@ class Database:
             file_path TEXT,
             file_type TEXT,
             file_size BIGINT,
+            created_at TIMESTAMPTZ DEFAULT NOW()
+        );
+
+        CREATE TABLE IF NOT EXISTS tariffs (
+            id SERIAL PRIMARY KEY,
+            title TEXT NOT NULL,
+            file_name TEXT,
+            file_path TEXT,
+            file_type TEXT,
+            file_size BIGINT,
+            uploader_name TEXT,
             created_at TIMESTAMPTZ DEFAULT NOW()
         );
 
@@ -681,6 +697,23 @@ class Database:
                 request_id
             )
             return [dict(r) for r in rows]
+
+    # TARIFFS
+    async def add_tariff(self, title, file_name, file_path, file_type, file_size, uploader_name):
+        async with self._pool.acquire() as conn:
+            await conn.execute(
+                "INSERT INTO tariffs (title, file_name, file_path, file_type, file_size, uploader_name) VALUES ($1, $2, $3, $4, $5, $6)",
+                title, file_name, file_path, file_type, file_size, uploader_name
+            )
+
+    async def list_tariffs(self):
+        async with self._pool.acquire() as conn:
+            rows = await conn.fetch("SELECT * FROM tariffs ORDER BY created_at DESC")
+            return [dict(r) for r in rows]
+
+    async def delete_tariff(self, tariff_id: int):
+        async with self._pool.acquire() as conn:
+            await conn.execute("DELETE FROM tariffs WHERE id = $1", tariff_id)
 
     # SETTINGS
     async def get_settings(self):

@@ -49,8 +49,11 @@
                 <img src="/logo/arrow_default.png" class="w-10 h-10 object-contain">
                 <div><h2 class="text-xl font-extrabold leading-none">AGL</h2><p class="text-[8px] font-bold text-[var(--corp-lime)] tracking-widest uppercase">Platform</p></div>
             </div>
-            <div id="user-profile-badge" class="px-3 py-1 bg-[var(--secondary-bg)] rounded-full border border-[var(--corp-lime)]/20 text-[10px] font-bold uppercase tracking-tighter">
-                <span id="user-name-display">...</span>
+            <div class="flex items-center space-x-2">
+                <button onclick="openTariffsModal()" class="px-3 py-1 bg-[var(--corp-cream)] text-[var(--corp-deep)] rounded-full text-[10px] font-bold uppercase tracking-tighter shadow-sm">📑 Тарифы</button>
+                <div id="user-profile-badge" class="px-3 py-1 bg-[var(--secondary-bg)] rounded-full border border-[var(--corp-lime)]/20 text-[10px] font-bold uppercase tracking-tighter">
+                    <span id="user-name-display">...</span>
+                </div>
             </div>
         </header>
 
@@ -198,6 +201,7 @@
                     <button onclick="switchAdminTab('dict')" id="at-dict" class="admin-tab-btn flex-shrink-0 px-4 py-2 bg-[var(--secondary-bg)] opacity-40 rounded-xl text-[10px] font-bold uppercase">Списки</button>
                     <button onclick="switchAdminTab('stats')" id="at-stats" class="admin-tab-btn flex-shrink-0 px-4 py-2 bg-[var(--secondary-bg)] opacity-40 rounded-xl text-[10px] font-bold uppercase">Аналитика</button>
                     <button onclick="switchAdminTab('settings')" id="at-settings" class="admin-tab-btn flex-shrink-0 px-4 py-2 bg-[var(--secondary-bg)] opacity-40 rounded-xl text-[10px] font-bold uppercase">Настройки</button>
+                    <button onclick="switchAdminTab('tariffs')" id="at-tariffs" class="admin-tab-btn flex-shrink-0 px-4 py-2 bg-[var(--secondary-bg)] opacity-40 rounded-xl text-[10px] font-bold uppercase">Тарифы</button>
                 </div>
             </div>
             <!-- USERS -->
@@ -294,6 +298,20 @@
                     <input type="number" id="set-reminder-interval" placeholder="120" class="w-full p-4 tg-input text-xs">
                 </div>
                 <button onclick="saveSettings()" class="w-full py-4 btn-primary text-xs uppercase">Сохранить настройки</button>
+            </div>
+            <!-- TARIFFS MGMT -->
+            <div id="admin-tariffs" class="admin-tab p-6 space-y-6">
+                <div class="glass-card p-6 space-y-4">
+                    <div class="text-[10px] font-extrabold uppercase opacity-40">Загрузить новый тариф</div>
+                    <input type="text" id="tariff-upload-title" placeholder="Название (напр. Авиа Май 2026)" class="w-full p-4 tg-input text-xs">
+                    <button onclick="document.getElementById('tariff-file-input').click()" class="w-full py-4 bg-[var(--secondary-bg)] border-2 border-dashed border-[var(--corp-lime)]/30 rounded-2xl text-[10px] font-bold uppercase">+ Выбрать файл (XLSX, DOCX)</button>
+                    <input type="file" id="tariff-file-input" class="hidden" onchange="handleTariffUpload(event)">
+                    <div id="tariff-upload-status" class="text-[9px] text-center font-bold text-[var(--corp-emerald)]"></div>
+                </div>
+                <div class="space-y-3">
+                    <div class="text-[10px] font-extrabold uppercase opacity-40">Актуальные тарифы</div>
+                    <div id="admin-tariffs-list" class="space-y-2"></div>
+                </div>
             </div>
         </main>
 
@@ -554,6 +572,7 @@
             document.getElementById('at-' + t).classList.remove('opacity-40'); document.getElementById('at-' + t).classList.add('bg-[var(--corp-cream)]');
             document.querySelectorAll('.admin-tab').forEach(tab => tab.classList.remove('active')); document.getElementById('admin-' + t).classList.add('active');
             if(t === 'users') loadUsersList(); if(t === 'settings') loadSettings(); if(t === 'stats') loadStats();
+            if(t === 'tariffs') loadTariffsList('admin');
         }
 
         function openDictEditor(name) {
@@ -1186,6 +1205,88 @@
             list.appendChild(item);
         }
         function removeAttachment(id, element) { uploadedAttachmentIds = uploadedAttachmentIds.filter(aid => aid !== id); element.remove(); }
+
+        function openTariffsModal() {
+            document.getElementById('tariffs-modal').classList.remove('hidden');
+            loadTariffsList('user');
+        }
+        function closeTariffsModal() {
+            document.getElementById('tariffs-modal').classList.add('hidden');
+        }
+        function loadTariffsList(context = 'user') {
+            const cont = document.getElementById(context === 'user' ? 'tariffs-list-container' : 'admin-tariffs-list');
+            if(!cont) return;
+            cont.innerHTML = '<div class="text-center opacity-40 text-[10px] py-10">Загрузка...</div>';
+            
+            fetch(`/api/tariffs?initData=${encodeURIComponent(tg.initData)}`)
+            .then(r => r.json())
+            .then(data => {
+                clear(cont);
+                const list = data.tariffs || [];
+                if(list.length === 0) {
+                    cont.appendChild(el('div', { class: 'text-center opacity-40 text-[10px] py-10', text: 'Файлов пока нет' }));
+                    return;
+                }
+                list.forEach(t => {
+                    const isXls = t.file_name.toLowerCase().endsWith('.xlsx') || t.file_name.toLowerCase().endsWith('.xls');
+                    const icon = isXls ? '📊' : '📄';
+                    const colorClass = isXls ? 'text-green-600' : 'text-blue-600';
+                    
+                    const item = el('div', { class: 'p-4 bg-[var(--secondary-bg)] rounded-2xl flex justify-between items-center animate-fade border border-[var(--corp-lime)]/5' },
+                        el('div', { class: 'flex items-center space-x-3' },
+                            el('span', { class: 'text-xl ' + colorClass, text: icon }),
+                            el('div', null,
+                                el('div', { class: 'text-[11px] font-bold leading-tight', text: t.title }),
+                                el('div', { class: 'text-[8px] opacity-40 mt-1', text: format_datetime(t.created_at) + ' • ' + (t.uploader_name || 'System') })
+                            )
+                        ),
+                        context === 'user' 
+                            ? el('button', { onclick: () => window.open(t.file_path), class: 'px-4 py-2 bg-[var(--corp-cream)] text-[var(--corp-deep)] text-[9px] font-extrabold rounded-xl uppercase shadow-sm', text: 'Открыть' })
+                            : el('button', { onclick: () => deleteTariff(t.id), class: 'text-red-500 font-bold px-3 py-2 bg-red-50 rounded-xl', text: 'Удалить' })
+                    );
+                    cont.appendChild(item);
+                });
+            });
+        }
+        function handleTariffUpload(event) {
+            const file = event.target.files[0]; if(!file) return;
+            const title = document.getElementById('tariff-upload-title').value.trim();
+            if(!title) { tg.showAlert("⚠️ Введите название для файла"); return; }
+            
+            const formData = new FormData();
+            formData.append('title', title);
+            formData.append('file', file);
+            
+            const status = document.getElementById('tariff-upload-status');
+            status.textContent = "⌛ Загрузка на сервер...";
+            
+            fetch(`/api/tariffs/upload?initData=${encodeURIComponent(tg.initData)}`, {
+                method: 'POST',
+                body: formData
+            }).then(r => r.json()).then(res => {
+                status.textContent = "";
+                if(res.ok) {
+                    tg.showAlert("✅ Тариф успешно загружен");
+                    document.getElementById('tariff-upload-title').value = '';
+                    document.getElementById('tariff-file-input').value = '';
+                    loadTariffsList('admin');
+                } else {
+                    tg.showAlert("❌ Ошибка: " + (res.error || "upload failed"));
+                }
+            });
+        }
+        function deleteTariff(id) {
+            tg.showConfirm("Удалить этот тариф из общего доступа?", (confirmed) => {
+                if(!confirmed) return;
+                fetch('/api/tariffs/delete', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ initData: tg.initData, id: id })
+                }).then(r => r.json()).then(res => {
+                    if(res.ok) loadTariffsList('admin');
+                });
+            });
+        }
 
         checkProfile();
     </script>

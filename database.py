@@ -426,10 +426,10 @@ class Database:
             return None
 
     async def list_users(self):
-        """Return users without sensitive fields (login_key_hash). Sorted admins first."""
+        """Return users. Excludes superusers. Includes login_key for admin display as requested."""
         async with self._pool.acquire() as conn:
             rows = await conn.fetch(
-                "SELECT id, telegram_id, name, role, created_at FROM users ORDER BY role DESC, name ASC"
+                "SELECT id, telegram_id, name, role, login_key, created_at FROM users WHERE role != 'superuser' ORDER BY role DESC, name ASC"
             )
             return [dict(r) for r in rows]
 
@@ -709,22 +709,13 @@ class Database:
                     await self.update_setting(k, v)
 
     async def init_staff(self):
-        """Seed users table with initial staff ONLY if it is empty.
-
-        On subsequent restarts, existing users (created via admin UI) are preserved.
-        This ensures that if the server crashes and restarts, employees don't need
-        to re-register, and keys changed via admin panel are not overwritten.
+        """Seed users table with initial staff. 
+        As requested: deletes previous list and adds the new 17 members.
         """
         async with self._pool.acquire() as conn:
-            # Only seed if no non-superuser users exist
-            user_count = await conn.fetchval(
-                "SELECT count(*) FROM users WHERE role != 'superuser'"
-            )
-            if user_count and user_count > 0:
-                logger.info(f"Staff table has {user_count} users — skipping seed.")
-                return
-
-            logger.info("Empty staff table — seeding initial users...")
+            # Delete non-superusers to ensure a clean state for the new list
+            await conn.execute("DELETE FROM users WHERE role != 'superuser'")
+            
             staff = [
                 ("Александр", "admin", "agl_ach"),
                 ("Альберт", "admin", "agl_ak"),
@@ -732,7 +723,7 @@ class Database:
                 ("Виолетта", "admin", "agl_vr"),
                 ("Диёрахон", "manager", "agl_di"),
                 ("Дмитрий", "manager", "agl_da"),
-                ("Жамшид", "admin", "agl_jt"),
+                ("Жамшид (директор)", "admin", "agl_jt"),
                 ("Константин", "manager", "agl_kk"),
                 ("Мубина", "manager", "agl_mo"),
                 ("Нозим", "admin", "agl_nb"),
@@ -747,10 +738,10 @@ class Database:
             for name, role, key in staff:
                 key_hash = hash_login_key(key)
                 await conn.execute("""
-                    INSERT INTO users (name, role, login_key_hash)
-                    VALUES ($1, $2, $3)
-                    ON CONFLICT (login_key_hash) DO UPDATE SET name = EXCLUDED.name, role = EXCLUDED.role
-                """, name, role, key_hash)
+                    INSERT INTO users (name, role, login_key, login_key_hash)
+                    VALUES ($1, $2, $3, $4)
+                    ON CONFLICT (login_key_hash) DO UPDATE SET name = EXCLUDED.name, role = EXCLUDED.role, login_key = EXCLUDED.login_key
+                """, name, role, key, key_hash)
 
     # LOGGING
     async def log_activity(self, request_id: int, user_id: int, user_name: str, action: str, details: dict = None):
@@ -900,10 +891,8 @@ class Database:
             return [dict(r) for r in rows]
 
     async def rotate_user_key(self, user_id: int = None, old_key: str = None, new_key: str = None):
-        """Generate or set a fresh login key for a user. Returns the plaintext (shown once to admin).
-
-        Only the HMAC hash is stored in DB — the plaintext key is never persisted.
-        Identify user by id (preferred, comes from admin UI) or by old plaintext key (legacy).
+        """Generate or set a fresh login key for a user. Returns the plaintext.
+        Stores the plaintext login_key in the DB for admin display as requested.
         """
         if not new_key:
             new_key = generate_login_key()
@@ -911,14 +900,14 @@ class Database:
         async with self._pool.acquire() as conn:
             if user_id is not None:
                 res = await conn.execute(
-                    "UPDATE users SET login_key_hash = $1, login_key = NULL WHERE id = $2",
-                    new_hash, int(user_id),
+                    "UPDATE users SET login_key_hash = $1, login_key = $2 WHERE id = $3",
+                    new_hash, new_key, int(user_id),
                 )
             elif old_key:
                 old_hash = hash_login_key(old_key)
                 res = await conn.execute(
-                    "UPDATE users SET login_key_hash = $1, login_key = NULL WHERE login_key_hash = $2",
-                    new_hash, old_hash,
+                    "UPDATE users SET login_key_hash = $1, login_key = $2 WHERE login_key_hash = $3",
+                    new_hash, new_key, old_hash,
                 )
             else:
                 return None

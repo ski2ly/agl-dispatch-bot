@@ -211,9 +211,7 @@ class Database:
                 ADD COLUMN IF NOT EXISTS cancel_reason TEXT,
                 ADD COLUMN IF NOT EXISTS mute_reminders BOOLEAN DEFAULT FALSE,
                 ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
-            
-            -- Session history migration
-            await conn.execute("ALTER TABLE ai_sessions ADD COLUMN IF NOT EXISTS history JSONB DEFAULT '[]'")
+                ALTER TABLE ai_sessions ADD COLUMN IF NOT EXISTS history JSONB DEFAULT '[]';
             """)
             # (Moved to end of migrations)
             # MIGRATIONS

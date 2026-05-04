@@ -211,8 +211,7 @@ class Database:
                 ADD COLUMN IF NOT EXISTS mute_reminders BOOLEAN DEFAULT FALSE,
                 ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
             """)
-            await self.init_default_settings()
-            await self.init_staff()
+            # (Moved to end of migrations)
             # MIGRATIONS
             try:
                 # 1. Advanced Users Table Migration
@@ -246,6 +245,17 @@ class Database:
                 # login_key_hash column + migrate plaintext keys away
                 await conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS login_key_hash TEXT UNIQUE")
                 await conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_login_key_hash ON users(login_key_hash)")
+
+                # 2. Settings Table Migration (Ensure JSONB)
+                await conn.execute("ALTER TABLE settings ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW()")
+                # Check column type
+                val_type = await conn.fetchval("""
+                    SELECT data_type FROM information_schema.columns 
+                    WHERE table_name = 'settings' AND column_name = 'value'
+                """)
+                if val_type and val_type.lower() != 'jsonb':
+                    logger.info("Migrating settings.value to JSONB...")
+                    await conn.execute("ALTER TABLE settings ALTER COLUMN value TYPE JSONB USING value::jsonb")
                 
                 # Check for legacy 'manager' column in bids and make it nullable to prevent Internal Error
                 try:
@@ -290,6 +300,7 @@ class Database:
 
                 # CLEANUP: Remove duplicates (users with NULL login_key_hash or duplicates)
                 # We keep the one with telegram_id or the newest one.
+                # ... (existing migrations)
                 await conn.execute("""
                     DELETE FROM users 
                     WHERE id NOT IN (
@@ -298,6 +309,10 @@ class Database:
                         GROUP BY COALESCE(login_key_hash, name || role || id::text)
                     )
                 """)
+                
+                # SEED / INIT
+                await self.init_default_settings()
+                await self.init_staff()
                 logger.info("Database migrations and cleanup completed")
                 
                 # 2. Requests table columns

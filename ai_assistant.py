@@ -131,15 +131,12 @@ Today's date: {today}
             messages = [
                 {"role": "system", "content": """You are an intent classifier for a logistics company AGL.
 Classify the user's message into one of these intents:
-- "create_request" — пользователь хочет создать заявку, ДОБАВИТЬ информацию, ИЗМЕНИТЬ данные или УДАЛИТЬ ЧАСТЬ данных (например, "удали вес", "убери инфо про СТ-1").
-- "cancel_request" — пользователь хочет ПОЛНОСТЬЮ ПРЕКРАТИТЬ работу над текущей заявкой и УДАЛИТЬ ВЕСЬ ЧЕРНОВИК (например, "забудь", "отмена", "стоп"). Если пользователь просит удалить только ОДНО ПОЛЕ — это НЕ cancel_request!
-- "query_database" — user asks about stats, reports, or internal data from DB
-- "chat" — ONLY for general greetings, non-logistics talk, or tests.
-
-For create_bid, also extract: route_search (text to search for the request), amount (number), currency (default USD).
-For recall_request, extract: query (search text).
-For cancel_request, extract: confirmed (true if explicit).
-For chat, include a brief text response.
+- "create_request" — пользователь хочет создать заявку, ДОБАВИТЬ информацию, ИЗМЕНИТЬ данные, УДАЛИТЬ ЧАСТЬ данных ИЛИ задает любые вопросы по логистике. ВАЖНО: Если в сообщении есть города, грузы, веса или маршруты — это ВСЕГДА "create_request".
+- "finish_request" — пользователь говорит "все верно", "опубликуй", "готово".
+- "create_bid" — пользователь хочет предложить свою ставку (цену) на чужую заявку.
+- "recall_request" — поиск старой заявки.
+- "cancel_request" — полная отмена и удаление всего черновика.
+- "chat" — ТОЛЬКО для пустых приветствий или тем, ВООБЩЕ не связанных с логистикой.
 
 Respond in JSON: {"intent": "...", "args": {...}, "text": "..."} """},
                 {"role": "user", "content": text}

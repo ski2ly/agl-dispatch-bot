@@ -78,6 +78,8 @@ Your goal is to collect data for a transport request. YOU MUST BE SMART AND UNDE
 - Инкотермс: "EXW", "FCA", "DAP", "CIF", "FOB".
 - Стоимость: "цена 2000", "за две тысячи" — это cargo_value (обязательно добавь валюту, например "2000 USD").
 - Срочность: "горим", "ASAP", "вчера", "срочно" — ставь urgency_type = "Срочно".
+- ТРАНЗИТ: Если указано "через Турцию", "через РФ", "Т1", "Т3" — ОБЯЗАТЕЛЬНО записывай это в поле `transit_info`. Это критически важно для цены!
+- ПОЛНОТА ДАННЫХ: Любая информация, которую дает пользователь (упаковка, температурный режим, ADR, особенности склада, время работы), ОБЯЗАНА попасть в JSON. Если для данных нет специального поля — записывай их в `extra_info`. НИЧЕГО НЕ ВЫБРАСЫВАЙ.
 
 ДОСТУПНЫЕ РЕГИОНЫ: {regions_str}
 Ты ОБЯЗАН выбрать regions ТОЛЬКО из списка выше. ИСКЛЮЧЕНИЕ: если пользователь ЯВНО просит поставить значение, которого нет в списке (например, "исправь направление на Марс"), ты обязан выполнить просьбу пользователя.
@@ -99,6 +101,10 @@ Your goal is to collect data for a transport request. YOU MUST BE SMART AND UNDE
   "route_from": "...", "route_to": "...",
   "loading_address": "...", "customs_address": "...", "clearance_address": "...", "unloading_address": "...",
   "cargo_name": "...", "hs_code": "...", "cargo_value": "...", "cargo_weight": "...", "cargo_places": "...",
+  "transit_info": "...",
+  "packaging": "упаковка (коробки, паллеты и т.д.)",
+  "dangerous_cargo": "класс опасности (ADR), если есть",
+  "extra_info": "ЛЮБЫЕ ДРУГИЕ ДЕТАЛИ (температурный режим, доп. пожелания, особенности)",
   "missing_fields": ["поля, которых не хватает"],
   "next_question": "Твой ответ пользователю",
   "ready_to_publish": boolean,
@@ -112,9 +118,10 @@ Your goal is to collect data for a transport request. YOU MUST BE SMART AND UNDE
 4. Продолжай следить за черновиком в JSON, даже если просто отвечаешь на вопрос. 
 5. Будь проактивным: если видишь, что пользователь заполнил данные странно (например, вес 100 кг для 40-футового контейнера), вежливо спроси, все ли верно.
 
-Если пользователь просит "измени", "исправь", "удали", "очисти" какое-то поле — ты должен вернуть в JSON измененное значение. 
-Для удаления поля — поставь в нем значение "null" или пустую строку.
-Если пользователь просит "опубликуй", "сохрани", "выгрузи" или говорит что все верно — ставь `ready_to_publish: true` независимо от полноты данных.
+Если пользователь просит "измени", "исправь", "удали", "очисти" — ты ОБЯЗАН вернуть в JSON обновленное состояние.
+1. Если просят удалить поле целиком — поставь в нем значение "null".
+2. Если просят удалить ЧАСТЬ информации (например, "удали строчку про откат" из доп. инфо) — верни это поле с ОСТАВШЕЙСЯ информацией.
+3. Если просят опубликовать/сохранить — ставь `ready_to_publish: true`.
 Сегодняшняя дата: {today}
 """
 
@@ -188,6 +195,8 @@ Respond in JSON: {"intent": "...", "args": {...}, "text": "..."} """},
             "hs_code": "📝 ТН ВЭД", "customs_address": "🏛 Затаможка",
             "clearance_address": "🏛 Растаможка", "loading_address": "📍 Погрузка",
             "unloading_address": "📍 Выгрузка", "urgency_type": "🕒 Срочность",
+            "transit_info": "🛣 Транзит", "packaging": "📦 Упаковка",
+            "dangerous_cargo": "⚠️ Опасность", "extra_info": "📝 Доп. инфо",
         }
         for key, label in field_labels.items():
             val = draft.get(key)
@@ -242,6 +251,8 @@ Respond in JSON: {"intent": "...", "args": {...}, "text": "..."} """},
             "cargo_name": "cargo_name", "hs_code": "hs_code",
             "cargo_value": "cargo_value", "cargo_weight": "cargo_weight",
             "cargo_places": "cargo_places", "urgency_type": "urgency_type",
+            "transit_info": "transit_rf_allowed", "packaging": "packaging",
+            "dangerous_cargo": "dangerous_cargo", "extra_info": "message_text",
         }
         for draft_key, db_key in field_map.items():
             val = draft.get(draft_key)

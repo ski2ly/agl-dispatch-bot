@@ -159,23 +159,35 @@ async def sync_bid_to_discussion(bot, discussion_id, channel_id, channel_msg_id,
             except:
                 pass
 
-        log.info(f"Attempting get_discussion_message: chat={target_chat}, msg={channel_msg_id}")
-        # This call finds the forwarded message in the group
-        discussion_msg = await bot.get_discussion_message(chat_id=target_chat, message_id=int(channel_msg_id))
+        log.info(f"Attempting getDiscussionMessage via direct API call: chat={target_chat}, msg={channel_msg_id}")
         
-        # Using explicit bot.send_message with the chat_id from the message itself is the most rock-solid method
-        log.info(f"Discussion msg found: {discussion_msg.message_id}. Sending explicit reply to {discussion_msg.chat_id}")
+        # We use a direct API call because 'ExtBot' in some versions lacks 'get_discussion_message'
+        import aiohttp
+        api_url = f"https://api.telegram.org/bot{bot.token}/getDiscussionMessage"
+        async with aiohttp.ClientSession() as session:
+            async with session.get(api_url, params={"chat_id": str(target_chat), "message_id": int(channel_msg_id)}) as resp:
+                res = await resp.json()
+                if res.get("ok"):
+                    disc_data = res["result"]
+                    target_disc_id = disc_data["chat"]["id"]
+                    target_msg_id = disc_data["message_id"]
+                    
+                    log.info(f"Discussion msg found via API: {target_msg_id} in chat {target_disc_id}. Replying.")
+                    await bot.send_message(
+                        chat_id=target_disc_id,
+                        text=bid_card_text,
+                        reply_to_message_id=target_msg_id,
+                        parse_mode="HTML"
+                    )
+                    return True
+                else:
+                    log.error(f"API getDiscussionMessage failed: {res}")
+                    raise Exception(f"API error: {res.get('description')}")
         
-        await bot.send_message(
-            chat_id=discussion_msg.chat_id,
-            text=bid_card_text,
-            reply_to_message_id=discussion_msg.message_id,
-            parse_mode="HTML"
-        )
         return True
     except Exception as e:
-        log.error(f"get_discussion_message failed: {e}")
-        # Fallback to top-level message if get_discussion_message fails
+        log.error(f"Sync logic failed: {e}")
+        # Fallback to top-level message if anything fails
         if target_discussion:
             try:
                 # Ensure target_discussion is cleaned for fallback

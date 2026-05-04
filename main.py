@@ -112,7 +112,7 @@ def main():
     application.add_handler(CommandHandler("users", users_cmd))
     application.add_handler(CommandHandler("logs", logs_cmd))
     application.add_handler(CommandHandler("ai", handle_text_msg))
-    application.add_handler(CommandHandler("new", help_cmd)) # Alias for guide
+    application.add_handler(CommandHandler("new", handle_text_msg)) # Start new request via AI
     application.add_handler(CommandHandler("cancel", handle_text_msg)) # Handled in handle_text_msg logic
 
     # AI & Attachments

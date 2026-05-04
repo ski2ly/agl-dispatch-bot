@@ -40,10 +40,9 @@ def build_card(req: dict) -> str:
     elif "Мульти" in t_cat or "Мор" in t_cat: t_emoji = "🚢"
     
     reg = req.get("regions", "Другое")
-    reg_emoji = "🌍"
-    if reg == "Европа": reg_emoji = "🇪🇺"
-    elif reg == "Китай": reg_emoji = "🇨🇳"
-    elif reg == "СНГ": reg_emoji = "🗺️"
+    # Dynamic region emoji — try cached settings, fallback to hardcoded defaults
+    _DEFAULT_EMOJI = {"Европа": "🇪🇺", "Китай": "🇨🇳", "СНГ": "🗺️", "Турция": "🇹🇷", "Индия/ЮВА": "🇮🇳"}
+    reg_emoji = _DEFAULT_EMOJI.get(reg, "🌍")
 
     lines = [
         f"{t_emoji} НОВАЯ ЗАЯВКА #{req_id:04d}",
@@ -92,21 +91,25 @@ def build_card(req: dict) -> str:
     return "\n".join(lines)
 
 def build_bid_card(bid: dict) -> str:
-    """Build a unified, professional card for a bid/rate."""
+    """Build a unified, professional card for a bid/rate.
+
+    Uses plain text (no Markdown/HTML markers) so it can be sent with any
+    parse_mode or none at all. The caller can wrap in <b> if needed.
+    """
     lines = [
-        f"💰 **НОВАЯ СТАВКА**",
+        f"💰 НОВАЯ СТАВКА",
         f"📦 По заявке: #{int(bid.get('request_id', 0)):05d}",
         "",
-        f"💵 **СУММА: {bid.get('amount')} {bid.get('currency')}**",
+        f"💵 СУММА: {bid.get('amount')} {bid.get('currency')}",
         f"👤 Менеджер: {bid.get('manager_name') or '-'}",
         f"📅 Валидность: {bid.get('validity') or '-'}",
         "",
-        "ℹ️ **УСЛОВИЯ:**",
+        "ℹ️ УСЛОВИЯ:",
         f"⏳ П/В: {bid.get('loading_hours') or '24ч'}",
         f"⏳ Простой: {bid.get('demurrage') or '-'}",
         f"💳 Оплата: {bid.get('payment') or bid.get('payment_method') or bid.get('payment_terms') or '-'}",
         "",
-        "📝 **КОММЕНТАРИЙ:**",
+        "📝 КОММЕНТАРИЙ:",
         f"{bid.get('comment') or '-'}",
         "",
         "#ставка"

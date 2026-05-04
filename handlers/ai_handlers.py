@@ -203,6 +203,41 @@ async def confirm_ai_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await query.edit_message_text("❌ Черновик не найден или уже опубликован.")
             return
         
+        # ── Validate required fields before publishing ──
+        required = ["route_from", "route_to", "cargo_name", "cargo_weight", "cargo_places"]
+        missing = [f for f in required if not parsed.get(f) or str(parsed[f]).strip() in ("", "-", "None")]
+        
+        is_sng = parsed.get("regions") in ("СНГ", "CIS")
+        if not is_sng:
+            if not parsed.get("customs_address") or str(parsed.get("customs_address", "")).strip() in ("", "-", "None"):
+                missing.append("customs_address (Затаможка)")
+            if not parsed.get("clearance_address") or str(parsed.get("clearance_address", "")).strip() in ("", "-", "None"):
+                missing.append("clearance_address (Растаможка)")
+        
+        if missing:
+            preview = ai_assistant.build_preview(parsed)
+            await query.edit_message_text(
+                f"⚠️ Невозможно опубликовать — не заполнены обязательные поля:\n"
+                f"• {', '.join(missing)}\n\n"
+                f"{preview}\n\n"
+                f"Допишите недостающие данные.",
+                parse_mode="Markdown",
+                reply_markup=InlineKeyboardMarkup([
+                    [InlineKeyboardButton("📝 Дополнить данные", callback_data="more_ai")],
+                    [InlineKeyboardButton("❌ Отмена", callback_data="cancel_ai")]
+                ])
+            )
+            return
+        
+        # ── Validate region against known regions ──
+        settings = await db.get_settings()
+        known_regions = settings.get("regions", [])
+        if known_regions and isinstance(known_regions, list):
+            region_names = [r["name"] if isinstance(r, dict) else str(r) for r in known_regions]
+            if parsed.get("regions") and parsed["regions"] not in region_names:
+                # Try to map — if AI produced an unknown region, default to "Другое"
+                parsed["regions"] = "Другое"
+        
         fields = ai_assistant.to_request_fields(parsed)
         fields.update({
             "creator_id": user_id, 
@@ -218,10 +253,11 @@ async def confirm_ai_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await db.add_comment(req_id, user_id, profile.get("name"), "Заявка создана через AI", "system")
         await db.log_activity(req_id, user_id, profile.get("name"), "created_by_ai")
         
-        # Channel notification
-        if CHANNEL_ID:
+        # Channel notification — use settings channel_id first, fallback to env
+        target_channel = settings.get("channel_id") or CHANNEL_ID
+        if target_channel:
             card = build_card(req)
-            msg = await context.bot.send_message(chat_id=CHANNEL_ID, text=card)
+            msg = await context.bot.send_message(chat_id=target_channel, text=card)
             await db.update_request(req_id, {"channel_msg_id": msg.message_id})
         
         # Cleanup
@@ -240,10 +276,10 @@ async def handle_attachment(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = update.effective_message
     if not msg: return
     
-    # Check if we are in a dialogue for a new request
-    if "ai_parsed" not in context.user_data:
-        # Just acknowledge but don't do much if not in a request flow
-        # Optional: AI can try to parse the file name or OCR
+    # Check if we are in a dialogue for a new request (persistent DB draft)
+    draft = await db.get_ai_context(update.effective_user.id)
+    if not draft:
+        # Not in an active request flow — silently ignore
         return
 
     # In a real TMS we would save these to a cloud storage (S3/Telegraph/Direct link)

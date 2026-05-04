@@ -54,7 +54,8 @@ class Database:
                     dsn,
                     min_size=5,
                     max_size=20,
-                    command_timeout=60
+                    command_timeout=60,
+                    timeout=30  # Per-acquire timeout — prevents pool starvation (#31)
                 )
                 logger.info("✅ PostgreSQL connected via asyncpg")
                 await self._run_schema()
@@ -100,29 +101,50 @@ class Database:
             message_text TEXT,
             target TEXT,
             delivery_terms TEXT,
+            delivery_terms_eu TEXT,
             route_type TEXT,
             loading_address TEXT,
             customs_address TEXT,
             clearance_address TEXT,
             unloading_address TEXT,
             transit_rf TEXT,
+            transit_rf_allowed TEXT,
             border_crossing TEXT,
+            border_crossing_cn TEXT,
             urgency_type TEXT,
+            urgency_days TEXT,
+            loading_days TEXT,
+            customs_days TEXT,
             export_decl TEXT,
             origin_cert TEXT,
             container_type TEXT,
+            container_type_cn TEXT,
             road_type TEXT,
+            road_type_cn TEXT,
             container_owner TEXT,
             glonass_seal TEXT,
             seal_instructions TEXT,
             flight_type TEXT,
             stackable TEXT,
             departure_ports TEXT,
+            ports_list TEXT,
             multimodal_next TEXT,
+            packaging TEXT,
+            dangerous_cargo TEXT,
+            winner_name TEXT,
+            cancel_reason TEXT,
+            mute_reminders BOOLEAN DEFAULT FALSE,
             company TEXT DEFAULT 'AGL',
             channel_msg_id BIGINT,
             created_at TIMESTAMPTZ DEFAULT NOW(),
+            updated_at TIMESTAMPTZ DEFAULT NOW(),
             last_notified_at TIMESTAMPTZ
+        );
+
+        CREATE TABLE IF NOT EXISTS settings (
+            key TEXT PRIMARY KEY,
+            value JSONB,
+            updated_at TIMESTAMPTZ DEFAULT NOW()
         );
 
         CREATE TABLE IF NOT EXISTS bids (
@@ -170,6 +192,27 @@ class Database:
         """
         async with self._pool.acquire() as conn:
             await conn.execute(schema)
+            # Migration for existing DBs
+            await conn.execute("""
+                ALTER TABLE requests 
+                ADD COLUMN IF NOT EXISTS delivery_terms_eu TEXT,
+                ADD COLUMN IF NOT EXISTS transit_rf_allowed TEXT,
+                ADD COLUMN IF NOT EXISTS border_crossing_cn TEXT,
+                ADD COLUMN IF NOT EXISTS urgency_days TEXT,
+                ADD COLUMN IF NOT EXISTS loading_days TEXT,
+                ADD COLUMN IF NOT EXISTS customs_days TEXT,
+                ADD COLUMN IF NOT EXISTS container_type_cn TEXT,
+                ADD COLUMN IF NOT EXISTS road_type_cn TEXT,
+                ADD COLUMN IF NOT EXISTS ports_list TEXT,
+                ADD COLUMN IF NOT EXISTS packaging TEXT,
+                ADD COLUMN IF NOT EXISTS dangerous_cargo TEXT,
+                ADD COLUMN IF NOT EXISTS winner_name TEXT,
+                ADD COLUMN IF NOT EXISTS cancel_reason TEXT,
+                ADD COLUMN IF NOT EXISTS mute_reminders BOOLEAN DEFAULT FALSE,
+                ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
+            """)
+            await self.init_default_settings()
+            await self.init_staff()
             # MIGRATIONS
             try:
                 # 1. Advanced Users Table Migration
@@ -452,11 +495,24 @@ class Database:
         async with self._pool.acquire() as conn:
             await conn.execute("DELETE FROM users WHERE telegram_id = $1", telegram_id)
 
+    # ── SQL field name sanitization ──
+    _SAFE_FIELD_RE = None
+    @classmethod
+    def _safe_col(cls, name: str) -> str:
+        """Validate that a column name is safe to interpolate into SQL.
+        Only allows a-z, 0-9, underscores — no SQL injection via field names."""
+        import re
+        if cls._SAFE_FIELD_RE is None:
+            cls._SAFE_FIELD_RE = re.compile(r'^[a-z_][a-z0-9_]{0,63}$')
+        if not cls._SAFE_FIELD_RE.match(name):
+            raise ValueError(f"Unsafe SQL column name: {name!r}")
+        return name
+
     # REQUEST METHODS
     async def create_request(self, fields: dict):
-        keys = fields.keys()
-        placeholders = [f"${i+1}" for i in range(len(keys))]
-        query = f"INSERT INTO requests ({', '.join(keys)}) VALUES ({', '.join(placeholders)}) RETURNING *"
+        safe_keys = [self._safe_col(k) for k in fields.keys()]
+        placeholders = [f"${i+1}" for i in range(len(safe_keys))]
+        query = f"INSERT INTO requests ({', '.join(safe_keys)}) VALUES ({', '.join(placeholders)}) RETURNING *"
         async with self._pool.acquire() as conn:
             row = await conn.fetchrow(query, *fields.values())
             return dict(row)
@@ -465,7 +521,7 @@ class Database:
         set_parts = []
         values = []
         for i, (k, v) in enumerate(fields.items()):
-            set_parts.append(f"{k} = ${i+1}")
+            set_parts.append(f"{self._safe_col(k)} = ${i+1}")
             values.append(v)
         set_parts.append("updated_at = NOW()")
         values.append(req_id)
@@ -474,7 +530,7 @@ class Database:
             row = await conn.fetchrow(query, *values)
             return dict(row) if row else None
 
-    async def list_requests(self, limit=50, offset=0, status=None, search=None, region=None, manager=None, **kwargs):
+    async def list_requests(self, limit=50, offset=0, status=None, search=None, region=None, manager=None, transport=None, **kwargs):
         query = "SELECT * FROM requests WHERE 1=1"
         params = []
         if status:
@@ -483,6 +539,9 @@ class Database:
         if region:
             params.append(region)
             query += f" AND regions = ${len(params)}"
+        if transport:
+            params.append(f"%{transport}%")
+            query += f" AND transport_cat ILIKE ${len(params)}"
         if manager:
             params.append(manager)
             query += f" AND (responsible = ${len(params)} OR creator_name = ${len(params)})"
@@ -605,6 +664,20 @@ class Database:
                 "Тент 82м3", "Тент 86м3", "Тент 90м3", "Рефрижератор", "Юмба", "Мега", "Автовоз", "Трал",
                 "20GP", "40HQ", "40OT", "40FR", "Вагон 138т", "Вагон 150т"
             ],
+            "transport_types": ["Авто", "Контейнер", "Ж/Д Вагон", "Авиа", "Мультимодальная"],
+            "regions": [
+                {"name": "СНГ", "emoji": "🗺️"},
+                {"name": "Европа", "emoji": "🇪🇺"},
+                {"name": "Китай", "emoji": "🇨🇳"},
+                {"name": "Турция", "emoji": "🇹🇷"},
+                {"name": "Индия/ЮВА", "emoji": "🇮🇳"},
+                {"name": "Другое", "emoji": "🌐"}
+            ],
+            "currencies": ["USD", "EUR", "RUB", "CNY", "UZS", "KZT", "TRY", "GBP"],
+            "cancel_reasons": [
+                "Ставка не прошла", "Груз отменился", "Выбрали другого экспедитора",
+                "Не устроили сроки", "Техническая ошибка"
+            ],
             "ai_prompt_extra": "",
             "ai_strictness": "medium",
             "channel_id": os.getenv("CHANNEL_ID"),
@@ -618,45 +691,48 @@ class Database:
                     await self.update_setting(k, v)
 
     async def init_staff(self):
-        """Populate users table with the initial staff list (hashed keys).
+        """Seed users table with initial staff ONLY if it is empty.
 
-        These initial keys are short and were originally distributed by hand;
-        admin should rotate them via UI after first login.
+        On subsequent restarts, existing users (created via admin UI) are preserved.
+        This ensures that if the server crashes and restarts, employees don't need
+        to re-register, and keys changed via admin panel are not overwritten.
         """
-        staff = [
-            ("Александр", "admin", "agl_ach"),
-            ("Альберт", "admin", "agl_ak"),
-            ("Арсен", "manager", "agl_ag"),
-            ("Виолетта", "admin", "agl_vr"),
-            ("Диёрахон", "manager", "agl_di"),
-            ("Дмитрий", "manager", "agl_da"),
-            ("Жамшид", "admin", "agl_jt"),
-            ("Константин", "manager", "agl_kk"),
-            ("Мубина", "manager", "agl_mo"),
-            ("Нозим", "admin", "agl_nb"),
-            ("Омон", "admin", "agl_oe"),
-            ("Саидамир", "admin", "agl_su"),
-            ("Саидахмад", "manager", "agl_ss"),
-            ("Сардор", "manager", "agl_si"),
-            ("Сардорхон", "admin", "agl_sn"),
-            ("Умиджан", "manager", "agl_ua"),
-            ("Акобир", "manager", "agl_au")
-        ]
         async with self._pool.acquire() as conn:
-            # Explicitly remove Tahir if exists (look up by hash since plaintext column is gone)
-            try:
-                tahir_hash = hash_login_key("AGL_TU")
-                await conn.execute("DELETE FROM users WHERE login_key_hash = $1", tahir_hash)
-            except Exception as e:
-                logger.warning(f"Could not remove legacy Tahir user: {e}")
+            # Only seed if no non-superuser users exist
+            user_count = await conn.fetchval(
+                "SELECT count(*) FROM users WHERE role != 'superuser'"
+            )
+            if user_count and user_count > 0:
+                logger.info(f"Staff table has {user_count} users — skipping seed.")
+                return
 
+            logger.info("Empty staff table — seeding initial users...")
+            staff = [
+                ("Александр", "admin", "agl_ach"),
+                ("Альберт", "admin", "agl_ak"),
+                ("Арсен", "manager", "agl_ag"),
+                ("Виолетта", "admin", "agl_vr"),
+                ("Диёрахон", "manager", "agl_di"),
+                ("Дмитрий", "manager", "agl_da"),
+                ("Жамшид", "admin", "agl_jt"),
+                ("Константин", "manager", "agl_kk"),
+                ("Мубина", "manager", "agl_mo"),
+                ("Нозим", "admin", "agl_nb"),
+                ("Омон", "admin", "agl_oe"),
+                ("Саидамир", "admin", "agl_su"),
+                ("Саидахмад", "manager", "agl_ss"),
+                ("Сардор", "manager", "agl_si"),
+                ("Сардорхон", "admin", "agl_sn"),
+                ("Умиджан", "manager", "agl_ua"),
+                ("Акобир", "manager", "agl_au")
+            ]
             for name, role, key in staff:
                 key_hash = hash_login_key(key)
                 await conn.execute("""
-                    INSERT INTO users (name, role, login_key, login_key_hash)
-                    VALUES ($1, $2, $3, $4)
-                    ON CONFLICT (login_key) DO UPDATE SET name = EXCLUDED.name, role = EXCLUDED.role, login_key_hash = EXCLUDED.login_key_hash
-                """, name, role, key, key_hash)
+                    INSERT INTO users (name, role, login_key_hash)
+                    VALUES ($1, $2, $3)
+                    ON CONFLICT (login_key_hash) DO UPDATE SET name = EXCLUDED.name, role = EXCLUDED.role
+                """, name, role, key_hash)
 
     # LOGGING
     async def log_activity(self, request_id: int, user_id: int, user_name: str, action: str, details: dict = None):
@@ -676,83 +752,139 @@ class Database:
             """, limit)
             return [dict(r) for r in rows]
 
-    async def get_stats(self):
+    async def get_requests_for_export(self, start_date=None, end_date=None):
+        query = "SELECT * FROM requests WHERE 1=1"
+        params = []
+        if start_date:
+            params.append(start_date)
+            query += f" AND created_at >= ${len(params)}"
+        if end_date:
+            params.append(end_date)
+            query += f" AND created_at <= ${len(params)}"
+        
+        query += " ORDER BY id DESC"
         async with self._pool.acquire() as conn:
-            # 1. Manager Activity (Total requests)
-            manager_stats = await conn.fetch("""
+            rows = await conn.fetch(query, *params)
+            return [dict(r) for r in rows]
+
+    async def get_stats(self, days=30):
+        # Calculate start date based on days (if days=0, get all time)
+        date_filter = ""
+        params = []
+        if days > 0:
+            params.append(days)
+            date_filter = "AND created_at >= NOW() - INTERVAL '$1 days'"
+        
+        # Use helper to apply filter to queries
+        def apply_filter(q):
+            if "WHERE" in q.upper():
+                return q.replace("WHERE", f"WHERE {date_filter.replace('$1', '1') if params else '1=1'} AND")
+            else:
+                return q + f" WHERE {date_filter.replace('$1', '1') if params else '1=1'}"
+
+        async with self._pool.acquire() as conn:
+            # 1. Manager Activity
+            manager_stats = await conn.fetch(f"""
                 SELECT responsible as name, COUNT(*) as count 
                 FROM requests 
                 WHERE responsible IS NOT NULL AND responsible != ''
+                {"AND created_at >= NOW() - INTERVAL '" + str(days) + " days'" if days > 0 else ""}
                 GROUP BY responsible 
                 ORDER BY count DESC
             """)
             
             # 2. Regional Distribution
-            region_stats = await conn.fetch("""
+            region_stats = await conn.fetch(f"""
                 SELECT regions as name, COUNT(*) as count 
                 FROM requests 
+                WHERE 1=1 {"AND created_at >= NOW() - INTERVAL '" + str(days) + " days'" if days > 0 else ""}
                 GROUP BY regions
             """)
             
             # 3. Success Rate
-            total_closed = await conn.fetchval("SELECT COUNT(*) FROM requests WHERE status IN ('Успешно реализована', 'Отменена')")
-            successful = await conn.fetchval("SELECT COUNT(*) FROM requests WHERE status = 'Успешно реализована'")
+            date_filter = f"AND created_at >= NOW() - INTERVAL '{days} days'" if days > 0 else ""
+            total_closed = await conn.fetchval(f"""
+                SELECT COUNT(*) FROM requests 
+                WHERE status IN ('Успешно реализована', 'Отменена') {date_filter}
+            """)
+            successful = await conn.fetchval(f"""
+                SELECT COUNT(*) FROM requests 
+                WHERE status = 'Успешно реализована' {date_filter}
+            """)
             success_rate = round((successful / total_closed * 100), 1) if total_closed else 0.0
 
             # 4. Cancellation Reasons
-            cancel_reasons = await conn.fetch("""
+            cancel_reasons = await conn.fetch(f"""
                 SELECT cancel_reason as reason, COUNT(*) as count
                 FROM requests
                 WHERE status = 'Отменена' AND cancel_reason IS NOT NULL AND cancel_reason != ''
+                {"AND created_at >= NOW() - INTERVAL '" + str(days) + " days'" if days > 0 else ""}
                 GROUP BY cancel_reason
                 ORDER BY count DESC
-                LIMIT 10
+                LIMIT 5
             """)
 
-            # 5. Response Speed (Average minutes to first bid)
-            avg_response_time = await conn.fetchval("""
-                SELECT AVG(EXTRACT(EPOCH FROM (first_bid.created_at - r.created_at))) / 60
-                FROM requests r
-                JOIN (
-                    SELECT request_id, MIN(created_at) as created_at
-                    FROM bids
-                    GROUP BY request_id
-                ) first_bid ON r.id = first_bid.request_id
-                WHERE first_bid.created_at > r.created_at
-            """)
-
-            # 6. Route Profitability (Bids per Request by Region)
-            route_profitability = await conn.fetch("""
-                SELECT 
-                    r.regions as name, 
-                    COUNT(DISTINCT r.id) as requests_count,
-                    COUNT(b.id) as bids_count
-                FROM requests r
-                LEFT JOIN bids b ON r.id = b.request_id
-                GROUP BY r.regions
-                ORDER BY requests_count DESC
-            """)
-
-            # 7. Average closing time (from 'Открыта' to 'Успешно реализована')
-            avg_time = await conn.fetchval("""
+            # 5. Average closing time (hours)
+            avg_time = await conn.fetchval(f"""
                 SELECT AVG(EXTRACT(EPOCH FROM (updated_at - created_at))) / 3600
                 FROM requests 
                 WHERE status = 'Успешно реализована' AND updated_at IS NOT NULL
+                {"AND created_at >= NOW() - INTERVAL '" + str(days) + " days'" if days > 0 else ""}
             """)
-            
+
+            # 6. Average time to first bid (minutes)
+            avg_response = await conn.fetchval(f"""
+                SELECT AVG(EXTRACT(EPOCH FROM (b.min_bid_time - r.created_at))) / 60
+                FROM requests r
+                JOIN (
+                    SELECT request_id, MIN(created_at) as min_bid_time
+                    FROM bids GROUP BY request_id
+                ) b ON r.id = b.request_id
+                WHERE r.created_at IS NOT NULL
+                {"AND r.created_at >= NOW() - INTERVAL '" + str(days) + " days'" if days > 0 else ""}
+            """)
+
             return {
                 "managers": [dict(r) for r in manager_stats],
                 "regions": [dict(r) for r in region_stats],
                 "success_rate": success_rate,
                 "cancel_reasons": [dict(r) for r in cancel_reasons],
-                "route_profitability": [dict(r) for r in route_profitability],
-                "avg_response_minutes": round(float(avg_response_time or 0), 1),
-                "avg_closing_hours": round(float(avg_time or 0), 1)
+                "avg_closing_hours": round(float(avg_time or 0), 1),
+                "avg_response_minutes": round(float(avg_response or 0), 1)
             }
 
-    async def rotate_user_key(self, user_id: int = None, old_key: str = None, new_key: str = None):
-        """Generate or set a fresh login key for a user. Returns the plaintext and updates the hash.
+    async def log_activity(self, request_id, user_id, user_name, action, details=None):
+        async with self._pool.acquire() as conn:
+            await conn.execute("""
+                INSERT INTO activity_log (request_id, user_id, user_name, action, details)
+                VALUES ($1, $2, $3, $4, $5)
+            """, request_id, user_id, user_name, action, json.dumps(details) if details else None)
 
+    async def get_recent_logs(self, limit=15):
+        async with self._pool.acquire() as conn:
+            rows = await conn.fetch("""
+                SELECT l.*, r.cargo_name 
+                FROM activity_log l
+                LEFT JOIN requests r ON l.request_id = r.id
+                ORDER BY l.created_at DESC LIMIT $1
+            """, limit)
+            return [dict(r) for r in rows]
+
+    async def get_user_bids(self, user_id):
+        async with self._pool.acquire() as conn:
+            rows = await conn.fetch("""
+                SELECT b.*, r.route_from, r.route_to, r.status as request_status
+                FROM bids b
+                JOIN requests r ON b.request_id = r.id
+                WHERE b.user_id = $1
+                ORDER BY b.created_at DESC
+            """, user_id)
+            return [dict(r) for r in rows]
+
+    async def rotate_user_key(self, user_id: int = None, old_key: str = None, new_key: str = None):
+        """Generate or set a fresh login key for a user. Returns the plaintext (shown once to admin).
+
+        Only the HMAC hash is stored in DB — the plaintext key is never persisted.
         Identify user by id (preferred, comes from admin UI) or by old plaintext key (legacy).
         """
         if not new_key:
@@ -761,14 +893,14 @@ class Database:
         async with self._pool.acquire() as conn:
             if user_id is not None:
                 res = await conn.execute(
-                    "UPDATE users SET login_key_hash = $1, login_key = $2 WHERE id = $3",
-                    new_hash, new_key, int(user_id),
+                    "UPDATE users SET login_key_hash = $1, login_key = NULL WHERE id = $2",
+                    new_hash, int(user_id),
                 )
             elif old_key:
                 old_hash = hash_login_key(old_key)
                 res = await conn.execute(
-                    "UPDATE users SET login_key_hash = $1, login_key = $2 WHERE login_key_hash = $3",
-                    new_hash, new_key, old_hash,
+                    "UPDATE users SET login_key_hash = $1, login_key = NULL WHERE login_key_hash = $2",
+                    new_hash, old_hash,
                 )
             else:
                 return None

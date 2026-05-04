@@ -271,8 +271,9 @@ async def api_requests(request):
     region = request.query.get("region")
     manager = request.query.get("manager")
     search = request.query.get("search")
+    transport = request.query.get("transport")
     
-    reqs = await db.list_requests(status=status, region=region, manager=manager, search=search)
+    reqs = await db.list_requests(status=status, region=region, manager=manager, search=search, transport=transport)
     return safe_json_response({"requests": reqs})
 
 async def api_request_details(request):
@@ -515,7 +516,7 @@ ALLOWED_REQUEST_FIELDS = {
     "multimodal_next", "company", "delivery_terms_eu", "transit_rf_allowed",
     "road_type_cn", "border_crossing_cn", "container_type_cn", "loading_days",
     "customs_days", "urgency_days", "ports_list", "dangerous_cargo", "packaging",
-    "cancel_reason", "channel_msg_id", "mute_reminders", "last_notified_at",
+    "cancel_reason", "channel_msg_id", "mute_reminders", "last_notified_at", "winner_name",
 }
 ALLOWED_STATUSES = {"Открыта", "В работе", "Успешно реализована", "Отменена"}
 
@@ -682,22 +683,20 @@ async def api_bid(request):
             msg_id = req.get("channel_msg_id")
             logger.info(f"Sending to discussion {discussion_id}, reply_to={msg_id}")
             try:
-                # We use HTML for better formatting and safety
-                html_card = bid_card.replace("**", "<b>").replace("**", "</b>") # Basic conversion
+                # bid_card is plain text — send without parse_mode for reliability
                 if msg_id:
                     try:
                         await bot.send_message(
                             chat_id=discussion_id, 
-                            text=html_card, 
-                            parse_mode="HTML",
+                            text=bid_card, 
                             reply_to_message_id=int(msg_id)
                         )
                         logger.info("Sent bid as reply to discussion")
                     except Exception as re:
                         logger.warning(f"Reply failed: {re}. Sending as top-level.")
-                        await bot.send_message(chat_id=discussion_id, text=html_card, parse_mode="HTML")
+                        await bot.send_message(chat_id=discussion_id, text=bid_card)
                 else:
-                    await bot.send_message(chat_id=discussion_id, text=html_card, parse_mode="HTML")
+                    await bot.send_message(chat_id=discussion_id, text=bid_card)
             except Exception as e:
                 logger.error(f"Failed to send bid to discussion: {e}")
 
@@ -784,7 +783,12 @@ async def api_stats(request):
     if err or profile["role"] not in ["admin", "superuser"]:
         return safe_json_response({"error": "Forbidden"})
     
-    stats = await db.get_stats()
+    try:
+        days = int(request.query.get("days", 30))
+    except (TypeError, ValueError):
+        days = 30
+    
+    stats = await db.get_stats(days=days)
     return safe_json_response({"ok": True, "stats": stats})
 
 async def api_logs(request):
@@ -882,7 +886,7 @@ async def api_ping_logistics(request: web.Request):
         logger.error(f"Ping API error: {e}")
         return web.json_response({"error": "Internal error"}, status=500)
 
-DICTIONARY_KEYS = {"incoterms", "ports", "border_crossings", "transport_subtypes"}
+DICTIONARY_KEYS = {"incoterms", "ports", "border_crossings", "transport_subtypes", "transport_types", "regions", "currencies", "cancel_reasons"}
 SETTABLE_KEYS = DICTIONARY_KEYS | {
     "ai_prompt_extra", "ai_strictness", "channel_id", "discussion_id", "reminder_interval"
 }

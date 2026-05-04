@@ -136,14 +136,14 @@ async def list_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("📭 Заявок пока нет.")
         return
     
-    text = "📜 **Последние 10 заявок:**\n\n"
+    text = "📜 *Последние 10 заявок:*\n\n"
     keyboard = []
     for r in reqs:
         id_str = f"#{r['id']:04d}"
         text += f"{id_str} | {r['route_from']} ➔ {r['route_to']} | {r['status']}\n"
         keyboard.append([InlineKeyboardButton(f"Просмотр {id_str}", callback_data=f"view_{r['id']}")])
     
-    await update.message.reply_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="HTML")
+    await update.message.reply_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
 
 @requires_auth
 async def stats_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -152,17 +152,18 @@ async def stats_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("⛔️ У вас нет прав для просмотра статистики.")
         return
     
-    # Simple stats placeholder
-    reqs = await db.list_requests(limit=1000)
-    open_cnt = len([r for r in reqs if r["status"] == "Открыта"])
-    done_cnt = len([r for r in reqs if r["status"] == "Успешно реализована"])
+    stats = await db.get_stats()
+    managers_text = "\n".join(f"  • {m['name']}: {m['count']}" for m in stats.get('managers', [])[:10]) or "  нет данных"
+    regions_text = "\n".join(f"  • {r['name']}: {r['count']}" for r in stats.get('regions', [])[:10]) or "  нет данных"
     
     await update.message.reply_text(
-        f"📊 **Статистика за всё время:**\n\n"
-        f"🔹 Всего заявок: {len(reqs)}\n"
-        f"🟢 Открытых: {open_cnt}\n"
-        f"✅ Завершенных: {done_cnt}\n",
-        parse_mode="HTML"
+        f"📊 *Статистика за всё время:*\n\n"
+        f"✅ Конверсия: {stats.get('success_rate', 0)}%\n"
+        f"⏱ Среднее время закрытия: {stats.get('avg_closing_hours', 0)} ч\n"
+        f"⚡ Среднее время первой ставки: {stats.get('avg_response_minutes', 0)} мин\n\n"
+        f"👥 *Менеджеры:*\n{managers_text}\n\n"
+        f"🌍 *Регионы:*\n{regions_text}",
+        parse_mode="Markdown"
     )
 
 @requires_auth
@@ -204,4 +205,4 @@ async def view_request_handler(update: Update, context: ContextTypes.DEFAULT_TYP
         [InlineKeyboardButton("💰 Подать ставку / Изменить", web_app=WebAppInfo(url=f"{WEBAPP_URL}?req_id={req_id}"))],
         [InlineKeyboardButton("💬 Комментарии", callback_data=f"comments_{req_id}")]
     ]
-    await query.edit_message_text(f"🔍 **Заявка {req_id:04d}**\n\n{card}", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="HTML")
+    await query.edit_message_text(f"🔍 Заявка {req_id:04d}\n\n{card}", reply_markup=InlineKeyboardMarkup(keyboard))

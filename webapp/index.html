@@ -57,11 +57,8 @@
         <main id="view-form" class="view-tab px-6 pt-4">
             <div id="step-1" class="step-container active space-y-8 animate-fade">
                 <h1 class="text-3xl font-extrabold">Направление</h1>
-                <div class="grid grid-cols-2 gap-4">
-                    <div onclick="selectDirection('СНГ')" class="glass-card p-6 flex flex-col items-center space-y-3 cursor-pointer" id="dir-cis"><span class="text-3xl">🗺️</span><span class="font-bold text-xs uppercase tracking-widest">СНГ</span></div>
-                    <div onclick="selectDirection('Европа')" class="glass-card p-6 flex flex-col items-center space-y-3 cursor-pointer" id="dir-eu"><span class="text-3xl">🇪🇺</span><span class="font-bold text-xs uppercase tracking-widest">Европа</span></div>
-                    <div onclick="selectDirection('Китай')" class="glass-card p-6 flex flex-col items-center space-y-3 cursor-pointer" id="dir-cn"><span class="text-3xl">🇨🇳</span><span class="font-bold text-xs uppercase tracking-widest">Китай</span></div>
-                    <div onclick="selectDirection('Другое')" class="glass-card p-6 flex flex-col items-center space-y-3 cursor-pointer" id="dir-other"><span class="text-3xl">🌐</span><span class="font-bold text-xs uppercase tracking-widest">Другое</span></div>
+                <div id="region-buttons-grid" class="grid grid-cols-2 gap-4">
+                    <!-- Dynamic: populated by buildRegionButtons() -->
                 </div>
             </div>
 
@@ -234,7 +231,11 @@
                     <button onclick="openDictEditor('incoterms')" class="w-full p-5 glass-card flex justify-between items-center font-bold text-xs uppercase">Инкотермс <span>➔</span></button>
                     <button onclick="openDictEditor('ports')" class="w-full p-5 glass-card flex justify-between items-center font-bold text-xs uppercase">Порты <span>➔</span></button>
                     <button onclick="openDictEditor('border_crossings')" class="w-full p-5 glass-card flex justify-between items-center font-bold text-xs uppercase">Погранпереходы <span>➔</span></button>
-                    <button onclick="openDictEditor('transport_subtypes')" class="w-full p-5 glass-card flex justify-between items-center font-bold text-xs uppercase">Типы транспорта <span>➔</span></button>
+                    <button onclick="openDictEditor('transport_subtypes')" class="w-full p-5 glass-card flex justify-between items-center font-bold text-xs uppercase">Подтипы транспорта <span>➔</span></button>
+                    <button onclick="openDictEditor('transport_types')" class="w-full p-5 glass-card flex justify-between items-center font-bold text-xs uppercase">🚛 Типы перевозки <span>➔</span></button>
+                    <button onclick="openDictEditor('regions')" class="w-full p-5 glass-card flex justify-between items-center font-bold text-xs uppercase">🌍 Регионы <span>➔</span></button>
+                    <button onclick="openDictEditor('currencies')" class="w-full p-5 glass-card flex justify-between items-center font-bold text-xs uppercase">💰 Валюты <span>➔</span></button>
+                    <button onclick="openDictEditor('cancel_reasons')" class="w-full p-5 glass-card flex justify-between items-center font-bold text-xs uppercase">❌ Причины отмены <span>➔</span></button>
                 </div>
                 <div id="dict-editor-view" class="hidden space-y-4">
                     <button onclick="closeDictEditor()" class="text-[10px] font-bold uppercase text-[var(--corp-emerald)]">← Назад</button>
@@ -244,7 +245,12 @@
                 </div>
             </div>
             <!-- STATS (Excel Export) -->
-            <div id="admin-stats" class="admin-tab p-6 space-y-8">
+            <div id="admin-stats" class="admin-tab p-6 space-y-6">
+                <div class="flex p-1 bg-[var(--secondary-bg)] rounded-2xl mb-2">
+                    <button onclick="changeStatsRange(7)" id="sf-7" class="flex-1 py-2 text-[8px] font-extrabold rounded-xl opacity-40">НЕДЕЛЯ</button>
+                    <button onclick="changeStatsRange(30)" id="sf-30" class="flex-1 py-2 text-[8px] font-extrabold rounded-xl bg-[var(--corp-cream)] text-[var(--corp-deep)]">МЕСЯЦ</button>
+                    <button onclick="changeStatsRange(0)" id="sf-0" class="flex-1 py-2 text-[8px] font-extrabold rounded-xl opacity-40">ВСЁ ВРЕМЯ</button>
+                </div>
                 <button onclick="exportXLSX()" class="w-full py-4 bg-[var(--corp-emerald)] text-white rounded-xl text-[10px] font-extrabold uppercase">Выгрузить EXCEL 📊</button>
                 <div class="glass-card p-6 text-center"><div class="text-[10px] font-bold opacity-40 uppercase">Среднее время закрытия</div><div class="text-4xl font-extrabold text-[var(--corp-emerald)]" id="stat-avg-time">0 ч</div></div>
                 <canvas id="managerChart"></canvas>
@@ -252,9 +258,33 @@
             </div>
             <!-- SETTINGS -->
             <div id="admin-settings" class="admin-tab p-6 space-y-6">
-                <textarea id="set-ai-prompt" class="w-full p-4 tg-input text-xs" rows="5" placeholder="AI Prompt"></textarea>
-                <input type="text" id="set-channel-id" placeholder="Channel ID" class="w-full p-4 tg-input text-xs">
-                <button onclick="saveSettings()" class="w-full py-4 btn-primary text-xs uppercase">Сохранить</button>
+                <div class="space-y-2">
+                    <label class="block text-[10px] font-bold uppercase opacity-40">AI Дополнительный промпт</label>
+                    <textarea id="set-ai-prompt" class="w-full p-4 tg-input text-xs" rows="4" placeholder="Дополнительные инструкции для AI ассистента..."></textarea>
+                </div>
+                <div class="space-y-2">
+                    <label class="block text-[10px] font-bold uppercase opacity-40">AI Строгость</label>
+                    <select id="set-ai-strictness" class="w-full p-4 tg-input text-xs font-bold">
+                        <option value="low">Мягкая — AI принимает неполные данные</option>
+                        <option value="medium">Средняя — AI уточняет пропуски</option>
+                        <option value="high">Строгая — AI требует ВСЕ поля</option>
+                    </select>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="space-y-2">
+                        <label class="block text-[10px] font-bold uppercase opacity-40">Channel ID</label>
+                        <input type="text" id="set-channel-id" placeholder="Channel ID" class="w-full p-4 tg-input text-xs">
+                    </div>
+                    <div class="space-y-2">
+                        <label class="block text-[10px] font-bold uppercase opacity-40">Discussion ID</label>
+                        <input type="text" id="set-discussion-id" placeholder="Discussion Group ID" class="w-full p-4 tg-input text-xs">
+                    </div>
+                </div>
+                <div class="space-y-2">
+                    <label class="block text-[10px] font-bold uppercase opacity-40">Интервал напоминаний (мин)</label>
+                    <input type="number" id="set-reminder-interval" placeholder="120" class="w-full p-4 tg-input text-xs">
+                </div>
+                <button onclick="saveSettings()" class="w-full py-4 btn-primary text-xs uppercase">Сохранить настройки</button>
             </div>
         </main>
 
@@ -331,6 +361,17 @@
         }
         function clear(node) { while (node.firstChild) node.removeChild(node.firstChild); }
         function fmtId(id) { return '#' + String(id || 0).padStart(4, '0'); }
+        function format_datetime(v) {
+            if (!v) return '';
+            try {
+                const d = new Date(v);
+                if (isNaN(d)) return String(v).substring(0,16);
+                return d.toLocaleDateString('ru-RU',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+            } catch(e) { return ''; }
+        }
+        let cachedRegions = null;
+        let cachedCurrencies = null;
+        let cachedCancelReasons = null;
 
         function checkProfile() {
             fetch(`/api/profile?initData=${encodeURIComponent(tg.initData)}`).then(r => r.json()).then(data => {
@@ -338,9 +379,52 @@
                     document.getElementById('login-screen').classList.add('hidden'); document.getElementById('app-content').classList.remove('hidden');
                     document.getElementById('user-name-display').textContent = data.profile.name; document.getElementById('responsible').value = data.profile.name;
                     if (['admin', 'superuser'].includes(data.profile.role)) document.getElementById('tab-users').classList.remove('hidden');
+                    // Load settings (regions, currencies, cancel_reasons)
+                    fetch(`/api/settings?initData=${encodeURIComponent(tg.initData)}`).then(r=>r.json()).then(res=>{
+                        const s = res.settings || {};
+                        cachedRegions = s.regions || [{name:'СНГ',emoji:'🗺️'},{name:'Европа',emoji:'🇪🇺'},{name:'Китай',emoji:'🇨🇳'},{name:'Другое',emoji:'🌐'}];
+                        cachedCurrencies = s.currencies || ['USD','EUR','RUB','CNY','UZS','KZT'];
+                        cachedCancelReasons = s.cancel_reasons || ['Ставка не прошла','Груз отменился','Выбрали другого экспедитора','Не устроили сроки'];
+                        buildRegionButtons();
+                        buildRegionFilters();
+                        buildCurrencyOptions();
+                    });
                     loadRequests();
                 } else document.getElementById('login-screen').classList.remove('hidden');
             });
+        }
+        function buildRegionButtons(){
+            const c = document.getElementById('region-buttons-grid');
+            if(!c || !cachedRegions) return;
+            clear(c);
+            cachedRegions.forEach(r => {
+                const name = typeof r === 'object' ? r.name : r;
+                const emoji = typeof r === 'object' ? (r.emoji||'🌍') : '🌍';
+                const btn = el('div',{class:'glass-card p-6 flex flex-col items-center space-y-3 cursor-pointer', onclick:()=>selectDirection(name)},
+                    el('span',{class:'text-3xl',text:emoji}),
+                    el('span',{class:'font-bold text-xs uppercase tracking-widest',text:name})
+                );
+                c.appendChild(btn);
+            });
+        }
+        function buildRegionFilters(){
+            if(!cachedRegions) return;
+            ['filter-region','tf-region'].forEach(id=>{
+                const sel = document.getElementById(id); if(!sel) return;
+                const val = sel.value;
+                while(sel.options.length>1) sel.remove(1);
+                cachedRegions.forEach(r=>{
+                    const name = typeof r === 'object' ? r.name : r;
+                    sel.appendChild(el('option',{value:name,text:name}));
+                });
+                sel.value = val;
+            });
+        }
+        function buildCurrencyOptions(){
+            if(!cachedCurrencies) return;
+            const sel = document.getElementById('bid-currency'); if(!sel) return;
+            clear(sel);
+            cachedCurrencies.forEach(c=>sel.appendChild(el('option',{value:c,text:c})));
         }
 
         function attemptLogin() {
@@ -479,17 +563,47 @@
                 );
                 list.appendChild(el('div',
                     { class: 'flex justify-between items-center p-4 bg-[var(--secondary-bg)] rounded-xl border border-[var(--corp-lime)]/10' },
-                    el('span', { class: 'text-xs font-bold', text: String(item) }),
+                    el('span', { class: 'text-xs font-bold', text: typeof item === 'object' ? (item.emoji||'') + ' ' + item.name : String(item) }),
                     controls
                 ));
             });
         }
         function moveDict(idx, dir) { let n = idx + dir; if(n<0||n>=currentDictItems.length) return; [currentDictItems[idx],currentDictItems[n]]=[currentDictItems[n],currentDictItems[idx]]; renderDictItems(); }
         function delDict(idx) { currentDictItems.splice(idx,1); renderDictItems(); }
-        function addDictItem() { const inp = document.getElementById('new-dict-item'); const v = inp.value.trim(); if(!v) return; currentDictItems.push(v); inp.value=''; renderDictItems(); }
-        function saveDictChanges() { fetch('/api/settings/update', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ initData: tg.initData, key: currentDictName, value: currentDictItems }) }).then(() => { tg.showAlert("Сохранено ✅"); loadDictionaries(); }); }
+        function addDictItem() {
+            const inp = document.getElementById('new-dict-item'); const v = inp.value.trim(); if(!v) return;
+            // Deduplication check
+            const exists = currentDictItems.some(item => {
+                const itemName = typeof item === 'object' ? item.name : String(item);
+                return itemName.toLowerCase() === v.toLowerCase();
+            });
+            if(exists){ tg.showAlert('⚠️ Элемент уже существует: ' + v); return; }
+            if(currentDictName === 'regions') { currentDictItems.push({name: v, emoji: '🌍'}); }
+            else { currentDictItems.push(v); }
+            inp.value=''; renderDictItems();
+        }
+        function saveDictChanges() {
+            fetch('/api/settings/update', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ initData: tg.initData, key: currentDictName, value: currentDictItems }) })
+            .then(() => {
+                tg.showAlert("Сохранено ✅");
+                if(currentDictName === 'regions') { cachedRegions = currentDictItems; buildRegionButtons(); buildRegionFilters(); }
+                if(currentDictName === 'currencies') { cachedCurrencies = currentDictItems; buildCurrencyOptions(); }
+                if(currentDictName === 'cancel_reasons') { cachedCancelReasons = currentDictItems; }
+                loadDictionaries();
+            });
+        }
 
-        function selectDirection(dir) { selectedDirection = dir; document.querySelectorAll('#step-1 .glass-card').forEach(c => c.classList.remove('choice-active')); const idMap = { 'СНГ': 'dir-cis', 'Европа': 'dir-eu', 'Китай': 'dir-cn', 'Другое': 'dir-other' }; if(idMap[dir]) document.getElementById(idMap[dir]).classList.add('choice-active'); currentStep = 2; document.getElementById('step-1').classList.remove('active'); document.getElementById('step-2').classList.add('active'); }
+        function selectDirection(dir) {
+            selectedDirection = dir;
+            document.querySelectorAll('#region-buttons-grid .glass-card').forEach(c => {
+                c.classList.remove('choice-active');
+                const label = c.querySelector('span:last-child');
+                if(label && label.textContent === dir) c.classList.add('choice-active');
+            });
+            currentStep = 2;
+            document.getElementById('step-1').classList.remove('active');
+            document.getElementById('step-2').classList.add('active');
+        }
         function selectMethod(met) { selectedMethod = met; document.querySelectorAll('#step-2 button').forEach(b => b.classList.remove('choice-active')); const idMap = { 'Авто': 'met-road', 'Контейнер': 'met-cont', 'Ж/Д Вагон': 'met-rail', 'Авиа': 'met-air', 'Мультимодальная': 'met-multi' }; if(idMap[met]) document.getElementById(idMap[met]).classList.add('choice-active'); currentStep = 3; document.getElementById('step-2').classList.remove('active'); document.getElementById('step-3').classList.add('active'); document.getElementById('summary-badge').textContent = `${selectedDirection} | ${selectedMethod}`; setupFields(); updateMainButton(); }
         function goToStep1() { currentStep = 1; document.getElementById('step-2').classList.remove('active'); document.getElementById('step-1').classList.add('active'); }
         function goToStep2() { 
@@ -502,19 +616,20 @@
             container.innerHTML = '';
             let html = '';
 
-            // Region Specific
+            // 1. Region & Transport Specific Logic
             if(selectedDirection === 'Европа') {
-                html += `<div class="space-y-4"><label class="block text-[10px] font-bold uppercase opacity-40">Европа: Специфика</label>`;
-                html += `<select id="delivery_terms_eu" class="w-full p-4 tg-input text-sm font-bold"></select>`;
+                html += `<div class="space-y-4 pt-4 border-t border-[var(--corp-lime)]/10"><label class="block text-[10px] font-bold uppercase opacity-40">Европа: Специфика</label>`;
+                html += `<select id="delivery_terms_eu" class="w-full p-4 tg-input text-sm font-bold"><option value="">Инкотермс...</option></select>`;
                 if (selectedMethod === 'Авто') {
                     html += `<select id="route_type" class="w-full p-4 tg-input text-sm"><option value="через РФ + КЗ">Маршрут: через РФ + КЗ</option><option value="через Турцию">Маршрут: через Турцию (Т3)</option></select>`;
+                    html += `<select id="transit_rf_allowed" class="w-full p-4 tg-input text-sm"><option value="Разрешен">Транзит по РФ: Разрешен</option><option value="Запрещен">Транзит по РФ: Запрещен</option></select>`;
                 } else if (selectedMethod === 'Ж/Д Вагон' || selectedMethod === 'Контейнер') {
                     html += `<select id="route_type" class="w-full p-4 tg-input text-sm"><option value="через РФ + КЗ">Маршрут: через РФ + КЗ</option><option value="через Турцию–Иран">Маршрут: через Турцию–Иран</option><option value="ТРАСЕКА (Поти)">Маршрут: ТРАСЕКА (Поти)</option></select>`;
                 }
                 html += `</div>`;
             } else if(selectedDirection === 'Китай') {
-                html += `<div class="space-y-4"><label class="block text-[10px] font-bold uppercase opacity-40">Китай: Специфика</label>`;
-                html += `<div class="grid grid-cols-2 gap-4"><select id="export_decl" class="w-full p-4 tg-input text-xs"><option value="Не нужна">Экспортная: Нет</option><option value="Нужна">Экспортная: Да</option></select><select id="origin_cert" class="w-full p-4 tg-input text-xs"><option value="Не нужен">Серт: Нет</option><option value="Нужен">Серт: Да</option></select></div>`;
+                html += `<div class="space-y-4 pt-4 border-t border-[var(--corp-lime)]/10"><label class="block text-[10px] font-bold uppercase opacity-40">Китай: Специфика</label>`;
+                html += `<div class="grid grid-cols-2 gap-4"><select id="export_decl" class="w-full p-4 tg-input text-xs"><option value="Не нужна">Экспортная: Нет</option><option value="Нужна">Экспортная: Да</option></select><select id="origin_cert" class="w-full p-4 tg-input text-xs"><option value="Не нужен">Серт CO: Нет</option><option value="Нужен">Серт CO: Да</option></select></div>`;
                 if (selectedMethod === 'Авто') {
                     html += `<select id="border_crossing_cn" class="w-full p-4 tg-input text-sm font-bold"><option value="КЗ (Хоргос)">Погранпереход: КЗ (Хоргос)</option><option value="Кашгар (Иркештам)">Погранпереход: Кашгар (Иркештам)</option></select>`;
                     html += `<select id="road_type_cn" class="w-full p-4 tg-input text-sm"><option value="Целая фура">Тип: Целая фура</option><option value="Сборная">Тип: Сборная (LTL)</option></select>`;
@@ -523,35 +638,48 @@
                 }
                 html += `</div>`;
             } else if(selectedDirection === 'СНГ') {
-                html += `<div class="space-y-4"><label class="block text-[10px] font-bold uppercase opacity-40">СНГ: Специфика</label>`;
+                html += `<div class="space-y-4 pt-4 border-t border-[var(--corp-lime)]/10"><label class="block text-[10px] font-bold uppercase opacity-40">СНГ: Специфика</label>`;
                 if (selectedMethod === 'Авто') {
                     html += `<select id="route_type" class="w-full p-4 tg-input text-sm"><option value="Прямой">Маршрут: Прямой</option><option value="Глонас-пломба">Маршрут: Глонас-пломба</option></select>`;
                 }
                 html += `<div class="grid grid-cols-2 gap-4"><input type="number" id="loading_days" placeholder="Дней на погр." class="w-full p-4 tg-input text-xs"><input type="number" id="customs_days" placeholder="Дней на затам." class="w-full p-4 tg-input text-xs"></div></div>`;
             } else if(selectedDirection === 'Турция') {
-                html += `<div class="space-y-4"><label class="block text-[10px] font-bold uppercase opacity-40">Турция: Специфика</label>`;
+                html += `<div class="space-y-4 pt-4 border-t border-[var(--corp-lime)]/10"><label class="block text-[10px] font-bold uppercase opacity-40">Турция: Специфика</label>`;
                 if (selectedMethod === 'Авто') {
                     html += `<select id="route_type" class="w-full p-4 tg-input text-sm"><option value="Прямой">Маршрут: Прямой</option><option value="через Иран">Маршрут: через Иран</option><option value="через Грузию">Маршрут: через Грузию</option></select>`;
                 } else if (selectedMethod === 'Ж/Д Вагон' || selectedMethod === 'Контейнер') {
                     html += `<select id="route_type" class="w-full p-4 tg-input text-sm"><option value="BTK → Иран">Маршрут: BTK → Иран</option></select>`;
                 }
                 html += `</div>`;
+            } else {
+                // Generic handler for new regions (USA, Australia, etc.)
+                html += `<div class="space-y-4 pt-4 border-t border-[var(--corp-lime)]/10"><label class="block text-[10px] font-bold uppercase opacity-40">${selectedDirection}: Детали</label>`;
+                html += `<select id="delivery_terms" class="w-full p-4 tg-input text-sm font-bold"><option value="">Инкотермс...</option></select>`;
+                html += `<input type="text" id="target" placeholder="Целевая ставка ($)" class="w-full p-4 tg-input text-sm">`;
+                html += `</div>`;
             }
 
-            // Transport Specific
+            // 2. Method Specific Logic (Independent of Region)
             if(selectedMethod === 'Авиа') {
                 html += `<div class="space-y-4 pt-4 border-t border-[var(--corp-lime)]/10"><label class="block text-[10px] font-bold uppercase opacity-40">Авиа: Детали</label>`;
                 html += `<div class="grid grid-cols-2 gap-4"><select id="flight_type" class="w-full p-4 tg-input text-xs"><option value="Прямой">Рейс: Прямой</option><option value="Транзитный">Рейс: Транзит</option></select><select id="stackable" class="w-full p-4 tg-input text-xs"><option value="Штабелируемый">Штаб: Да</option><option value="НЕ штабелируемый">Штаб: Нет</option></select></div></div>`;
-            } else if(selectedMethod === 'Мультимодальная' || selectedMethod === 'Море') {
-                html += `<div class="space-y-4 pt-4 border-t border-[var(--corp-lime)]/10"><label class="block text-[10px] font-bold uppercase opacity-40">Мультимодал / Море</label>`;
-                if (selectedDirection === 'Европа') {
-                    html += `<select id="ports_list" class="w-full p-4 tg-input text-sm"><option value="Поти → авто/ж/д">Порт: Поти → авто/ж/д</option><option value="Констанца → ...">Порт: Констанца → ...</option></select>`;
-                } else if (selectedDirection === 'Индия/ЮВА') {
-                    html += `<select id="ports_list" class="w-full p-4 tg-input text-sm"><option value="Поти (Грузия)">Порт: Поти (Грузия)</option><option value="Иран (Бандар-Аббас)">Порт: Иран (Бандар-Аббас)</option><option value="Пакистан (Карачи)">Порт: Пакистан (Карачи)</option><option value="Владивосток">Порт: Владивосток</option></select>`;
-                } else {
-                    html += `<select id="ports_list" class="w-full p-4 tg-input text-sm font-bold"><option value="">Выберите порт...</option></select>`;
-                }
-                html += `</div>`;
+            } else if(selectedMethod === 'Мультимодальная' || selectedMethod === 'Море' || selectedMethod === 'Контейнер') {
+                 if (selectedMethod !== 'Контейнер') { // Multi/Sea specific
+                    html += `<div class="space-y-4 pt-4 border-t border-[var(--corp-lime)]/10"><label class="block text-[10px] font-bold uppercase opacity-40">Порты и Перевалка</label>`;
+                    if (selectedDirection === 'Европа') {
+                        html += `<select id="ports_list" class="w-full p-4 tg-input text-sm"><option value="Поти → авто/ж/д">Порт: Поти → авто/ж/д</option><option value="Констанца → ...">Порт: Констанца → ...</option></select>`;
+                    } else if (selectedDirection === 'Индия/ЮВА') {
+                        html += `<select id="ports_list" class="w-full p-4 tg-input text-sm"><option value="Поти (Грузия)">Порт: Поти (Грузия)</option><option value="Иран (Бандар-Аббас)">Порт: Иран (Бандар-Аббас)</option><option value="Пакистан (Карачи)">Порт: Пакистан (Карачи)</option><option value="Владивосток">Порт: Владивосток</option></select>`;
+                    } else {
+                        html += `<select id="ports_list" class="w-full p-4 tg-input text-sm font-bold"><option value="">Выберите порт...</option></select>`;
+                    }
+                    html += `</div>`;
+                 }
+                 if (selectedMethod === 'Контейнер' || selectedMethod === 'Мультимодальная') {
+                    html += `<div class="space-y-4 pt-4 border-t border-[var(--corp-lime)]/10">`;
+                    html += `<select id="container_owner" class="w-full p-4 tg-input text-sm"><option value="SOC">Собственность: SOC</option><option value="COC">Собственность: COC</option></select>`;
+                    html += `</div>`;
+                 }
             }
 
             container.innerHTML = html;
@@ -575,7 +703,14 @@
                 }
             }
             const payload = { regions: selectedDirection, transport_cat: selectedMethod, route_from: document.getElementById('route_from').value, route_to: document.getElementById('route_to').value, loading_address: document.getElementById('loading_address').value, customs_address: document.getElementById('customs_address').value, clearance_address: document.getElementById('clearance_address').value, unloading_address: document.getElementById('unloading_address').value, cargo_name: document.getElementById('cargo_name').value, cargo_value: document.getElementById('cargo_value').value, hs_code: document.getElementById('hs_code').value, cargo_weight: document.getElementById('cargo_weight').value, cargo_places: document.getElementById('cargo_places').value, packaging: document.getElementById('packaging').value, dangerous_cargo: document.getElementById('dangerous_cargo').value, urgency_type: document.getElementById('urgency_type').value, client_company: document.getElementById('client_company').value, responsible: document.getElementById('responsible').value, target: document.getElementById('target').value, message_text: document.getElementById('message_text').value, status: editModeId ? document.getElementById('status-select').value : 'Открыта' };
-            ['delivery_terms_eu','route_type','transit_rf_allowed','export_decl','origin_cert','border_crossing_cn','road_type_cn','container_owner','container_type_cn','urgency_days','loading_days','customs_days','glonass_seal','ports_list','flight_type','stackable'].forEach(id => { const el = document.getElementById(id); if(el) payload[id] = el.value; });
+            ['delivery_terms_eu','delivery_terms','route_type','transit_rf_allowed','export_decl','origin_cert','border_crossing_cn','road_type_cn','container_owner','container_type_cn','urgency_days','loading_days','customs_days','glonass_seal','ports_list','flight_type','stackable'].forEach(id => { const el = document.getElementById(id); if(el) payload[id] = el.value; });
+            // Include cancel_reason & winner_name when editing (#14, #10)
+            if (editModeId) {
+                const crEl = document.getElementById('cancel_reason');
+                if (crEl && crEl.value) payload.cancel_reason = crEl.value;
+                const wsEl = document.getElementById('winner-select');
+                if (wsEl && wsEl.value) payload.winner_name = wsEl.value;
+            }
             tg.MainButton.showProgress(); fetch('/api/submit', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ initData: tg.initData, action: editModeId ? 'edit' : 'new', id: editModeId, payload }) }).then(r => r.json()).then(res => { tg.MainButton.hideProgress(); if(res.ok) { tg.showAlert("✅ Готово"); resetForm(); switchTab('list'); } });
         }
 
@@ -696,32 +831,54 @@
             });
         }
         function confirmBidAsWinner(bidId, manager, amount, curr) {
-            if(!confirm(`Выбрать ставку ${amount} ${curr} от ${manager} как выигрышную?`)) return;
-            tg.MainButton.showProgress();
-            fetch('/api/update_status', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ initData: tg.initData, id: editModeId, status: 'Успешно реализована', winner: manager })
-            }).then(r => r.json()).then(res => {
-                tg.MainButton.hideProgress();
-                if(res.ok) { tg.showAlert("✅ Ставка подтверждена!"); openRequestForEdit(editModeId); }
-                else tg.showAlert("❌ Ошибка: " + res.error);
+            tg.showConfirm(`Выбрать ставку ${amount} ${curr} от ${manager} как выигрышную?`, (confirmed) => {
+                if(!confirmed) return;
+                tg.MainButton.showProgress();
+                fetch('/api/update_status', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ initData: tg.initData, id: editModeId, status: 'Успешно реализована', winner: manager, reason: null })
+                }).then(r => r.json()).then(res => {
+                    tg.MainButton.hideProgress();
+                    if(res.ok) { tg.showAlert("✅ Ставка подтверждена!"); openRequestForEdit(editModeId); }
+                    else tg.showAlert("❌ Ошибка: " + res.error);
+                });
             });
         }
         function toggleStatusDetails() { 
             const s = document.getElementById('status-select').value; 
             document.getElementById('winner-block').classList.toggle('hidden', s !== 'Успешно реализована'); 
             document.getElementById('cancel-block').classList.toggle('hidden', s !== 'Отменена'); 
+            // Populate winner-select from existing bids (#10)
+            if (s === 'Успешно реализована') {
+                const ws = document.getElementById('winner-select');
+                if (!ws.innerHTML.trim() || ws.options.length <= 1) {
+                    clear(ws);
+                    ws.appendChild(el('option',{value:'',text:'-- Выберите победителя --'}));
+                    // Bids are already rendered in #request-bids-list — extract manager names
+                    if (editModeId) {
+                        fetch(`/api/request_bids?initData=${encodeURIComponent(tg.initData)}&id=${editModeId}`)
+                        .then(r => r.json()).then(data => {
+                            const bids = data.bids || [];
+                            const seen = new Set();
+                            bids.forEach(b => {
+                                if (b.manager_name && !seen.has(b.manager_name)) {
+                                    seen.add(b.manager_name);
+                                    ws.appendChild(el('option',{value: b.manager_name, text: `${b.manager_name} — ${b.amount||''} ${b.currency||''}`}));
+                                }
+                            });
+                        });
+                    }
+                }
+            }
             if (s === 'Отменена') {
                 const cb = document.getElementById('cancel_reason');
-                if (!cb.innerHTML.trim()) {
-                    cb.innerHTML = '<option value="">-- Выберите причину --</option>' +
-                                  '<option value="Ставка не прошла">Ставка не прошла</option>' +
-                                  '<option value="Груз отменился">Груз отменился</option>' +
-                                  '<option value="Выбрали другого экспедитора">Выбрали другого экспедитора</option>' +
-                                  '<option value="Не устроили сроки">Не устроили сроки</option>' +
-                                  '<option value="Техническая ошибка">Техническая ошибка</option>' +
-                                  '<option value="Своя причина">Своя причина...</option>';
+                if (!cb.innerHTML.trim() || cb.options.length <= 1) {
+                    clear(cb);
+                    cb.appendChild(el('option',{value:'',text:'-- Выберите причину --'}));
+                    const reasons = cachedCancelReasons || ['Ставка не прошла','Груз отменился','Выбрали другого экспедитора','Не устроили сроки','Техническая ошибка'];
+                    reasons.forEach(r => cb.appendChild(el('option',{value:r,text:r})));
+                    cb.appendChild(el('option',{value:'Своя причина',text:'Своя причина...'}));
                 }
             }
         }
@@ -883,7 +1040,11 @@
                     };
 
                     fillSelect('delivery_terms_eu', s.incoterms);
-                    fillSelect('border_crossing_cn', s.border_crossings);
+                    // Only fill border_crossing_cn from settings if the select has 0 or 1 options (#22)
+                    const bcc = document.getElementById('border_crossing_cn');
+                    if (bcc && bcc.options.length <= 1 && s.border_crossings && s.border_crossings.length > 0) {
+                        fillSelect('border_crossing_cn', s.border_crossings);
+                    }
                     fillSelect('container_type_cn', s.transport_subtypes);
 
                     // Only fill ports_list if it doesn't have options yet (avoids overwriting regional specific ports)
@@ -899,16 +1060,40 @@
             });
         }
         function exportXLSX() { tg.MainButton.showProgress(); fetch('/api/export_xlsx', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ initData: tg.initData }) }).then(r => r.json()).then(res => { tg.MainButton.hideProgress(); if(res.ok) tg.showAlert("📊 Файл отправлен вам в ЛС!"); }); }
-        function loadStats() {
-            fetch(`/api/stats?initData=${encodeURIComponent(tg.initData)}`).then(r => r.json()).then(res => { const s = res.stats; document.getElementById('stat-avg-time').textContent = s.avg_closing_hours + " ч"; if(managerChartInstance) managerChartInstance.destroy(); managerChartInstance = new Chart(document.getElementById('managerChart'), { type: 'bar', data: { labels: s.managers.map(m => m.name), datasets: [{ label: 'Заявок', data: s.managers.map(m => m.count), backgroundColor: '#1B8056', borderRadius: 8 }] }, options: { scales: { y: { beginAtZero: true } }, plugins: { legend: { display: false } } } }); if(regionChartInstance) regionChartInstance.destroy(); regionChartInstance = new Chart(document.getElementById('regionChart'), { type: 'doughnut', data: { labels: s.regions.map(r => r.name), datasets: [{ data: s.regions.map(r => r.count), backgroundColor: ['#004341', '#1B8056', '#1B9E61', '#86BF6B', '#E3EDC4'] }] } }); });
+        let currentStatsRange = 30;
+        function changeStatsRange(days) {
+            currentStatsRange = days;
+            document.querySelectorAll('#admin-stats button[id^="sf-"]').forEach(b => {
+                b.classList.add('opacity-40');
+                b.classList.remove('bg-[var(--corp-cream)]', 'text-[var(--corp-deep)]');
+            });
+            const active = document.getElementById('sf-' + days);
+            active.classList.remove('opacity-40');
+            active.classList.add('bg-[var(--corp-cream)]', 'text-[var(--corp-deep)]');
+            loadStats();
         }
-        function saveSettings() { const batch = [{ key: 'ai_prompt_extra', value: document.getElementById('set-ai-prompt').value }, { key: 'channel_id', value: document.getElementById('set-channel-id').value }]; Promise.all(batch.map(item => fetch('/api/settings/update', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ initData: tg.initData, key: item.key, value: item.value }) }))).then(() => tg.showAlert("✅ Сохранено")); }
-        function rotateUserKey() {
-            const userId = document.getElementById('edit-user-id').value;
-            const newKey = document.getElementById('edit-user-manual-key').value.trim();
-            if (!userId) return;
-            if (!newKey && !confirm("Сгенерировать новый случайный ключ доступа?")) return;
-            
+        function loadStats() {
+            fetch(`/api/stats?initData=${encodeURIComponent(tg.initData)}&days=${currentStatsRange}`).then(r => r.json()).then(res => { 
+                const s = res.stats; 
+                document.getElementById('stat-avg-time').textContent = s.avg_closing_hours + " ч"; 
+                if(managerChartInstance) managerChartInstance.destroy(); 
+                managerChartInstance = new Chart(document.getElementById('managerChart'), { type: 'bar', data: { labels: s.managers.map(m => m.name), datasets: [{ label: 'Заявок', data: s.managers.map(m => m.count), backgroundColor: '#1B8056', borderRadius: 8 }] }, options: { scales: { y: { beginAtZero: true } }, plugins: { legend: { display: false } } } }); 
+                if(regionChartInstance) regionChartInstance.destroy(); 
+                regionChartInstance = new Chart(document.getElementById('regionChart'), { type: 'doughnut', data: { labels: s.regions.map(r => r.name), datasets: [{ data: s.regions.map(r => r.count), backgroundColor: ['#004341', '#1B8056', '#1B9E61', '#86BF6B', '#E3EDC4'] }] } }); 
+            });
+        }
+        function saveSettings() {
+            const batch = [
+                { key: 'ai_prompt_extra', value: document.getElementById('set-ai-prompt').value },
+                { key: 'ai_strictness', value: document.getElementById('set-ai-strictness').value },
+                { key: 'channel_id', value: document.getElementById('set-channel-id').value },
+                { key: 'discussion_id', value: document.getElementById('set-discussion-id').value },
+                { key: 'reminder_interval', value: parseInt(document.getElementById('set-reminder-interval').value) || 120 }
+            ];
+            Promise.all(batch.map(item => fetch('/api/settings/update', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ initData: tg.initData, key: item.key, value: item.value }) })))
+            .then(() => tg.showAlert('✅ Настройки сохранены'));
+        }
+        function doRotateKey(userId, newKey) {
             fetch('/api/user_rotate_key', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -923,18 +1108,41 @@
                 }
             });
         }
+        function rotateUserKey() {
+            const userId = document.getElementById('edit-user-id').value;
+            const newKey = document.getElementById('edit-user-manual-key').value.trim();
+            if (!userId) return;
+            if (!newKey) {
+                tg.showConfirm("Сгенерировать новый случайный ключ доступа?", (confirmed) => {
+                    if(confirmed) doRotateKey(userId, '');
+                });
+                return;
+            }
+            doRotateKey(userId, newKey);
+        }
         function deleteUser(userId, name) {
-            if (!confirm("Удалить сотрудника" + (name ? " «" + name + "»" : "") + "?")) return;
-            fetch('/api/user_update', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ initData: tg.initData, user_id: Number(userId), action: 'delete' })
-            }).then(r => r.json()).then(res => {
-                if (res.ok) loadUsersList();
-                else tg.showAlert("❌ Ошибка: " + (res.error || 'unknown'));
+            tg.showConfirm("Удалить сотрудника" + (name ? " «" + name + "»" : "") + "?", (confirmed) => {
+                if(!confirmed) return;
+                fetch('/api/user_update', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ initData: tg.initData, user_id: Number(userId), action: 'delete' })
+                }).then(r => r.json()).then(res => {
+                    if (res.ok) loadUsersList();
+                    else tg.showAlert("❌ Ошибка: " + (res.error || 'unknown'));
+                });
             });
         }
-        function loadSettings() { fetch(`/api/settings?initData=${encodeURIComponent(tg.initData)}`).then(r => r.json()).then(res => { const s = res.settings; document.getElementById('set-ai-prompt').value = s.ai_prompt_extra || ''; document.getElementById('set-channel-id').value = s.channel_id || ''; }); }
+        function loadSettings() {
+            fetch(`/api/settings?initData=${encodeURIComponent(tg.initData)}`).then(r => r.json()).then(res => {
+                const s = res.settings;
+                document.getElementById('set-ai-prompt').value = s.ai_prompt_extra || '';
+                document.getElementById('set-ai-strictness').value = s.ai_strictness || 'medium';
+                document.getElementById('set-channel-id').value = s.channel_id || '';
+                document.getElementById('set-discussion-id').value = s.discussion_id || '';
+                document.getElementById('set-reminder-interval').value = s.reminder_interval || 120;
+            });
+        }
 
         checkProfile();
     </script>

@@ -108,10 +108,12 @@ async def process_ai_message(update: Update, context: ContextTypes.DEFAULT_TYPE,
 
         merged = ai_assistant.merge_parsed_data(old_draft, parsed)
         
-        # Update history
+        # Update history (keep last 10 items)
         history.append({"is_user": True, "text": text})
         if parsed.get("next_question"):
             history.append({"is_user": False, "text": parsed["next_question"]})
+        
+        history = history[-10:] # Prevent history from growing too large
         
         await db.save_ai_context(user_id, merged, history=history) # Persistent save
 

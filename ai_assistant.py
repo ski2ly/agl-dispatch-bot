@@ -165,7 +165,7 @@ Your goal is to collect data for a transport request. YOU MUST BE SMART AND UNDE
             
             messages.append({"role": "user", "content": text})
             response = await self.client.chat.completions.create(
-                model=self.model, messages=messages, response_format={"type": "json_object"}, temperature=0.1, timeout=15.0
+                model=self.model, messages=messages, response_format={"type": "json_object"}, temperature=0.1, timeout=30.0
             )
             return json.loads(response.choices[0].message.content)
         except Exception as e:
@@ -197,7 +197,7 @@ Respond in JSON: {"intent": "...", "args": {...}, "text": "..."} """},
                 {"role": "user", "content": text}
             ]
             response = await self.client.chat.completions.create(
-                model=self.model, messages=messages, response_format={"type": "json_object"}, temperature=0.1, timeout=10.0
+                model=self.model, messages=messages, response_format={"type": "json_object"}, temperature=0.1, timeout=30.0
             )
             return json.loads(response.choices[0].message.content)
         except Exception as e:

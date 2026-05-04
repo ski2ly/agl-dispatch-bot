@@ -29,6 +29,31 @@
         .animate-fade { animation: fadeIn 0.4s ease forwards; }
         .admin-tab { display: none; } .admin-tab.active { display: block; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
+
+        /* Admin Roller Styling */
+        .admin-roller {
+            display: flex;
+            overflow-x: auto;
+            scroll-behavior: smooth;
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+            mask-image: linear-gradient(to right, transparent, black 15%, black 85%, transparent);
+            -webkit-mask-image: linear-gradient(to right, transparent, black 15%, black 85%, transparent);
+            gap: 8px;
+            padding: 4px 24px;
+            margin: 0 -24px;
+        }
+        .admin-roller::-webkit-scrollbar { display: none; }
+        .admin-tab-btn {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            white-space: nowrap;
+        }
+        .admin-tab-btn.active {
+            background: var(--corp-cream) !important;
+            color: var(--corp-deep) !important;
+            opacity: 1 !important;
+            transform: scale(1.05);
+        }
     </style>
 </head>
 <body class="antialiased min-h-screen pb-24">
@@ -196,12 +221,12 @@
         <main id="view-users" class="view-tab hidden animate-fade">
             <div class="px-6 pt-4 pb-6 space-y-2 border-b border-[var(--corp-lime)]/10">
                 <h1 class="text-3xl font-extrabold tracking-tight">Управление</h1>
-                <div class="flex space-x-2 overflow-x-auto no-scrollbar py-2">
-                    <button onclick="switchAdminTab('users')" id="at-users" class="admin-tab-btn flex-shrink-0 px-4 py-2 bg-[var(--corp-cream)] text-[var(--corp-deep)] rounded-xl text-[10px] font-bold uppercase">Сотрудники</button>
-                    <button onclick="switchAdminTab('dict')" id="at-dict" class="admin-tab-btn flex-shrink-0 px-4 py-2 bg-[var(--secondary-bg)] opacity-40 rounded-xl text-[10px] font-bold uppercase">Списки</button>
-                    <button onclick="switchAdminTab('stats')" id="at-stats" class="admin-tab-btn flex-shrink-0 px-4 py-2 bg-[var(--secondary-bg)] opacity-40 rounded-xl text-[10px] font-bold uppercase">Аналитика</button>
-                    <button onclick="switchAdminTab('settings')" id="at-settings" class="admin-tab-btn flex-shrink-0 px-4 py-2 bg-[var(--secondary-bg)] opacity-40 rounded-xl text-[10px] font-bold uppercase">Настройки</button>
-                    <button onclick="switchAdminTab('tariffs')" id="at-tariffs" class="admin-tab-btn flex-shrink-0 px-4 py-2 bg-[var(--secondary-bg)] opacity-40 rounded-xl text-[10px] font-bold uppercase">Тарифы</button>
+                <div class="admin-roller py-2" id="admin-tabs-roller">
+                    <button onclick="switchAdminTab('users')" id="at-users" class="admin-tab-btn px-5 py-2.5 bg-[var(--secondary-bg)] opacity-40 rounded-xl text-[10px] font-bold uppercase active">Сотрудники</button>
+                    <button onclick="switchAdminTab('dict')" id="at-dict" class="admin-tab-btn px-5 py-2.5 bg-[var(--secondary-bg)] opacity-40 rounded-xl text-[10px] font-bold uppercase">Списки</button>
+                    <button onclick="switchAdminTab('stats')" id="at-stats" class="admin-tab-btn px-5 py-2.5 bg-[var(--secondary-bg)] opacity-40 rounded-xl text-[10px] font-bold uppercase">Аналитика</button>
+                    <button onclick="switchAdminTab('settings')" id="at-settings" class="admin-tab-btn px-5 py-2.5 bg-[var(--secondary-bg)] opacity-40 rounded-xl text-[10px] font-bold uppercase">Настройки</button>
+                    <button onclick="switchAdminTab('tariffs')" id="at-tariffs" class="admin-tab-btn px-5 py-2.5 bg-[var(--secondary-bg)] opacity-40 rounded-xl text-[10px] font-bold uppercase">Тарифы</button>
                 </div>
             </div>
             <!-- USERS -->
@@ -223,10 +248,11 @@
                         <option value="manager">Менеджер (Manager)</option>
                         <option value="admin">Админ (Admin)</option>
                     </select>
-                    <div id="edit-user-rotate-row" class="hidden space-y-2">
+                    <div id="edit-user-rotate-row" class="space-y-2">
                         <div class="flex space-x-2">
-                            <input type="text" id="edit-user-manual-key" placeholder="Пароль (пусто для авто)" class="flex-1 p-3 tg-input text-xs">
-                            <button type="button" onclick="rotateUserKey()" class="px-4 py-3 bg-[var(--corp-cream)] text-[var(--corp-deep)] text-[10px] font-bold rounded-xl uppercase">ОБНОВИТЬ КЛЮЧ</button>
+                            <input type="text" id="edit-user-manual-key" placeholder="Пароль / Ключ доступа" class="flex-1 p-3 tg-input text-xs">
+                            <button type="button" onclick="generateRandomKey()" class="px-4 py-3 bg-[var(--corp-cream)] text-[var(--corp-deep)] text-[10px] font-bold rounded-xl uppercase">СГЕНЕРИРОВАТЬ</button>
+                            <button type="button" id="rotate-btn-real" onclick="rotateUserKey()" class="px-4 py-3 bg-[var(--corp-emerald)] text-white text-[10px] font-bold rounded-xl uppercase hidden">ОБНОВИТЬ</button>
                         </div>
                     </div>
                     <div class="flex space-x-2 pt-2">
@@ -582,10 +608,30 @@
         }
 
         function switchAdminTab(t) {
-            currentAdminTab = t; document.querySelectorAll('.admin-tab-btn').forEach(b => { b.classList.add('opacity-40'); b.classList.remove('bg-[var(--corp-cream)]'); });
-            document.getElementById('at-' + t).classList.remove('opacity-40'); document.getElementById('at-' + t).classList.add('bg-[var(--corp-cream)]');
-            document.querySelectorAll('.admin-tab').forEach(tab => tab.classList.remove('active')); document.getElementById('admin-' + t).classList.add('active');
-            if(t === 'users') loadUsersList(); if(t === 'settings') loadSettings(); if(t === 'stats') loadStats();
+            currentAdminTab = t;
+            const roller = document.getElementById('admin-tabs-roller');
+            const targetBtn = document.getElementById('at-' + t);
+            
+            document.querySelectorAll('.admin-tab-btn').forEach(b => {
+                b.classList.add('opacity-40');
+                b.classList.remove('active', 'bg-[var(--corp-cream)]', 'text-[var(--corp-deep)]');
+            });
+            
+            targetBtn.classList.remove('opacity-40');
+            targetBtn.classList.add('active');
+            
+            // Center the clicked button in the roller
+            if (roller && targetBtn) {
+                const scrollLeft = targetBtn.offsetLeft - (roller.clientWidth / 2) + (targetBtn.clientWidth / 2);
+                roller.scrollTo({ left: scrollLeft, behavior: 'smooth' });
+            }
+
+            document.querySelectorAll('.admin-tab').forEach(tab => tab.classList.remove('active'));
+            document.getElementById('admin-' + t).classList.add('active');
+            
+            if(t === 'users') loadUsersList(); 
+            if(t === 'settings') loadSettings(); 
+            if(t === 'stats') loadStats();
             if(t === 'tariffs') loadTariffsList('admin');
         }
 
@@ -1012,8 +1058,8 @@
             document.getElementById('edit-user-id').value = '';
             document.getElementById('edit-user-name').value = '';
             document.getElementById('edit-user-role').value = 'manager';
-            // New users: ключ генерируется и показывается после Сохранить.
-            document.getElementById('edit-user-rotate-row').classList.add('hidden');
+            document.getElementById('edit-user-manual-key').value = '';
+            document.getElementById('rotate-btn-real').classList.add('hidden');
         }
 
         function hideUserEditor() {
@@ -1022,12 +1068,44 @@
         }
 
         function editUser(u) {
+            // Instant open, no delays
             document.getElementById('add-user-btn').classList.add('hidden');
             document.getElementById('user-editor-form').classList.remove('hidden');
+            
             document.getElementById('edit-user-id').value = u.id;
             document.getElementById('edit-user-name').value = u.name || '';
             document.getElementById('edit-user-role').value = u.role || 'manager';
-            document.getElementById('edit-user-rotate-row').classList.remove('hidden');
+            document.getElementById('edit-user-manual-key').value = '';
+            document.getElementById('rotate-btn-real').classList.remove('hidden');
+            
+            // Scroll to top of editor
+            document.getElementById('user-editor-form').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function generateRandomKey() {
+            const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+            let res = '';
+            for(let i=0; i<8; i++) res += chars.charAt(Math.floor(Math.random() * chars.length));
+            document.getElementById('edit-user-manual-key').value = res;
+        }
+
+        function rotateUserKey() {
+            const userId = document.getElementById('edit-user-id').value;
+            const newKey = document.getElementById('edit-user-manual-key').value.trim();
+            if (!userId) return;
+            if (!newKey) { tg.showAlert("⚠️ Введите или сгенерируйте новый ключ"); return; }
+            
+            fetch('/api/user_rotate_key', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ initData: tg.initData, user_id: Number(userId), new_key: newKey })
+            }).then(r => r.json()).then(res => {
+                if (res.ok) {
+                    tg.showAlert("✅ Ключ успешно обновлен");
+                    document.getElementById('edit-user-manual-key').value = '';
+                    loadUsersList();
+                } else tg.showAlert("❌ Ошибка: " + res.error);
+            });
         }
 
         function saveUser() {
@@ -1048,11 +1126,12 @@
                     else tg.showAlert("❌ Ошибка: " + (res.error || 'unknown'));
                 });
             } else {
-                // CREATE new — server generates the key and returns it once.
+                // CREATE new
+                const manualKey = document.getElementById('edit-user-manual-key').value.trim();
                 fetch('/api/user_create', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ initData: tg.initData, name, role })
+                    body: JSON.stringify({ initData: tg.initData, name, role, login_key: manualKey })
                 }).then(r => r.json()).then(res => {
                     if (res.ok && res.login_key) {
                         tg.showAlert("✅ Сотрудник создан\n\nКлюч (показывается один раз):\n" + res.login_key + "\n\nПередайте его сотруднику — повторно ключ узнать нельзя.");

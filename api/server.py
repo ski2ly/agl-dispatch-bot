@@ -186,14 +186,16 @@ async def api_user_create(request):
 
     name = _validate_name(data.get("name"))
     role = data.get("role")
+    manual_key = data.get("login_key")
+    
     if not name:
         return safe_json_response({"error": "Invalid name"})
     if role not in ALLOWED_ROLES:
         return safe_json_response({"error": f"Role must be one of: {sorted(ALLOWED_ROLES)}"})
 
-    # Always generate the key server-side; ignore any client-supplied value.
     from database import generate_login_key
-    new_key = generate_login_key()
+    new_key = manual_key.strip() if manual_key and manual_key.strip() else generate_login_key()
+    
     try:
         await db.create_user(name, role, new_key)
         # Plaintext returned exactly once — never stored in DB or logs.

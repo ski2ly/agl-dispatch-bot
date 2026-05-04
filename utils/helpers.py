@@ -161,11 +161,18 @@ async def sync_bid_to_discussion(bot, discussion_id, channel_id, channel_msg_id,
 
         log.info(f"Attempting getDiscussionMessage via direct API call: chat={target_chat}, msg={channel_msg_id}")
         
-        # We use a direct API call because 'ExtBot' in some versions lacks 'get_discussion_message'
+        # 1. Get Chat info to check if it's a forum and see linked_chat
+        try:
+            chat_info = await bot.get_chat(chat_id=target_chat)
+            log.info(f"Channel info: linked_chat={chat_info.linked_chat_id}")
+        except Exception as e:
+            log.warning(f"Could not get channel info: {e}")
+
+        # 2. Try direct API call
         import aiohttp
         api_url = f"https://api.telegram.org/bot{bot.token}/getDiscussionMessage"
         async with aiohttp.ClientSession() as session:
-            async with session.get(api_url, params={"chat_id": str(target_chat), "message_id": int(channel_msg_id)}) as resp:
+            async with session.post(api_url, json={"chat_id": str(target_chat), "message_id": int(channel_msg_id)}) as resp:
                 res = await resp.json()
                 if res.get("ok"):
                     disc_data = res["result"]
@@ -182,6 +189,23 @@ async def sync_bid_to_discussion(bot, discussion_id, channel_id, channel_msg_id,
                     return True
                 else:
                     log.error(f"API getDiscussionMessage failed: {res}")
+                    
+                    # 3. FORUM FALLBACK: If 404 and we have a discussion group, try sending to a thread
+                    # In many "Forum" groups linked to channels, the thread_id IS the channel_msg_id.
+                    if res.get("error_code") == 404 and target_discussion:
+                        log.info(f"Attempting Forum Thread fallback: chat={target_discussion}, thread={channel_msg_id}")
+                        try:
+                            await bot.send_message(
+                                chat_id=target_discussion,
+                                text=bid_card_text,
+                                message_thread_id=int(channel_msg_id),
+                                parse_mode="HTML"
+                            )
+                            log.info("Forum Thread fallback SUCCESS")
+                            return True
+                        except Exception as e_forum:
+                            log.error(f"Forum Thread fallback failed: {e_forum}")
+                    
                     raise Exception(f"API error: {res.get('description')}")
         
         return True

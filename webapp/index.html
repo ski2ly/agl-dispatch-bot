@@ -491,7 +491,7 @@
                     return;
                 }
                 items.forEach(r => {
-                    const idText = fmtId(r.id || r.request_id);
+                    const idText = fmtId(r.request_id || r.id);
                     // Use request_route_from/to for bids, or route_from/to for requests
                     const from = r.route_from || r.request_route_from || '...';
                     const to = r.route_to || r.request_route_to || '...';

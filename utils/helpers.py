@@ -163,11 +163,13 @@ async def sync_bid_to_discussion(bot, discussion_id, channel_id, channel_msg_id,
         # This call finds the forwarded message in the group
         discussion_msg = await bot.get_discussion_message(chat_id=target_chat, message_id=int(channel_msg_id))
         
-        # Using reply_text on the discussion message object is the most reliable way to post a comment
-        log.info(f"Discussion msg found: {discussion_msg.message_id}. Replying directly.")
+        # Using explicit bot.send_message with the chat_id from the message itself is the most rock-solid method
+        log.info(f"Discussion msg found: {discussion_msg.message_id}. Sending explicit reply to {discussion_msg.chat_id}")
         
-        await discussion_msg.reply_text(
+        await bot.send_message(
+            chat_id=discussion_msg.chat_id,
             text=bid_card_text,
+            reply_to_message_id=discussion_msg.message_id,
             parse_mode="HTML"
         )
         return True

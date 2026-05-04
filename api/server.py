@@ -698,13 +698,22 @@ async def api_bid(request):
         _bid_cooldowns[cooldown_key] = (bid_hash, now)
 
         logger.info(f"Submitting bid for req_id={req_id} by {profile['name']} (ID: {user_id})")
+        
+        # Check if updating to provide better notification
+        existing_bid = await db.get_user_bid(int(req_id), user_id)
+        is_update = existing_bid is not None
+        
         await db.upsert_bid(int(req_id), user_id, profile["name"], data)
-        await db.log_activity(int(req_id), user_id, profile["name"], "bid_submitted", {"amount": data.get("amount")})
+        await db.log_activity(int(req_id), user_id, profile["name"], "bid_updated" if is_update else "bid_submitted", {"amount": data.get("amount")})
         
         # Add internal comment
         bid_data = {**data, "request_id": int(req_id), "manager_name": profile["name"]}
         bid_card = build_bid_card(bid_data)
-        await db.add_comment(int(req_id), user_id, profile["name"], bid_card, "bid")
+        if is_update:
+            comment_text = f"🔄 Ставка обновлена: <b>{data.get('amount')} {data.get('currency')}</b>"
+            await db.add_comment(int(req_id), user_id, profile["name"], comment_text, "bid_update")
+        else:
+            await db.add_comment(int(req_id), user_id, profile["name"], bid_card, "bid")
         
         # Notify channel/discussion if possible
         settings = await db.get_settings()
@@ -717,8 +726,12 @@ async def api_bid(request):
         if discussion_id and req and target_channel:
             msg_id = req.get("channel_msg_id")
             if msg_id:
+                notif_text = bid_card
+                if is_update:
+                    notif_text = f"🔄 <b>{profile['name']} обновил ставку</b>\n\nАктуальная ставка: <b>{data.get('amount')} {data.get('currency')}</b>\n#ставка"
+                
                 logger.info(f"Syncing bid to discussion: channel={target_channel}, msg={msg_id}")
-                await sync_bid_to_discussion(bot, discussion_id, target_channel, msg_id, bid_card)
+                await sync_bid_to_discussion(bot, discussion_id, target_channel, msg_id, notif_text)
             else:
                 await bot.send_message(chat_id=discussion_id, text=bid_card)
 
@@ -888,6 +901,18 @@ async def api_delete_tariff(request):
     tariff_id = data.get("id")
     await db.delete_tariff(int(tariff_id))
     return safe_json_response({"ok": True})
+
+async def api_user_bid(request):
+    profile, err = await check_auth(request)
+    if err: return safe_json_response({"error": err, "auth_needed": True})
+    user_id = profile.get("telegram_id")
+    try:
+        req_id = int(request.query.get("id"))
+    except:
+        return safe_json_response({"error": "Invalid id"})
+    
+    bid = await db.get_user_bid(req_id, user_id)
+    return safe_json_response({"bid": bid})
 
 async def verify_admin(init_data):
     """Helper to check if user is admin/superuser via init_data."""
@@ -1070,6 +1095,7 @@ def setup_api(app):
     app.router.add_get("/api/tariffs", api_list_tariffs)
     app.router.add_post("/api/tariffs/upload", api_upload_tariff)
     app.router.add_post("/api/tariffs/delete", api_delete_tariff)
+    app.router.add_get("/api/user_bid", api_user_bid)
     
     # Ensure directories exist before adding static routes
     for d in ["uploads", "logo"]:

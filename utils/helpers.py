@@ -124,13 +124,12 @@ async def sync_bid_to_discussion(bot, discussion_id, channel_id, channel_msg_id,
     import logging
     log = logging.getLogger(__name__)
     
-    if not discussion_id or not channel_msg_id:
-        log.warning(f"Sync failed: discussion_id={discussion_id}, channel_msg_id={channel_msg_id}")
+    if not channel_id or not channel_msg_id:
+        log.warning(f"Sync failed: channel_id={channel_id}, channel_msg_id={channel_msg_id}")
         return False
         
     try:
-        # channel_id might be a numeric string "-100..." or a username "@..."
-        # get_discussion_message prefers int for numeric IDs
+        # Normalize channel_id
         target_chat = channel_id
         if isinstance(target_chat, str) and (target_chat.startswith("-") or target_chat.isdigit()):
             try:
@@ -138,38 +137,50 @@ async def sync_bid_to_discussion(bot, discussion_id, channel_id, channel_msg_id,
             except:
                 pass
                 
-        log.info(f"Attempting get_discussion_message: chat={target_chat}, msg={channel_msg_id}")
-        discussion_msg = await bot.get_discussion_message(chat_id=target_chat, message_id=int(channel_msg_id))
-        
-        # Reply to that message in the group — this makes it a "Comment"
-        log.info(f"Discussion msg found: {discussion_msg.message_id}. Sending reply to {discussion_id}")
-        
+        # If discussion_id is missing, try to detect it from the channel
         target_discussion = discussion_id
+        if not target_discussion:
+            try:
+                log.info(f"Detecting linked chat for {target_chat}")
+                chat_info = await bot.get_chat(chat_id=target_chat)
+                target_discussion = chat_info.linked_chat_id
+                log.info(f"Detected linked_chat_id: {target_discussion}")
+            except Exception as e:
+                log.error(f"Failed to detect linked chat: {e}")
+
+        if not target_discussion:
+            log.warning("No discussion_id and linked_chat_id detection failed.")
+            return False
+
+        # Normalize target_discussion
         if isinstance(target_discussion, str) and (target_discussion.startswith("-") or target_discussion.isdigit()):
             try:
                 target_discussion = int(target_discussion)
             except:
                 pass
 
+        log.info(f"Attempting get_discussion_message: chat={target_chat}, msg={channel_msg_id}")
+        # This call finds the forwarded message in the group
+        discussion_msg = await bot.get_discussion_message(chat_id=target_chat, message_id=int(channel_msg_id))
+        
+        # Reply to that message in the group — this makes it a "Comment"
+        log.info(f"Discussion msg found: {discussion_msg.message_id}. Sending reply to {target_discussion}")
+        
         await bot.send_message(
             chat_id=target_discussion,
             text=bid_card_text,
-            reply_to_message_id=discussion_msg.message_id
+            reply_to_message_id=discussion_msg.message_id,
+            parse_mode="HTML"
         )
         return True
     except Exception as e:
         log.error(f"get_discussion_message failed: {e}")
         # Fallback to top-level message if get_discussion_message fails
-        try:
-            target_discussion = discussion_id
-            if isinstance(target_discussion, str) and (target_discussion.startswith("-") or target_discussion.isdigit()):
-                try:
-                    target_discussion = int(target_discussion)
-                except:
-                    pass
-            log.info(f"Fallback: sending top-level message to {target_discussion}")
-            await bot.send_message(chat_id=target_discussion, text=bid_card_text)
-            return True
-        except Exception as e2:
-            log.error(f"Fallback failed: {e2}")
-            return False
+        if target_discussion:
+            try:
+                log.info(f"Fallback: sending top-level message to {target_discussion}")
+                await bot.send_message(chat_id=target_discussion, text=bid_card_text, parse_mode="HTML")
+                return True
+            except Exception as e2:
+                log.error(f"Fallback failed: {e2}")
+        return False

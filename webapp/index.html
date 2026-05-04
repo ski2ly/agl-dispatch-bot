@@ -512,7 +512,10 @@
                             text: 'СДЕЛАТЬ СТАВКУ'
                         });
                     } else {
-                        actionEl = el('div', { class: 'p-3 bg-[var(--secondary-bg)] rounded-xl text-xs font-bold text-[var(--corp-emerald)]', text: 'Ваша ставка: ' + (r.amount || '0') + ' ' + (r.currency || '') });
+                        actionEl = el('div', { class: 'flex justify-between items-center w-full space-x-2' },
+                            el('div', { class: 'flex-1 p-3 bg-[var(--secondary-bg)] rounded-xl text-xs font-bold text-[var(--corp-emerald)]', text: 'Ваша ставка: ' + (r.amount || '0') + ' ' + (r.currency || '') }),
+                            el('button', { class: 'px-4 py-3 bg-[var(--corp-cream)] text-[var(--corp-deep)] text-[10px] font-bold rounded-xl uppercase', onclick: () => openBidModal(r.request_id), text: 'ИЗМЕНИТЬ' })
+                        );
                     }
                     cont.appendChild(el('div', { class: 'glass-card p-6 space-y-4 animate-fade' }, header, actionEl));
                 });
@@ -526,14 +529,25 @@
 
         function openBidModal(reqId) {
             activeBidReqId = reqId;
-            document.getElementById('bid-amount').value = '';
+            ['bid-amount','bid-validity','bid-demurrage','bid-comment'].forEach(id=>document.getElementById(id).value='');
             document.getElementById('bid-currency').value = 'USD';
-            document.getElementById('bid-validity').value = '';
             document.getElementById('bid-loading-hours').value = '24ч';
             document.getElementById('bid-payment').value = 'Безнал с НДС';
-            document.getElementById('bid-demurrage').value = '';
-            document.getElementById('bid-comment').value = '';
-            document.getElementById('bid-modal').classList.remove('hidden');
+            
+            fetch(`/api/user_bid?initData=${encodeURIComponent(tg.initData)}&id=${reqId}`)
+            .then(r => r.json()).then(res => {
+                if(res.bid) {
+                    const b = res.bid;
+                    document.getElementById('bid-amount').value = b.amount || '';
+                    document.getElementById('bid-currency').value = b.currency || 'USD';
+                    document.getElementById('bid-validity').value = b.validity || '';
+                    document.getElementById('bid-loading-hours').value = b.loading_hours || '24ч';
+                    document.getElementById('bid-payment').value = b.payment_terms || b.payment_method || 'Безнал с НДС';
+                    document.getElementById('bid-demurrage').value = b.demurrage || '';
+                    document.getElementById('bid-comment').value = b.comment || '';
+                }
+                document.getElementById('bid-modal').classList.remove('hidden');
+            });
         }
         function closeBidModal() {
             activeBidReqId = null;

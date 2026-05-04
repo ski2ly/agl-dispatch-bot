@@ -646,6 +646,11 @@ class Database:
             rows = await conn.fetch("SELECT * FROM bids WHERE request_id = $1 ORDER BY created_at DESC", request_id)
             return [dict(r) for r in rows]
 
+    async def get_user_bid(self, request_id: int, user_id: int):
+        async with self._pool.acquire() as conn:
+            row = await conn.fetchrow("SELECT * FROM bids WHERE request_id = $1 AND user_id = $2", request_id, user_id)
+            return dict(row) if row else None
+
     async def get_user_bids(self, user_id: int):
         async with self._pool.acquire() as conn:
             rows = await conn.fetch("""

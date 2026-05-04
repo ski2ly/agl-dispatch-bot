@@ -32,6 +32,13 @@ services:
       - "127.0.0.1:8000:8000"
     volumes:
       - ./data:/app/data
+      - ./uploads:/app/uploads
+      - ./logo:/app/logo
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     stop_grace_period: 30s
     networks:
       - agl_net

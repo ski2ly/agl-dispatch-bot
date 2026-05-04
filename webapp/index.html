@@ -364,6 +364,19 @@
         </div>
     </div>
 
+    <!-- TARIFFS MODAL -->
+    <div id="tariffs-modal" class="fixed inset-0 z-[120] bg-black/60 flex items-end justify-center hidden backdrop-blur-sm">
+        <div class="w-full max-h-[85vh] bg-[var(--bg)] rounded-t-[3rem] p-8 space-y-6 animate-fade overflow-y-auto no-scrollbar shadow-2xl">
+            <div class="flex justify-between items-center mb-2">
+                <h2 class="text-2xl font-extrabold uppercase">Тарифы и Сетки</h2>
+                <button onclick="closeTariffsModal()" class="w-10 h-10 bg-[var(--secondary-bg)] rounded-full flex items-center justify-center text-xl">×</button>
+            </div>
+            <div id="tariffs-list-container" class="space-y-3 pb-8">
+                <!-- Dynamic: populated by loadTariffsList() -->
+            </div>
+        </div>
+    </div>
+
     <script>
         const tg = window.Telegram.WebApp; tg.expand();
         let currentStep = 1, currentTab = 'form', currentAdminTab = 'users', selectedDirection = '', selectedMethod = '', editModeId = null, activeBidReqId = null, myRequestsOnly = false;

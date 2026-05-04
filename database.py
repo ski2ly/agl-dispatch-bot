@@ -187,6 +187,7 @@ class Database:
         CREATE TABLE IF NOT EXISTS ai_sessions (
             user_id BIGINT PRIMARY KEY,
             draft JSONB DEFAULT '{}',
+            history JSONB DEFAULT '[]',
             updated_at TIMESTAMPTZ DEFAULT NOW()
         );
         """
@@ -210,6 +211,9 @@ class Database:
                 ADD COLUMN IF NOT EXISTS cancel_reason TEXT,
                 ADD COLUMN IF NOT EXISTS mute_reminders BOOLEAN DEFAULT FALSE,
                 ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
+            
+            -- Session history migration
+            await conn.execute("ALTER TABLE ai_sessions ADD COLUMN IF NOT EXISTS history JSONB DEFAULT '[]'")
             """)
             # (Moved to end of migrations)
             # MIGRATIONS
@@ -935,16 +939,28 @@ class Database:
     # AI CONTEXT & SESSIONS
     async def get_ai_context(self, user_id: int):
         async with self._pool.acquire() as conn:
-            row = await conn.fetchrow("SELECT draft FROM ai_sessions WHERE user_id = $1", user_id)
-            return json.loads(row["draft"]) if row else {}
+            row = await conn.fetchrow("SELECT draft, history FROM ai_sessions WHERE user_id = $1", user_id)
+            if row:
+                return json.loads(row["draft"]), json.loads(row["history"])
+            return {}, []
 
-    async def save_ai_context(self, user_id: int, draft: dict):
+    async def save_ai_context(self, user_id: int, draft: dict, history: list = None):
         async with self._pool.acquire() as conn:
-            await conn.execute("""
-                INSERT INTO ai_sessions (user_id, draft, updated_at)
-                VALUES ($1, $2, NOW())
-                ON CONFLICT (user_id) DO UPDATE SET draft = EXCLUDED.draft, updated_at = NOW()
-            """, user_id, json.dumps(draft))
+            if history is None:
+                # Keep old history if not provided
+                await conn.execute("""
+                    INSERT INTO ai_sessions (user_id, draft, updated_at)
+                    VALUES ($1, $2, NOW())
+                    ON CONFLICT (user_id) DO UPDATE SET draft = EXCLUDED.draft, updated_at = NOW()
+                """, user_id, json.dumps(draft))
+            else:
+                # Cap history to last 10 messages
+                history = history[-10:]
+                await conn.execute("""
+                    INSERT INTO ai_sessions (user_id, draft, history, updated_at)
+                    VALUES ($1, $2, $3, NOW())
+                    ON CONFLICT (user_id) DO UPDATE SET draft = EXCLUDED.draft, history = EXCLUDED.history, updated_at = NOW()
+                """, user_id, json.dumps(draft), json.dumps(history))
 
     async def clear_ai_context(self, user_id: int):
         async with self._pool.acquire() as conn:

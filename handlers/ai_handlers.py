@@ -29,7 +29,7 @@ async def process_ai_message(update: Update, context: ContextTypes.DEFAULT_TYPE,
             await context.bot.send_chat_action(chat_id=update.effective_chat.id, action=ChatAction.TYPING)
             
         # Get persistent context from DB
-        old_draft = await db.get_ai_context(user_id)
+        old_draft, history = await db.get_ai_context(user_id)
         
         # Smart routing
         intent_res = await ai_assistant.process_intent(text)
@@ -93,7 +93,7 @@ async def process_ai_message(update: Update, context: ContextTypes.DEFAULT_TYPE,
         templates = await db.list_requests(limit=3, search=text[:30])
         template_data = [{"id": t["id"], "route_from": t["route_from"], "route_to": t["route_to"], "cargo_name": t["cargo_name"]} for t in templates]
 
-        parsed = await ai_assistant.parse_request(text, current_draft=old_draft, templates=template_data)
+        parsed = await ai_assistant.parse_request(text, current_draft=old_draft, templates=template_data, history=history)
         if "error" in parsed:
             await update.message.reply_text(f"❌ Ошибка ИИ: {parsed['error']}")
             return
@@ -102,8 +102,18 @@ async def process_ai_message(update: Update, context: ContextTypes.DEFAULT_TYPE,
             if info_prefix: await update.message.reply_text(f"{info_prefix}\n🤖 Это не похоже на логистику.")
             return
 
+        # Handle explicit finish intent
+        if intent == "finish_request":
+            parsed["ready_to_publish"] = True
+
         merged = ai_assistant.merge_parsed_data(old_draft, parsed)
-        await db.save_ai_context(user_id, merged) # Persistent save
+        
+        # Update history
+        history.append({"is_user": True, "text": text})
+        if parsed.get("next_question"):
+            history.append({"is_user": False, "text": parsed["next_question"]})
+        
+        await db.save_ai_context(user_id, merged, history=history) # Persistent save
 
         preview = ai_assistant.build_preview(merged)
         
@@ -117,6 +127,7 @@ async def process_ai_message(update: Update, context: ContextTypes.DEFAULT_TYPE,
             status_text = "✨ Готово к публикации!"
         else:
             keyboard = [
+                [InlineKeyboardButton("🚀 Опубликовать (как есть)", callback_data="confirm_ai")],
                 [InlineKeyboardButton("📝 Дополнить данные", callback_data="more_ai")],
                 [InlineKeyboardButton("❌ Отмена", callback_data="cancel_ai")]
             ]
@@ -198,7 +209,7 @@ async def confirm_ai_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_id = update.effective_user.id
         profile = context.user_data.get("profile", {})
         
-        parsed = await db.get_ai_context(user_id)
+        parsed, history = await db.get_ai_context(user_id)
         if not parsed:
             await query.edit_message_text("❌ Черновик не найден или уже опубликован.")
             return
@@ -277,7 +288,7 @@ async def handle_attachment(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not msg: return
     
     # Check if we are in a dialogue for a new request (persistent DB draft)
-    draft = await db.get_ai_context(update.effective_user.id)
+    draft, history = await db.get_ai_context(update.effective_user.id)
     if not draft:
         # Not in an active request flow — silently ignore
         return

@@ -32,6 +32,25 @@ class AIAssistant:
             regions_str = "|".join(region_names)
         else:
             regions_str = "СНГ|Европа|Китай|Турция|Индия/ЮВА|Другое"
+        
+        # Define region mapping logic for the AI
+        region_rules = """
+ПРАВИЛА ОПРЕДЕЛЕНИЯ РЕГИОНА (ПРИОРИТЕТЫ):
+1. ЕСЛИ одна из точек (Откуда или Куда) — КИТАЙ (Shenzhen, Ningbo, Guangzhou и др.), регион = "Китай".
+2. ЕСЛИ одна из точек — ЕВРОПА (Австрия, Германия, Польша, Италия, Литва и др.), регион = "Европа".
+3. ЕСЛИ одна из точек — ТУРЦИЯ (Стамбул, Измир и др.), регион = "Турция". ВАЖНО: Транзит "через Турцию" не делает регион Турцией!
+4. ЕСЛИ одна из точек — ИНДИЯ, Вьетнам, Малайзия, Индонезия, Тайвань, Пакистан, регион = "Индия/ЮВА".
+5. ЕСЛИ ОБЕ точки (Откуда и Куда) находятся внутри СНГ (РФ, РБ, КЗ, УЗ, Киргизия, Таджикистан, Армения, Азербайджан), регион = "СНГ".
+6. В остальных случаях — "Другое".
+
+ПРИМЕРЫ:
+- "Австрия -> Узб" => Европа
+- "Шэньчжэнь -> Ташкент" => Китай
+- "Стамбул -> Москва" => Турция
+- "Владимир РФ -> Алматы КЗ" => СНГ
+
+Будь умным: если указан только город (например, "Милан"), ты должен сам понять, что это Италия (Европа).
+"""
 
         # Dynamic transport types from settings
         transport_types = settings.get("transport_types", []) if settings else []
@@ -46,7 +65,12 @@ Your goal is to collect data for a transport request. YOU MUST BE SMART AND UNDE
 {strict_note}
 {extra}
 
+{region_rules}
+
 ПРАВИЛА ПОНИМАНИЯ ДАННЫХ (ОЧЕНЬ ВАЖНО):
+- `route_from` и `route_to` — это ТОЛЬКО Город и Страна (например, "Владимир, РФ").
+- `loading_address` и `unloading_address` — это ТОЧНЫЙ адрес (улица, склад), если он указан. 
+- НЕ КОПИРУЙ название города из `route_from` в `loading_address`, если не указан конкретный адрес или нет команды "на месте".
 - Если клиент пишет "затаможка на месте", "затаможка там же", "ТТ на месте" — ты ОБЯЗАН скопировать Город/Адрес погрузки в поле `customs_address`!
 - Если клиент пишет "растаможка на месте", "растаможка там же", "РТ на месте" — ты ОБЯЗАН скопировать Город/Адрес выгрузки в поле `clearance_address`!
 - Термины: "20ка", "сорокафутовый", "реф" — это типы транспорта (Контейнер/Авто).
@@ -54,10 +78,9 @@ Your goal is to collect data for a transport request. YOU MUST BE SMART AND UNDE
 - Инкотермс: "EXW", "FCA", "DAP", "CIF", "FOB".
 - Стоимость: "цена 2000", "за две тысячи" — это cargo_value (обязательно добавь валюту, например "2000 USD").
 - Срочность: "горим", "ASAP", "вчера", "срочно" — ставь urgency_type = "Срочно".
-- Ты должен быть умным: если пишут "Груз: яблоки, 20 тонн", ты понимаешь что это `cargo_name` and `cargo_weight`.
 
 ДОСТУПНЫЕ РЕГИОНЫ: {regions_str}
-Ты ОБЯЗАН выбрать regions ТОЛЬКО из списка выше. Если маршрут не подходит ни к одному — ставь "Другое".
+Ты ОБЯЗАН выбрать regions ТОЛЬКО из списка выше. ИСКЛЮЧЕНИЕ: если пользователь ЯВНО просит поставить значение, которого нет в списке (например, "исправь направление на Марс"), ты обязан выполнить просьбу пользователя.
 
 ДОСТУПНЫЕ ТИПЫ ТРАНСПОРТА: {transport_str}
 Ты ОБЯЗАН выбрать transport_cat ТОЛЬКО из списка выше.
@@ -71,28 +94,42 @@ Your goal is to collect data for a transport request. YOU MUST BE SMART AND UNDE
 
 ФОРМАТ ОТВЕТА (JSON):
 {{
-  "regions": "одно значение из списка выше",
-  "transport_cat": "Авто|Контейнер|Ж/Д Вагон|Авиа|Мультимодальная",
+  "regions": "...",
+  "transport_cat": "...",
   "route_from": "...", "route_to": "...",
   "loading_address": "...", "customs_address": "...", "clearance_address": "...", "unloading_address": "...",
   "cargo_name": "...", "hs_code": "...", "cargo_value": "...", "cargo_weight": "...", "cargo_places": "...",
   "missing_fields": ["поля, которых не хватает"],
-  "next_question": "Твой вежливый вопрос для уточнения деталей",
+  "next_question": "Твой ответ пользователю",
   "ready_to_publish": boolean,
   "not_logistics": boolean
 }}
 
-Если `ready_to_publish` = false, в `next_question` ты должен спросить именно те поля, которых не хватает.
-Если пользователь попросил "укажи отдельно текстом что затаможка на месте", добавь это в `next_question` или просто заполни поля адресов.
+ТЫ — МОЗГ ЛОГИСТИКИ:
+1. Если пользователь задает вопросы (например, "какой код ТН ВЭД?", "как лучше везти?", "какие документы нужны?"), ты ОБЯЗАН ответить на них в поле `next_question`. 
+2. Используй свои знания о логистике, кодах ТН ВЭД, маршрутах и сроках. Отвечай кратко, профессионально, без воды.
+3. Если ты даешь совет на основе знаний, начни фразу так: "Основываясь на логистической практике..." или "Для данного типа груза обычно используется код ТН ВЭД...".
+4. Продолжай следить за черновиком в JSON, даже если просто отвечаешь на вопрос. 
+5. Будь проактивным: если видишь, что пользователь заполнил данные странно (например, вес 100 кг для 40-футового контейнера), вежливо спроси, все ли верно.
+
+Если пользователь просит "измени", "исправь", "удали", "очисти" какое-то поле — ты должен вернуть в JSON измененное значение. 
+Для удаления поля — поставь в нем значение "null" или пустую строку.
+Если пользователь просит "опубликуй", "сохрани", "выгрузи" или говорит что все верно — ставь `ready_to_publish: true` независимо от полноты данных.
 Сегодняшняя дата: {today}
 """
 
-    async def parse_request(self, text, current_draft=None, templates=None):
+    async def parse_request(self, text, current_draft=None, templates=None, history=None):
         if not self.enabled: return {"error": "AI Assistant disabled"}
         try:
             from database import db
             settings = await db.get_settings()
             messages = [{"role": "system", "content": self._get_system_prompt(settings)}]
+            
+            if history:
+                for h in history:
+                    role = "user" if h.get("is_user") else "assistant"
+                    messages.append({"role": role, "content": h.get("text", "")})
+
             if current_draft:
                 messages.append({"role": "system", "content": f"Current draft: {json.dumps(current_draft, ensure_ascii=False)}"})
             if templates:
@@ -115,12 +152,13 @@ Your goal is to collect data for a transport request. YOU MUST BE SMART AND UNDE
             messages = [
                 {"role": "system", "content": """You are an intent classifier for a logistics company AGL.
 Classify the user's message into one of these intents:
-- "create_request" — user wants to create a new transport request or add details to an existing draft
-- "create_bid" — user wants to place a bid/rate on a request (look for words like "ставка", "предложение", amount + route)
+- "create_request" — user wants to create/edit a request OR asks a logistics-related question (HS codes, advice, routes, etc.)
+- "finish_request" — user says "все верно", "опубликуй", "загружай", "готово", "выкладывай"
+- "create_bid" — user wants to place a bid/rate on a request
 - "recall_request" — user wants to find and reuse an old request
 - "cancel_request" — user wants to cancel the current draft
-- "query_database" — user asks about stats, reports, or wants to find specific data
-- "chat" — general conversation, greetings, or non-logistics talk
+- "query_database" — user asks about stats, reports, or internal data from DB
+- "chat" — ONLY for general greetings, non-logistics talk, or tests.
 
 For create_bid, also extract: route_search (text to search for the request), amount (number), currency (default USD).
 For recall_request, extract: query (search text).
@@ -168,12 +206,25 @@ Respond in JSON: {"intent": "...", "args": {...}, "text": "..."} """},
     def merge_parsed_data(self, old_draft: dict, new_data: dict) -> dict:
         """Merge newly parsed data into the existing draft. New values overwrite old ones."""
         merged = dict(old_draft) if old_draft else {}
-        skip_keys = {"not_logistics", "error"}
+        skip_keys = {"not_logistics", "error", "next_question", "missing_fields", "ready_to_publish"}
+        
         for k, v in new_data.items():
             if k in skip_keys:
                 continue
-            if v is not None and str(v).strip() not in ("", "-", "None", "null"):
-                merged[k] = v
+            
+            # Explicit deletion/clearing
+            if v in (None, "null", "", "-", "None"):
+                if k in merged:
+                    del merged[k]
+                continue
+                
+            merged[k] = v
+        
+        # Meta fields are not merged, they come from the latest parse
+        merged["ready_to_publish"] = new_data.get("ready_to_publish", False)
+        merged["next_question"] = new_data.get("next_question")
+        merged["missing_fields"] = new_data.get("missing_fields", [])
+        
         return merged
 
     def to_request_fields(self, draft: dict) -> dict:

@@ -121,25 +121,55 @@ async def sync_bid_to_discussion(bot, discussion_id, channel_id, channel_msg_id,
     Sends a bid card to the discussion group as a proper comment.
     Uses get_discussion_message to find the correct thread ID in the group.
     """
+    import logging
+    log = logging.getLogger(__name__)
+    
     if not discussion_id or not channel_msg_id:
+        log.warning(f"Sync failed: discussion_id={discussion_id}, channel_msg_id={channel_msg_id}")
         return False
         
     try:
-        # Try to find the forwarded message in the discussion group
-        # channel_id can be @channel_username or numeric ID
-        discussion_msg = await bot.get_discussion_message(chat_id=channel_id, message_id=int(channel_msg_id))
+        # channel_id might be a numeric string "-100..." or a username "@..."
+        # get_discussion_message prefers int for numeric IDs
+        target_chat = channel_id
+        if isinstance(target_chat, str) and (target_chat.startswith("-") or target_chat.isdigit()):
+            try:
+                target_chat = int(target_chat)
+            except:
+                pass
+                
+        log.info(f"Attempting get_discussion_message: chat={target_chat}, msg={channel_msg_id}")
+        discussion_msg = await bot.get_discussion_message(chat_id=target_chat, message_id=int(channel_msg_id))
         
         # Reply to that message in the group — this makes it a "Comment"
+        log.info(f"Discussion msg found: {discussion_msg.message_id}. Sending reply to {discussion_id}")
+        
+        target_discussion = discussion_id
+        if isinstance(target_discussion, str) and (target_discussion.startswith("-") or target_discussion.isdigit()):
+            try:
+                target_discussion = int(target_discussion)
+            except:
+                pass
+
         await bot.send_message(
-            chat_id=discussion_id,
+            chat_id=target_discussion,
             text=bid_card_text,
             reply_to_message_id=discussion_msg.message_id
         )
         return True
-    except Exception:
+    except Exception as e:
+        log.error(f"get_discussion_message failed: {e}")
         # Fallback to top-level message if get_discussion_message fails
         try:
-            await bot.send_message(chat_id=discussion_id, text=bid_card_text)
+            target_discussion = discussion_id
+            if isinstance(target_discussion, str) and (target_discussion.startswith("-") or target_discussion.isdigit()):
+                try:
+                    target_discussion = int(target_discussion)
+                except:
+                    pass
+            log.info(f"Fallback: sending top-level message to {target_discussion}")
+            await bot.send_message(chat_id=target_discussion, text=bid_card_text)
             return True
-        except:
+        except Exception as e2:
+            log.error(f"Fallback failed: {e2}")
             return False

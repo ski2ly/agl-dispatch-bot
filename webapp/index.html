@@ -1170,34 +1170,33 @@
             .then(res => {
                 const s = res.settings;
                 if (s) {
-                    const fillSelect = (id, items) => {
+                    const fillSelect = (id, items, placeholder = null) => {
                         const sel = document.getElementById(id);
                         if (!sel || !items) return;
                         const itemsArr = Array.isArray(items) ? items : [];
-                        if (itemsArr.length === 0) return;
                         clear(sel);
+                        if (placeholder) {
+                            sel.appendChild(el('option', { value: '', text: placeholder }));
+                        }
                         itemsArr.forEach(t => {
-                            const opt = document.createElement('option');
-                            opt.value = String(t);
-                            opt.textContent = String(t);
-                            sel.appendChild(opt);
+                            sel.appendChild(el('option', { value: String(t), text: String(t) }));
                         });
                     };
 
-                    fillSelect('delivery_terms_eu', s.incoterms);
+                    fillSelect('delivery_terms_eu', s.incoterms, 'Инкотермс...');
                     // Only fill border_crossing_cn from settings if the select has 0 or 1 options (#22)
                     const bcc = document.getElementById('border_crossing_cn');
                     if (bcc && bcc.options.length <= 1 && s.border_crossings && s.border_crossings.length > 0) {
                         fillSelect('border_crossing_cn', s.border_crossings);
                     }
-                    fillSelect('container_type_cn', s.transport_subtypes);
+                    fillSelect('container_type_cn', s.transport_subtypes, 'Подтип транспорта...');
 
                     // Only fill ports_list if it doesn't have options yet (avoids overwriting regional specific ports)
                     const pl = document.getElementById('ports_list');
                     if (pl && pl.options.length <= 1 && s.ports && s.ports.length > 0) {
                         fillSelect('ports_list', s.ports);
                     }
-                    fillSelect('source', s.sources);
+                    fillSelect('source', s.sources, '-- Откуда узнали о нас? --');
                 }
                 if (callback) callback();
             }).catch(err => {

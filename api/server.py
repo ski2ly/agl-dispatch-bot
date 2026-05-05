@@ -1030,7 +1030,7 @@ async def api_ping_logistics(request: web.Request):
         logger.error(f"Ping API error: {e}")
         return web.json_response({"error": "Internal error"}, status=500)
 
-DICTIONARY_KEYS = {"incoterms", "ports", "border_crossings", "transport_subtypes", "transport_types", "regions", "currencies", "cancel_reasons"}
+DICTIONARY_KEYS = {"incoterms", "ports", "border_crossings", "transport_subtypes", "transport_types", "regions", "currencies", "cancel_reasons", "sources"}
 SETTABLE_KEYS = DICTIONARY_KEYS | {
     "ai_prompt_extra", "ai_strictness", "channel_id", "discussion_id", "reminder_interval"
 }

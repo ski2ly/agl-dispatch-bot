@@ -141,6 +141,12 @@
                         <div class="grid grid-cols-2 gap-4"><input type="text" id="route_from" placeholder="Откуда *" class="w-full p-4 tg-input text-sm"><input type="text" id="route_to" placeholder="Куда *" class="w-full p-4 tg-input text-sm"></div>
                         <div class="grid grid-cols-2 gap-4"><input type="text" id="loading_address" placeholder="Адрес погрузки" class="w-full p-4 tg-input text-xs"><input type="text" id="customs_address" placeholder="Затаможка" class="w-full p-4 tg-input text-xs"></div>
                         <div class="grid grid-cols-2 gap-4"><input type="text" id="clearance_address" placeholder="Растаможка" class="w-full p-4 tg-input text-xs"><input type="text" id="unloading_address" placeholder="Адрес выгрузки" class="w-full p-4 tg-input text-xs"></div>
+                        <div class="space-y-2">
+                            <label class="block text-[10px] font-bold uppercase opacity-40">Источник заявки</label>
+                            <select id="source" class="w-full p-4 tg-input text-sm font-bold">
+                                <option value="">-- Откуда узнали о нас? --</option>
+                            </select>
+                        </div>
                     </section>
                     <div id="dynamic-fields" class="space-y-6 bg-[var(--secondary-bg)] p-6 rounded-[2rem] border border-[var(--corp-lime)]/10"></div>
                     <section class="space-y-5">
@@ -274,6 +280,7 @@
                     <button onclick="openDictEditor('transport_types')" class="w-full p-5 glass-card flex justify-between items-center font-bold text-xs uppercase">🚛 Типы перевозки <span>➔</span></button>
                     <button onclick="openDictEditor('regions')" class="w-full p-5 glass-card flex justify-between items-center font-bold text-xs uppercase">🌍 Регионы <span>➔</span></button>
                     <button onclick="openDictEditor('currencies')" class="w-full p-5 glass-card flex justify-between items-center font-bold text-xs uppercase">💰 Валюты <span>➔</span></button>
+                    <button onclick="openDictEditor('sources')" class="w-full p-5 glass-card flex justify-between items-center font-bold text-xs uppercase">📣 Источники <span>➔</span></button>
                     <button onclick="openDictEditor('cancel_reasons')" class="w-full p-5 glass-card flex justify-between items-center font-bold text-xs uppercase">❌ Причины отмены <span>➔</span></button>
                 </div>
                 <div id="dict-editor-view" class="hidden space-y-4">
@@ -803,7 +810,7 @@
                     return;
                 }
             }
-            const payload = { regions: selectedDirection, transport_cat: selectedMethod, route_from: document.getElementById('route_from').value, route_to: document.getElementById('route_to').value, loading_address: document.getElementById('loading_address').value, customs_address: document.getElementById('customs_address').value, clearance_address: document.getElementById('clearance_address').value, unloading_address: document.getElementById('unloading_address').value, cargo_name: document.getElementById('cargo_name').value, cargo_value: document.getElementById('cargo_value').value, hs_code: document.getElementById('hs_code').value, cargo_weight: document.getElementById('cargo_weight').value, cargo_places: document.getElementById('cargo_places').value, packaging: document.getElementById('packaging').value, dangerous_cargo: document.getElementById('dangerous_cargo').value, urgency_type: document.getElementById('urgency_type').value, client_company: document.getElementById('client_company').value, responsible: document.getElementById('responsible').value, target: document.getElementById('target').value, message_text: document.getElementById('message_text').value, status: editModeId ? document.getElementById('status-select').value : 'Открыта' };
+            const payload = { regions: selectedDirection, transport_cat: selectedMethod, route_from: document.getElementById('route_from').value, route_to: document.getElementById('route_to').value, loading_address: document.getElementById('loading_address').value, customs_address: document.getElementById('customs_address').value, clearance_address: document.getElementById('clearance_address').value, unloading_address: document.getElementById('unloading_address').value, cargo_name: document.getElementById('cargo_name').value, cargo_value: document.getElementById('cargo_value').value, hs_code: document.getElementById('hs_code').value, cargo_weight: document.getElementById('cargo_weight').value, cargo_places: document.getElementById('cargo_places').value, packaging: document.getElementById('packaging').value, dangerous_cargo: document.getElementById('dangerous_cargo').value, urgency_type: document.getElementById('urgency_type').value, client_company: document.getElementById('client_company').value, responsible: document.getElementById('responsible').value, target: document.getElementById('target').value, message_text: document.getElementById('message_text').value, source: document.getElementById('source').value, status: editModeId ? document.getElementById('status-select').value : 'Открыта' };
             ['delivery_terms_eu','delivery_terms','route_type','transit_rf_allowed','export_decl','origin_cert','border_crossing_cn','road_type_cn','container_owner','container_type_cn','urgency_days','loading_days','customs_days','glonass_seal','ports_list','flight_type','stackable'].forEach(id => { const el = document.getElementById(id); if(el) payload[id] = el.value; });
             // Include cancel_reason & winner_name when editing (#14, #10)
             if (editModeId) {
@@ -877,7 +884,7 @@
             editModeId = id; document.getElementById('btn-back-step3').textContent = '← База'; fetch(`/api/request_details?initData=${encodeURIComponent(tg.initData)}&id=${id}`).then(r => r.json()).then(res => {
                 const r = res.request; selectedDirection = r.regions; selectedMethod = r.transport_cat; switchTab('form'); currentStep = 3; document.querySelectorAll('.step-container').forEach(s => s.classList.remove('active')); document.getElementById('step-3').classList.add('active'); document.getElementById('summary-badge').textContent = `${r.regions} | ${r.transport_cat}`; 
                 setupFields(() => {
-                    ['cargo_name','cargo_value','hs_code','route_from','route_to','loading_address','customs_address','clearance_address','unloading_address','client_company','responsible','target','message_text','cargo_weight','cargo_places','packaging','dangerous_cargo','urgency_type','delivery_terms_eu','route_type','transit_rf_allowed','export_decl','origin_cert','border_crossing_cn','road_type_cn','container_owner','container_type_cn','urgency_days','loading_days','customs_days','glonass_seal','ports_list','flight_type','stackable'].forEach(fid => { const el = document.getElementById(fid); if(el) el.value = r[fid] || ''; });
+                    ['cargo_name','cargo_value','hs_code','route_from','route_to','loading_address','customs_address','clearance_address','unloading_address','client_company','responsible','target','message_text','cargo_weight','cargo_places','packaging','dangerous_cargo','urgency_type','delivery_terms_eu','route_type','transit_rf_allowed','export_decl','origin_cert','border_crossing_cn','road_type_cn','container_owner','container_type_cn','urgency_days','loading_days','customs_days','glonass_seal','ports_list','flight_type','stackable','source'].forEach(fid => { const el = document.getElementById(fid); if(el) el.value = r[fid] || ''; });
                     document.getElementById('edit-only-fields').classList.remove('hidden'); const st = document.getElementById('status-select'); st.innerHTML = '<option value="Открыта">Открыта</option><option value="В работе">В работе</option><option value="Успешно реализована">Успешно ✅</option><option value="Отменена">Отменена ❌</option>'; st.value = r.status; 
                     
                     // Attachments
@@ -1190,6 +1197,7 @@
                     if (pl && pl.options.length <= 1 && s.ports && s.ports.length > 0) {
                         fillSelect('ports_list', s.ports);
                     }
+                    fillSelect('source', s.sources);
                 }
                 if (callback) callback();
             }).catch(err => {

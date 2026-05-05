@@ -49,6 +49,7 @@ def build_card(req: dict) -> str:
         "",
         f"🌍 Направление: {reg_emoji} {reg}",
         f"📦 Тип перевозки: {t_cat}",
+        f"📣 Источник: {v('source', 'Не указан')}",
         "",
         f"📍 Откуда: {v('route_from', '?')} ➔ Куда: {v('route_to', '?')}",
     ]

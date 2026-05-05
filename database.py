@@ -143,7 +143,8 @@ class Database:
             channel_msg_id BIGINT,
             created_at TIMESTAMPTZ DEFAULT NOW(),
             updated_at TIMESTAMPTZ DEFAULT NOW(),
-            last_notified_at TIMESTAMPTZ
+            last_notified_at TIMESTAMPTZ,
+            source TEXT
         );
 
         CREATE TABLE IF NOT EXISTS attachments (
@@ -236,6 +237,7 @@ class Database:
                 ADD COLUMN IF NOT EXISTS winner_name TEXT,
                 ADD COLUMN IF NOT EXISTS cancel_reason TEXT,
                 ADD COLUMN IF NOT EXISTS mute_reminders BOOLEAN DEFAULT FALSE,
+                ADD COLUMN IF NOT EXISTS source TEXT,
                 ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
                 ALTER TABLE ai_sessions ADD COLUMN IF NOT EXISTS history JSONB DEFAULT '[]';
             """)
@@ -350,7 +352,7 @@ class Database:
                     'target', 'last_notified_at', 'cancel_reason', 'clearance_address', 'unloading_address',
                     'delivery_terms_eu', 'transit_rf_allowed', 'road_type_cn', 'border_crossing_cn',
                     'container_type_cn', 'loading_days', 'customs_days', 'urgency_days', 'ports_list',
-                    'dangerous_cargo', 'packaging', 'message_text'
+                    'dangerous_cargo', 'packaging', 'message_text', 'source'
                 ]:
                     if col not in req_cols:
                         await conn.execute(f"ALTER TABLE requests ADD COLUMN IF NOT EXISTS {col} TEXT")
@@ -770,6 +772,11 @@ class Database:
             "cancel_reasons": [
                 "Ставка не прошла", "Груз отменился", "Выбрали другого экспедитора",
                 "Не устроили сроки", "Техническая ошибка"
+            ],
+            "sources": [
+                "Сарафанное радио", "Instagram", "Facebook", "Google", "Яндекс", 
+                "2ГИС", "Партнёр / реферал", "Мероприятие / выставка", 
+                "Yellow Pages", "Golden Pages", "Другое"
             ],
             "ai_prompt_extra": "",
             "ai_strictness": "medium",

@@ -52,6 +52,12 @@ class AIAssistant:
         else:
             transport_str = "Авто|Контейнер|Ж/Д Вагон|Авиа|Мультимодальная"
 
+        sources_list = settings.get("sources", []) if settings else []
+        if sources_list and isinstance(sources_list, list):
+            sources_str = "|".join(str(s) for s in sources_list)
+        else:
+            sources_str = "Сарафанное радио|Instagram|Facebook|Google|Яндекс|2ГИС|Партнёр / реферал|Мероприятие / выставка|Yellow Pages|Golden Pages|Другое"
+
         return f"""You are an expert AGL Logistics Assistant. Your task is to extract cargo request details into a JSON structure.
 
 ### ЛОГИКА ОПРЕДЕЛЕНИЯ РЕГИОНА (СТРОГИЙ ПРИОРИТЕТ):
@@ -74,6 +80,7 @@ class AIAssistant:
   "loading_date": "...", "requirements": "...",
   "delivery_terms": "...", "container_type": "...", "road_type": "...",
   "export_decl": "...", "origin_cert": "...", "stackable": "...",
+  "source": "{sources_str}",
   "extra_info": "...", "missing_fields": [], "next_question": "...",
   "ready_to_publish": false, "not_logistics": false
 }}
@@ -151,6 +158,7 @@ Respond in JSON: {"intent": "...", "args": {...}, "text": "..."} """},
             "delivery_terms": "📦 Инкотермс", "container_type": "🏗 Контейнер",
             "road_type": "🚛 Тип авто", "export_decl": "📄 EX1",
             "origin_cert": "📜 Сертификат", "stackable": "🔝 Штабель",
+            "source": "📣 Источник",
         }
         for key, label in field_labels.items():
             val = draft.get(key)
@@ -214,6 +222,7 @@ Respond in JSON: {"intent": "...", "args": {...}, "text": "..."} """},
             "delivery_terms": "delivery_terms", "container_type": "container_type",
             "road_type": "road_type", "export_decl": "export_decl",
             "origin_cert": "origin_cert", "stackable": "stackable",
+            "source": "source",
         }
         for draft_key, db_key in field_map.items():
             val = draft.get(draft_key)

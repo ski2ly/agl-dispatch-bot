@@ -241,3 +241,52 @@ async def sync_bid_to_discussion(bot, discussion_id, channel_id, channel_msg_id,
             except Exception as e2:
                 log.error(f"Fallback failed: {e2}")
         return False
+
+def calculate_deletion_time(now_dt: datetime, duration_hours: int = 2) -> datetime:
+    """Calculates deletion time respecting business hours (09:30 - 19:00).
+    
+    If event happens at night (19:00 - 09:30), the timer starts at 09:30.
+    If event happens late in the day, the remaining time carries over to next morning.
+    """
+    from datetime import timedelta
+    
+    # Ensure UZT
+    if now_dt.tzinfo is None:
+        now_dt = TZ.localize(now_dt)
+    else:
+        now_dt = now_dt.astimezone(TZ)
+    
+    def get_bounds(dt):
+        start = dt.replace(hour=9, minute=30, second=0, microsecond=0)
+        end = dt.replace(hour=19, minute=0, second=0, microsecond=0)
+        return start, end
+
+    current = now_dt
+    remaining_minutes = duration_hours * 60
+    
+    while remaining_minutes > 0:
+        work_start, work_end = get_bounds(current)
+        
+        if current < work_start:
+            # Shift to start of work day
+            current = work_start
+            continue
+            
+        if current >= work_end:
+            # Shift to start of next work day
+            current = work_start + timedelta(days=1)
+            continue
+            
+        # We are inside work hours
+        minutes_till_end = (work_end - current).total_seconds() / 60
+        
+        if minutes_till_end >= remaining_minutes:
+            # We can finish today
+            current += timedelta(minutes=remaining_minutes)
+            remaining_minutes = 0
+        else:
+            # Use up today's time and move to next day
+            remaining_minutes -= minutes_till_end
+            current = work_start + timedelta(days=1)
+            
+    return current

@@ -217,6 +217,14 @@ class Database:
             created_at TIMESTAMPTZ DEFAULT NOW()
         );
 
+        CREATE TABLE IF NOT EXISTS scheduled_deletions (
+            id SERIAL PRIMARY KEY,
+            chat_id BIGINT NOT NULL,
+            message_id BIGINT NOT NULL,
+            delete_at TIMESTAMPTZ NOT NULL,
+            created_at TIMESTAMPTZ DEFAULT NOW()
+        );
+
         CREATE TABLE IF NOT EXISTS ai_sessions (
             user_id BIGINT PRIMARY KEY,
             draft JSONB DEFAULT '{}',
@@ -1049,5 +1057,24 @@ class Database:
             """
             rows = await conn.fetch(query, hours_old)
             return [dict(r) for r in rows]
+
+    async def add_scheduled_deletion(self, chat_id: int, message_id: int, delete_at: datetime):
+        async with self._pool.acquire() as conn:
+            await conn.execute("""
+                INSERT INTO scheduled_deletions (chat_id, message_id, delete_at)
+                VALUES ($1, $2, $3)
+            """, chat_id, message_id, delete_at)
+
+    async def get_expired_deletions(self):
+        async with self._pool.acquire() as conn:
+            rows = await conn.fetch("""
+                SELECT id, chat_id, message_id FROM scheduled_deletions
+                WHERE delete_at <= NOW()
+            """)
+            return rows
+
+    async def remove_scheduled_deletion(self, deletion_id: int):
+        async with self._pool.acquire() as conn:
+            await conn.execute("DELETE FROM scheduled_deletions WHERE id = $1", deletion_id)
 
 db = Database()

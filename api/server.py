@@ -613,10 +613,40 @@ async def api_submit(request):
                         await request.app["bot"].edit_message_text(
                             chat_id=target_channel,
                             message_id=int(updated_req["channel_msg_id"]),
-                            text=text
+                            text=text,
+                            parse_mode="HTML"
                         )
+                        
+                        # Notify about update and schedule deletion (#53)
+                        from utils.helpers import TZ, calculate_deletion_time
+                        now = datetime.now(TZ)
+                        delete_at = calculate_deletion_time(now, 2)
+                        
+                        update_notif = f"🔄 <b>Заявка #{updated_req['id']:04d} обновлена</b>"
+                        
+                        # 1. Notify in channel
+                        notif_msg = await request.app["bot"].send_message(chat_id=target_channel, text=update_notif, parse_mode="HTML")
+                        await db.add_scheduled_deletion(target_channel, notif_msg.message_id, delete_at)
+                        
+                        # 2. Notify in discussion group if exists
+                        discussion_id = settings.get("discussion_id") or os.getenv("DISCUSSION_GROUP_ID")
+                        if discussion_id:
+                            try:
+                                disc_msg = await request.app["bot"].send_message(
+                                    chat_id=discussion_id, 
+                                    text=update_notif, 
+                                    reply_to_message_id=int(updated_req["channel_msg_id"]), # This might not work if it's a different chat, but sync_bid_to_discussion logic usually handles it
+                                    parse_mode="HTML"
+                                )
+                                # If reply_to failed because it's a different chat, we just send it normally or skip reply
+                                await db.add_scheduled_deletion(discussion_id, disc_msg.message_id, delete_at)
+                            except:
+                                # Fallback: send without reply
+                                disc_msg = await request.app["bot"].send_message(chat_id=discussion_id, text=update_notif, parse_mode="HTML")
+                                await db.add_scheduled_deletion(discussion_id, disc_msg.message_id, delete_at)
+
                     except Exception as e:
-                        logger.error(f"Failed to update channel message: {e}")
+                        logger.error(f"Failed to update channel message or send notif: {e}")
         else:
             # New request
             user_id = profile['telegram_id']
@@ -1043,13 +1073,19 @@ async def api_ping_logistics(request: web.Request):
             return web.json_response({"error": "Не настроен канал"}, status=500)
 
         bot = request.app["bot"]
-        await bot.send_message(
+        sent_msg = await bot.send_message(
             chat_id=channel_id,
             reply_to_message_id=int(req_data["channel_msg_id"]),
             text=f"‼️ Уважаемые коллеги, заявка #{req_data['id']:04d} ({req_data['route_from']} ➔ {req_data['route_to']}) всё ещё актуальна! Ждём ваших ставок."
         )
-        from utils.helpers import TZ
-        await db.update_request(req_id, {"last_notified_at": datetime.now(TZ)})
+        
+        # Schedule auto-deletion after 3 working hours (#53)
+        from utils.helpers import TZ, calculate_deletion_time
+        now = datetime.now(TZ)
+        delete_at = calculate_deletion_time(now, 3)
+        await db.add_scheduled_deletion(channel_id, sent_msg.message_id, delete_at)
+
+        await db.update_request(req_id, {"last_notified_at": now})
         return web.json_response({"ok": True})
     except Exception as e:
         logger.error(f"Ping API error: {e}")

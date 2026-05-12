@@ -17,7 +17,7 @@ from handlers.broadcast import broadcast_handler
 from handlers.ai_handlers import handle_text_msg, handle_voice, handle_attachment
 from handlers.callbacks import handle_callbacks
 from handlers.discussion import handle_discussion_forward
-from handlers.cron import reminder_cron, feedback_cron
+from handlers.cron import reminder_cron, feedback_cron, deletion_cron
 
 # Configure logging
 logging.basicConfig(
@@ -66,6 +66,7 @@ async def post_init(application: Application):
     bot = application.bot
     asyncio.create_task(_supervised_cron(lambda: reminder_cron(bot), "reminder_cron"))
     asyncio.create_task(_supervised_cron(lambda: feedback_cron(bot), "feedback_cron"))
+    asyncio.create_task(_supervised_cron(lambda: deletion_cron(bot), "deletion_cron"))
 
     # 4. Start web server
     # Increased limit to 32MB to allow photo and document uploads via MiniApp.

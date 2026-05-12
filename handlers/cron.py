@@ -86,3 +86,25 @@ async def feedback_cron(bot):
             logger.error(f"Feedback cron error: {e}")
         
         await asyncio.sleep(3600)  # check once an hour
+
+async def deletion_cron(bot):
+    """Periodic task to delete expired temporary messages."""
+    logger.info("⏰ Deletion cron task started")
+    await asyncio.sleep(30) # offset
+    
+    while True:
+        try:
+            expired = await db.get_expired_deletions()
+            for task in expired:
+                try:
+                    await bot.delete_message(chat_id=task["chat_id"], message_id=task["message_id"])
+                    logger.info(f"🗑 Deleted expired message {task['message_id']} in chat {task['chat_id']}")
+                except Exception as e:
+                    # Message might be already deleted or bot has no permission
+                    logger.warning(f"Could not delete expired message {task['message_id']}: {e}")
+                finally:
+                    await db.remove_scheduled_deletion(task["id"])
+        except Exception as e:
+            logger.error(f"Deletion cron error: {e}")
+        
+        await asyncio.sleep(600) # check every 10 minutes

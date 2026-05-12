@@ -9,6 +9,7 @@ import pytz
 logger = logging.getLogger(__name__)
 TZ = pytz.timezone("Asia/Tashkent")
 
+
 class AIAssistant:
     def __init__(self):
         api_key = os.getenv("OPENAI_API_KEY")
@@ -22,17 +23,19 @@ class AIAssistant:
         today = datetime.now(TZ).strftime("%d.%m.%Y %H:%M")
         extra = settings.get("ai_prompt_extra", "") if settings else ""
         strictness = settings.get("ai_strictness", "medium") if settings else "medium"
-        
+
         strict_note = "BE VERY STRICT." if strictness == "high" else ""
-        
+
         # Dynamic regions from settings
         regions_list = settings.get("regions", []) if settings else []
         if regions_list and isinstance(regions_list, list):
-            region_names = [r["name"] if isinstance(r, dict) else str(r) for r in regions_list]
+            region_names = [
+                r["name"] if isinstance(r, dict) else str(r) for r in regions_list
+            ]
             regions_str = "|".join(region_names)
         else:
             regions_str = "СНГ|Европа|Китай|Турция|Индия/ЮВА|Другое"
-        
+
         # Define region mapping logic for the AI
         region_rules = f"""
 ПРАВИЛА ОПРЕДЕЛЕНИЯ РЕГИОНА:
@@ -88,26 +91,46 @@ class AIAssistant:
 Today's date: {today}
 """
 
-    async def parse_request(self, text, current_draft=None, templates=None, history=None):
-        if not self.enabled: return {"error": "AI Assistant disabled"}
+    async def parse_request(
+        self, text, current_draft=None, templates=None, history=None
+    ):
+        if not self.enabled:
+            return {"error": "AI Assistant disabled"}
         try:
             from database import db
+
             settings = await db.get_settings()
-            messages = [{"role": "system", "content": self._get_system_prompt(settings)}]
-            
+            messages = [
+                {"role": "system", "content": self._get_system_prompt(settings)}
+            ]
+
             if history:
                 for h in history:
                     role = "user" if h.get("is_user") else "assistant"
                     messages.append({"role": role, "content": h.get("text", "")})
 
             if current_draft:
-                messages.append({"role": "system", "content": f"Current draft: {json.dumps(current_draft, ensure_ascii=False)}"})
+                messages.append(
+                    {
+                        "role": "system",
+                        "content": f"Current draft: {json.dumps(current_draft, ensure_ascii=False)}",
+                    }
+                )
             if templates:
-                messages.append({"role": "system", "content": f"Past requests: {json.dumps(templates, ensure_ascii=False)}"})
-            
+                messages.append(
+                    {
+                        "role": "system",
+                        "content": f"Past requests: {json.dumps(templates, ensure_ascii=False)}",
+                    }
+                )
+
             messages.append({"role": "user", "content": text})
             response = await self.client.chat.completions.create(
-                model=self.model, messages=messages, response_format={"type": "json_object"}, temperature=0.1, timeout=30.0
+                model=self.model,
+                messages=messages,
+                response_format={"type": "json_object"},
+                temperature=0.1,
+                timeout=30.0,
             )
             return json.loads(response.choices[0].message.content)
         except Exception as e:
@@ -120,7 +143,9 @@ Today's date: {today}
             return {"error": "AI Assistant disabled"}
         try:
             messages = [
-                {"role": "system", "content": """You are an intent classifier for a logistics company AGL.
+                {
+                    "role": "system",
+                    "content": """You are an intent classifier for a logistics company AGL.
 Classify the user's message into one of these intents:
 - "create_request" — пользователь хочет создать заявку, ДОБАВИТЬ информацию, ИЗМЕНИТЬ данные, УДАЛИТЬ ЧАСТЬ данных ИЛИ задает любые вопросы по логистике. ВАЖНО: Если в сообщении есть города, грузы, веса или маршруты — это ВСЕГДА "create_request".
 - "finish_request" — пользователь говорит "все верно", "опубликуй", "готово".
@@ -129,11 +154,16 @@ Classify the user's message into one of these intents:
 - "cancel_request" — полная отмена и удаление всего черновика.
 - "chat" — ТОЛЬКО для пустых приветствий или тем, ВООБЩЕ не связанных с логистикой.
 
-Respond in JSON: {"intent": "...", "args": {...}, "text": "..."} """},
-                {"role": "user", "content": text}
+Respond in JSON: {"intent": "...", "args": {...}, "text": "..."} """,
+                },
+                {"role": "user", "content": text},
             ]
             response = await self.client.chat.completions.create(
-                model=self.model, messages=messages, response_format={"type": "json_object"}, temperature=0.1, timeout=30.0
+                model=self.model,
+                messages=messages,
+                response_format={"type": "json_object"},
+                temperature=0.1,
+                timeout=30.0,
             )
             return json.loads(response.choices[0].message.content)
         except Exception as e:
@@ -143,29 +173,50 @@ Respond in JSON: {"intent": "...", "args": {...}, "text": "..."} """},
     def build_preview(self, draft: dict) -> str:
         """Build a human-readable preview of the current draft for the user."""
         import html
+
         lines = []
         field_labels = {
-            "regions": "🌍 Направление", "transport_cat": "🚛 Транспорт",
-            "route_from": "📍 Откуда", "route_to": "📍 Куда",
-            "cargo_name": "📦 Груз", "cargo_weight": "⚖️ Вес (в кг)",
-            "cargo_places": "📏 Места", "cargo_volume": "📦 Объём", "cargo_value": "💰 Стоимость",
-            "hs_code": "📝 ТН ВЭД", "customs_address": "🏛 Затаможка",
-            "clearance_address": "🏛 Растаможка", "loading_address": "📍 Погрузка",
-            "unloading_address": "📍 Выгрузка", "urgency_type": "🕒 Срочность",
-            "transit_info": "🛣 Транзит", "packaging": "📦 Упаковка",
-            "dangerous_cargo": "⚠️ Опасность", "extra_info": "📝 Доп. инфо",
-            "loading_date": "📅 Дата готовности", "requirements": "🎯 Требуется",
-            "delivery_terms": "📦 Инкотермс", "container_type": "🏗 Контейнер",
-            "road_type": "🚛 Тип авто", "export_decl": "📄 EX1",
-            "origin_cert": "📜 Сертификат", "stackable": "🔝 Штабель",
+            "regions": "🌍 Направление",
+            "transport_cat": "🚛 Транспорт",
+            "route_from": "📍 Откуда",
+            "route_to": "📍 Куда",
+            "cargo_name": "📦 Груз",
+            "cargo_weight": "⚖️ Вес (в кг)",
+            "cargo_places": "📏 Места",
+            "cargo_volume": "📦 Объём",
+            "cargo_value": "💰 Стоимость",
+            "hs_code": "📝 ТН ВЭД",
+            "customs_address": "🏛 Затаможка",
+            "clearance_address": "🏛 Растаможка",
+            "loading_address": "📍 Погрузка",
+            "unloading_address": "📍 Выгрузка",
+            "urgency_type": "🕒 Срочность",
+            "transit_info": "🛣 Транзит",
+            "packaging": "📦 Упаковка",
+            "dangerous_cargo": "⚠️ Опасность",
+            "extra_info": "📝 Доп. инфо",
+            "loading_date": "📅 Дата готовности",
+            "requirements": "🎯 Требуется",
+            "delivery_terms": "📦 Инкотермс",
+            "container_type": "🏗 Контейнер",
+            "road_type": "🚛 Тип авто",
+            "export_decl": "📄 EX1",
+            "origin_cert": "📜 Сертификат",
+            "stackable": "🔝 Штабель",
             "source": "📣 Источник",
         }
         for key, label in field_labels.items():
             val = draft.get(key)
             # Skip empty, false, null, or placeholder values
-            if val is None or str(val).strip().lower() in ("", "-", "none", "false", "null"):
+            if val is None or str(val).strip().lower() in (
+                "",
+                "-",
+                "none",
+                "false",
+                "null",
+            ):
                 continue
-            
+
             safe_val = html.escape(str(val))
             lines.append(f"{label}: <b>{safe_val}</b>")
 
@@ -184,44 +235,64 @@ Respond in JSON: {"intent": "...", "args": {...}, "text": "..."} """},
     def merge_parsed_data(self, old_draft: dict, new_data: dict) -> dict:
         """Merge newly parsed data into the existing draft. New values overwrite old ones."""
         merged = dict(old_draft) if old_draft else {}
-        skip_keys = {"not_logistics", "error", "next_question", "missing_fields", "ready_to_publish"}
-        
+        skip_keys = {
+            "not_logistics",
+            "error",
+            "next_question",
+            "missing_fields",
+            "ready_to_publish",
+        }
+
         for k, v in new_data.items():
             if k in skip_keys:
                 continue
-            
+
             # Explicit deletion/clearing
             if v in (None, "null", "", "-", "None"):
                 if k in merged:
                     del merged[k]
                 continue
-                
+
             merged[k] = v
-        
+
         # Meta fields are not merged, they come from the latest parse
         merged["ready_to_publish"] = new_data.get("ready_to_publish", False)
         merged["next_question"] = new_data.get("next_question")
         merged["missing_fields"] = new_data.get("missing_fields", [])
-        
+
         return merged
 
     def to_request_fields(self, draft: dict) -> dict:
         """Convert AI draft to a dict suitable for db.create_request()."""
         db_fields = {}
         field_map = {
-            "regions": "regions", "transport_cat": "transport_cat",
-            "route_from": "route_from", "route_to": "route_to",
-            "loading_address": "loading_address", "customs_address": "customs_address",
-            "clearance_address": "clearance_address", "unloading_address": "unloading_address",
-            "cargo_name": "cargo_name", "hs_code": "hs_code",
-            "cargo_value": "cargo_value", "cargo_weight": "cargo_weight",
-            "cargo_places": "cargo_places", "cargo_volume": "cargo_volume", "urgency_type": "urgency_type",
-            "transit_info": "transit_rf_allowed", "packaging": "packaging",
-            "dangerous_cargo": "dangerous_cargo", "extra_info": "message_text",
-            "loading_date": "loading_days", "requirements": "target",
-            "delivery_terms": "delivery_terms", "container_type": "container_type",
-            "road_type": "road_type", "export_decl": "export_decl",
-            "origin_cert": "origin_cert", "stackable": "stackable",
+            "regions": "regions",
+            "transport_cat": "transport_cat",
+            "route_from": "route_from",
+            "route_to": "route_to",
+            "loading_address": "loading_address",
+            "customs_address": "customs_address",
+            "clearance_address": "clearance_address",
+            "unloading_address": "unloading_address",
+            "cargo_name": "cargo_name",
+            "hs_code": "hs_code",
+            "cargo_value": "cargo_value",
+            "cargo_weight": "cargo_weight",
+            "cargo_places": "cargo_places",
+            "cargo_volume": "cargo_volume",
+            "urgency_type": "urgency_type",
+            "transit_info": "transit_rf_allowed",
+            "packaging": "packaging",
+            "dangerous_cargo": "dangerous_cargo",
+            "extra_info": "message_text",
+            "loading_date": "loading_days",
+            "requirements": "target",
+            "delivery_terms": "delivery_terms",
+            "container_type": "container_type",
+            "road_type": "road_type",
+            "export_decl": "export_decl",
+            "origin_cert": "origin_cert",
+            "stackable": "stackable",
             "source": "source",
         }
         for draft_key, db_key in field_map.items():
@@ -239,11 +310,22 @@ Respond in JSON: {"intent": "...", "args": {...}, "text": "..."} """},
             recent = await db_module.list_requests(limit=5)
             context_data = {
                 "stats": stats,
-                "recent_requests": [{"id": r["id"], "route": f"{r.get('route_from')} → {r.get('route_to')}", "status": r.get("status"), "cargo": r.get("cargo_name")} for r in recent]
+                "recent_requests": [
+                    {
+                        "id": r["id"],
+                        "route": f"{r.get('route_from')} → {r.get('route_to')}",
+                        "status": r.get("status"),
+                        "cargo": r.get("cargo_name"),
+                    }
+                    for r in recent
+                ],
             }
             messages = [
-                {"role": "system", "content": f"You are a data analyst for AGL logistics. Answer the user's question based on this data:\n{json.dumps(context_data, ensure_ascii=False, default=str)}\n\nBe concise. Use Russian. Format numbers clearly."},
-                {"role": "user", "content": question}
+                {
+                    "role": "system",
+                    "content": f"You are a data analyst for AGL logistics. Answer the user's question based on this data:\n{json.dumps(context_data, ensure_ascii=False, default=str)}\n\nBe concise. Use Russian. Format numbers clearly.",
+                },
+                {"role": "user", "content": question},
             ]
             response = await self.client.chat.completions.create(
                 model=self.model, messages=messages, temperature=0.3, timeout=15.0
@@ -254,16 +336,17 @@ Respond in JSON: {"intent": "...", "args": {...}, "text": "..."} """},
             return f"Ошибка при обработке запроса: {e}"
 
     async def transcribe_audio(self, file_path: str):
-        if not self.enabled: return None
+        if not self.enabled:
+            return None
         try:
             with open(file_path, "rb") as audio_file:
                 transcript = await self.client.audio.transcriptions.create(
-                    model="whisper-1", 
-                    file=audio_file
+                    model="whisper-1", file=audio_file
                 )
                 return transcript.text
         except Exception as e:
             logger.error(f"Whisper error: {e}")
             return None
+
 
 ai_assistant = AIAssistant()

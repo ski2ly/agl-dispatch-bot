@@ -9,6 +9,7 @@ logger = logging.getLogger(__name__)
 
 from database import db
 
+
 def _safe_int(s):
     try:
         return int(s)
@@ -49,14 +50,24 @@ async def handle_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not comments:
             await query.edit_message_text(
                 f"💬 Комментарии по заявке #{req_id:04d}\n\nПока комментариев нет.",
-                reply_markup=InlineKeyboardMarkup([
-                    [InlineKeyboardButton("← Назад к заявке", callback_data=f"view_{req_id}")]
-                ])
+                reply_markup=InlineKeyboardMarkup(
+                    [
+                        [
+                            InlineKeyboardButton(
+                                "← Назад к заявке", callback_data=f"view_{req_id}"
+                            )
+                        ]
+                    ]
+                ),
             )
             return
         lines = [f"💬 Комментарии по заявке #{req_id:04d}\n"]
         for c in comments[-15:]:  # Last 15 comments
-            badge = "💬" if c.get("type") == "discussion" else ("🤖" if c.get("type") == "ai" else "👤")
+            badge = (
+                "💬"
+                if c.get("type") == "discussion"
+                else ("🤖" if c.get("type") == "ai" else "👤")
+            )
             name = c.get("user_name") or "Система"
             text_preview = (c.get("text") or "")[:200]
             lines.append(f"{badge} {name}: {text_preview}")
@@ -65,9 +76,15 @@ async def handle_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
             lines_text = lines_text[:4000] + "..."
         await query.edit_message_text(
             lines_text,
-            reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("← Назад к заявке", callback_data=f"view_{req_id}")]
-            ])
+            reply_markup=InlineKeyboardMarkup(
+                [
+                    [
+                        InlineKeyboardButton(
+                            "← Назад к заявке", callback_data=f"view_{req_id}"
+                        )
+                    ]
+                ]
+            ),
         )
         return
 
@@ -87,19 +104,31 @@ async def handle_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     "cargo_value": req.get("cargo_value"),
                     "cargo_weight": req.get("cargo_weight"),
                     "cargo_places": req.get("cargo_places"),
-                    "recall_source_id": req_id
+                    "recall_source_id": req_id,
                 }
                 await db.save_ai_context(update.effective_user.id, new_draft)
                 from ai_assistant import ai_assistant
+
                 preview = ai_assistant.build_preview(new_draft)
                 await query.answer("Заявка подгружена!")
                 await query.edit_message_text(
                     f"🔄 Данные заявки #{req_id:04d} подгружены в черновик.\n\n{preview}\n\nЧто нужно изменить или добавить?",
                     parse_mode="Markdown",
-                    reply_markup=InlineKeyboardMarkup([
-                        [InlineKeyboardButton("✅ Опубликовать как новую", callback_data="confirm_ai")],
-                        [InlineKeyboardButton("❌ Отмена", callback_data="cancel_ai")]
-                    ])
+                    reply_markup=InlineKeyboardMarkup(
+                        [
+                            [
+                                InlineKeyboardButton(
+                                    "✅ Опубликовать как новую",
+                                    callback_data="confirm_ai",
+                                )
+                            ],
+                            [
+                                InlineKeyboardButton(
+                                    "❌ Отмена", callback_data="cancel_ai"
+                                )
+                            ],
+                        ]
+                    ),
                 )
         return
 
@@ -126,26 +155,38 @@ async def handle_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "comment": "Создано через ИИ",
         }
         await db.upsert_bid(req_id, update.effective_user.id, manager_name, bid_data)
-        await db.log_activity(req_id, update.effective_user.id, manager_name,
-                              "bid_submitted", {"amount": amount})
+        await db.log_activity(
+            req_id,
+            update.effective_user.id,
+            manager_name,
+            "bid_submitted",
+            {"amount": amount},
+        )
 
         # Add internal comment
         bid_card_data = {**bid_data, "request_id": req_id, "manager_name": manager_name}
         bid_card_text = build_bid_card(bid_card_data)
-        await db.add_comment(req_id, update.effective_user.id, manager_name, bid_card_text, "bid")
+        await db.add_comment(
+            req_id, update.effective_user.id, manager_name, bid_card_text, "bid"
+        )
 
         # Send bid to discussion group (same logic as MiniApp bids)
         import os
+
         settings = await db.get_settings()
-        discussion_id = settings.get("discussion_id") or os.getenv("DISCUSSION_GROUP_ID")
+        discussion_id = settings.get("discussion_id") or os.getenv(
+            "DISCUSSION_GROUP_ID"
+        )
         channel_id = settings.get("channel_id") or os.getenv("CHANNEL_ID")
         req = await db.get_request(req_id)
-        
+
         if discussion_id and req and channel_id:
             msg_id = req.get("channel_msg_id")
             if msg_id:
                 plain_card = bid_card_text.replace("**", "")
-                await sync_bid_to_discussion(context.bot, discussion_id, channel_id, msg_id, plain_card)
+                await sync_bid_to_discussion(
+                    context.bot, discussion_id, channel_id, msg_id, plain_card
+                )
             else:
                 plain_card = bid_card_text.replace("**", "")
                 await context.bot.send_message(chat_id=discussion_id, text=plain_card)
@@ -162,7 +203,9 @@ async def handle_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     f"👤 От: {manager_name}\n\n"
                     f"Посмотреть подробности можно в Mini App."
                 )
-                await context.bot.send_message(chat_id=int(creator_id), text=notify_text, parse_mode="HTML")
+                await context.bot.send_message(
+                    chat_id=int(creator_id), text=notify_text, parse_mode="HTML"
+                )
             except Exception as e:
                 logger.error(f"Failed to notify creator {creator_id}: {e}")
 
@@ -187,17 +230,45 @@ async def handle_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
         manager_name = context.user_data.get("profile", {}).get("name", "Менеджер")
 
         if action == "confirmed":
-            await db.add_comment(req_id, update.effective_user.id, manager_name, "✅ Заявку подтвердили", "feedback")
-            await query.edit_message_text(f"Спасибо! Статус '✅ Подтвердили' сохранён в истории заявки #{req_id:04d}.")
+            await db.add_comment(
+                req_id,
+                update.effective_user.id,
+                manager_name,
+                "✅ Заявку подтвердили",
+                "feedback",
+            )
+            await query.edit_message_text(
+                f"Спасибо! Статус '✅ Подтвердили' сохранён в истории заявки #{req_id:04d}."
+            )
         elif action == "not_interested":
-            await db.add_comment(req_id, update.effective_user.id, manager_name, "❌ Клиент не заинтересован", "feedback")
-            await query.edit_message_text(f"Спасибо! Статус '❌ Не заинтересован' сохранён в истории заявки #{req_id:04d}.")
+            await db.add_comment(
+                req_id,
+                update.effective_user.id,
+                manager_name,
+                "❌ Клиент не заинтересован",
+                "feedback",
+            )
+            await query.edit_message_text(
+                f"Спасибо! Статус '❌ Не заинтересован' сохранён в истории заявки #{req_id:04d}."
+            )
         elif action == "need_rate":
-            await db.add_comment(req_id, update.effective_user.id, manager_name, "🔄 Нужна другая ставка", "feedback")
-            await query.edit_message_text(f"Спасибо! Статус '🔄 Нужна другая ставка' сохранён в истории заявки #{req_id:04d}.")
+            await db.add_comment(
+                req_id,
+                update.effective_user.id,
+                manager_name,
+                "🔄 Нужна другая ставка",
+                "feedback",
+            )
+            await query.edit_message_text(
+                f"Спасибо! Статус '🔄 Нужна другая ставка' сохранён в истории заявки #{req_id:04d}."
+            )
         elif action in ("wait_date", "other"):
             # Task 5: Interactive feedback prompt natively in Telegram
-            prompt = "До какого числа ждём?" if action == "wait_date" else "Что именно произошло с заявкой?"
+            prompt = (
+                "До какого числа ждём?"
+                if action == "wait_date"
+                else "Что именно произошло с заявкой?"
+            )
 
             # Store state in context.user_data to be caught by a message handler
             context.user_data["awaiting_feedback_req_id"] = req_id
@@ -207,7 +278,11 @@ async def handle_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
         return
 
-    if data.startswith("remind_later_") or data.startswith("remind_mute_") or data.startswith("ping_logistics_"):
+    if (
+        data.startswith("remind_later_")
+        or data.startswith("remind_mute_")
+        or data.startswith("ping_logistics_")
+    ):
         # All three encode the request_id as the trailing _<int>; parse defensively.
         parts = data.rsplit("_", 1)
         req_id = _safe_int(parts[-1]) if len(parts) == 2 else None
@@ -217,29 +292,43 @@ async def handle_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         if data.startswith("remind_later_"):
             await query.answer("Напомним завтра")
-            await query.edit_message_text(f"⏳ Напоминание по заявке #{req_id:04d} отложено на 24 часа.")
+            await query.edit_message_text(
+                f"⏳ Напоминание по заявке #{req_id:04d} отложено на 24 часа."
+            )
             return
 
         if data.startswith("remind_mute_"):
             await db.update_request(req_id, {"mute_reminders": True})
             await query.answer("Уведомления отключены")
-            await query.edit_message_text(f"🔇 Уведомления по заявке #{req_id:04d} отключены.")
+            await query.edit_message_text(
+                f"🔇 Уведомления по заявке #{req_id:04d} отключены."
+            )
             return
 
         # Task 10: Confirmation logic for ping logistics
         if data.startswith("ping_logistics_conf_"):
             keyboard = [
-                [InlineKeyboardButton("✅ Да, отправить", callback_data=f"ping_logistics_do_{req_id}")],
-                [InlineKeyboardButton("❌ Отмена", callback_data=f"ping_logistics_cancel_{req_id}")]
+                [
+                    InlineKeyboardButton(
+                        "✅ Да, отправить", callback_data=f"ping_logistics_do_{req_id}"
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        "❌ Отмена", callback_data=f"ping_logistics_cancel_{req_id}"
+                    )
+                ],
             ]
             await query.edit_message_text(
                 f"Отправить напоминание по заявке #{req_id:04d}?",
-                reply_markup=InlineKeyboardMarkup(keyboard)
+                reply_markup=InlineKeyboardMarkup(keyboard),
             )
             return
 
         if data.startswith("ping_logistics_cancel_"):
-            await query.edit_message_text(f"Напоминание по заявке #{req_id:04d} отменено.")
+            await query.edit_message_text(
+                f"Напоминание по заявке #{req_id:04d} отменено."
+            )
             return
 
         # ping_logistics_do_ or legacy ping_logistics_
@@ -259,7 +348,9 @@ async def handle_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 text=f"‼️ Уважаемые коллеги, заявка #{req['id']:04d} ({req['route_from']} ➔ {req['route_to']}) всё ещё актуальна! Ждём ваших ставок.",
             )
             await query.answer("Напоминание отправлено!")
-            await query.edit_message_text(f"🔔 Вы напомнили логистам о заявке #{req_id:04d}.")
+            await query.edit_message_text(
+                f"🔔 Вы напомнили логистам о заявке #{req_id:04d}."
+            )
         except Exception as e:
             logger.error(f"Ping failed: {e}")
             await query.answer("Ошибка при отправке")

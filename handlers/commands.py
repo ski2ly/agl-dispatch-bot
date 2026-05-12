@@ -1,6 +1,13 @@
 import os
 import logging
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo, BotCommand, BotCommandScopeChat
+from telegram import (
+    Update,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    WebAppInfo,
+    BotCommand,
+    BotCommandScopeChat,
+)
 from telegram.ext import ContextTypes
 from database import db
 from handlers.auth import requires_auth
@@ -8,6 +15,7 @@ from utils.helpers import build_card
 
 logger = logging.getLogger(__name__)
 WEBAPP_URL = os.getenv("WEBAPP_URL")
+
 
 async def set_user_commands(bot, chat_id, role):
     base_commands = [
@@ -19,32 +27,42 @@ async def set_user_commands(bot, chat_id, role):
         BotCommand("cancel", "Отменить текущее действие"),
     ]
     if role in ["admin", "superuser"]:
-        base_commands.extend([
-            BotCommand("stats", "Общая статистика и аналитика"),
-            BotCommand("users", "Список сотрудников"),
-            BotCommand("logs", "Логи последних действий"),
-        ])
-    
+        base_commands.extend(
+            [
+                BotCommand("stats", "Общая статистика и аналитика"),
+                BotCommand("users", "Список сотрудников"),
+                BotCommand("logs", "Логи последних действий"),
+            ]
+        )
+
     try:
         await bot.set_my_commands(base_commands, scope=BotCommandScopeChat(chat_id))
     except Exception as e:
         logger.warning(f"Could not set commands for {chat_id}: {e}")
 
+
 @requires_auth
 async def start_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     profile = context.user_data.get("profile")
     await set_user_commands(context.bot, update.effective_chat.id, profile.get("role"))
-    
+
     await update.message.reply_text(
         f"👋 Привет, {profile['name']}!\n\n"
         "Я — диспетчерский бот AGL. Здесь ты можешь:\n"
         "1. Создавать заявки голосом или текстом (просто пиши мне).\n"
         "2. Просматривать базу и подавать ставки через Mini App.\n\n"
         "Используй кнопку в меню или команду /help.",
-        reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("🚀 Открыть Mini App", web_app=WebAppInfo(url=WEBAPP_URL))]
-        ])
+        reply_markup=InlineKeyboardMarkup(
+            [
+                [
+                    InlineKeyboardButton(
+                        "🚀 Открыть Mini App", web_app=WebAppInfo(url=WEBAPP_URL)
+                    )
+                ]
+            ]
+        ),
     )
+
 
 @requires_auth
 async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -76,27 +94,29 @@ async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "🔸 /logs — Логи последних действий.\n"
         )
 
-    help_text += (
-        "\n🚛 **Mini App:** Используйте кнопку в меню для полной работы с базой и ставками."
-    )
-    
+    help_text += "\n🚛 **Mini App:** Используйте кнопку в меню для полной работы с базой и ставками."
+
     await update.message.reply_text(help_text, parse_mode="Markdown")
+
 
 @requires_auth
 async def users_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     profile = context.user_data.get("profile", {})
     if profile["role"] not in ["admin", "superuser"]:
-        return # Hide silently
-        
+        return  # Hide silently
+
     users = await db.list_users()
     text = "👥 **Сотрудники в системе:**\n\n"
     is_super = profile["role"] == "superuser"
-    
+
     for u in users:
-        key_info = f" | Ключ: `{u['login_key']}`" if is_super and u.get('login_key') else ""
+        key_info = (
+            f" | Ключ: `{u['login_key']}`" if is_super and u.get("login_key") else ""
+        )
         text += f"• {u['name']} — {u['role']}{key_info}\n"
-    
+
     await update.message.reply_text(text, parse_mode="Markdown")
+
 
 @requires_auth
 async def profile_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -111,23 +131,35 @@ async def profile_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     await update.message.reply_text(text, parse_mode="Markdown")
 
+
 @requires_auth
 async def my_requests_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     # Use optimized DB filter
     my_reqs = await db.list_requests(limit=15, creator_id=user_id)
-    
+
     if not my_reqs:
         await update.message.reply_text("📭 Вы еще не создали ни одной заявки.")
         return
-        
+
     text = "📂 **Ваши последние заявки:**\n\n"
     keyboard = []
     for r in my_reqs:
-        text += f"#{r['id']:04d} | {r['route_from']} ➔ {r['route_to']} | {r['status']}\n"
-        keyboard.append([InlineKeyboardButton(f"Смотреть #{r['id']:04d}", callback_data=f"view_{r['id']}")])
-    
-    await update.message.reply_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
+        text += (
+            f"#{r['id']:04d} | {r['route_from']} ➔ {r['route_to']} | {r['status']}\n"
+        )
+        keyboard.append(
+            [
+                InlineKeyboardButton(
+                    f"Смотреть #{r['id']:04d}", callback_data=f"view_{r['id']}"
+                )
+            ]
+        )
+
+    await update.message.reply_text(
+        text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown"
+    )
+
 
 @requires_auth
 async def list_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -135,15 +167,24 @@ async def list_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not reqs:
         await update.message.reply_text("📭 Заявок пока нет.")
         return
-    
+
     text = "📜 *Последние 10 заявок:*\n\n"
     keyboard = []
     for r in reqs:
         id_str = f"#{r['id']:04d}"
         text += f"{id_str} | {r['route_from']} ➔ {r['route_to']} | {r['status']}\n"
-        keyboard.append([InlineKeyboardButton(f"Просмотр {id_str}", callback_data=f"view_{r['id']}")])
-    
-    await update.message.reply_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
+        keyboard.append(
+            [
+                InlineKeyboardButton(
+                    f"Просмотр {id_str}", callback_data=f"view_{r['id']}"
+                )
+            ]
+        )
+
+    await update.message.reply_text(
+        text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown"
+    )
+
 
 @requires_auth
 async def stats_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -151,11 +192,21 @@ async def stats_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if profile["role"] not in ["admin", "superuser"]:
         await update.message.reply_text("⛔️ У вас нет прав для просмотра статистики.")
         return
-    
+
     stats = await db.get_stats()
-    managers_text = "\n".join(f"  • {m['name']}: {m['count']}" for m in stats.get('managers', [])[:10]) or "  нет данных"
-    regions_text = "\n".join(f"  • {r['name']}: {r['count']}" for r in stats.get('regions', [])[:10]) or "  нет данных"
-    
+    managers_text = (
+        "\n".join(
+            f"  • {m['name']}: {m['count']}" for m in stats.get("managers", [])[:10]
+        )
+        or "  нет данных"
+    )
+    regions_text = (
+        "\n".join(
+            f"  • {r['name']}: {r['count']}" for r in stats.get("regions", [])[:10]
+        )
+        or "  нет данных"
+    )
+
     await update.message.reply_text(
         f"📊 *Статистика за всё время:*\n\n"
         f"✅ Конверсия: {stats.get('success_rate', 0)}%\n"
@@ -163,8 +214,9 @@ async def stats_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"⚡ Среднее время первой ставки: {stats.get('avg_response_minutes', 0)} мин\n\n"
         f"👥 *Менеджеры:*\n{managers_text}\n\n"
         f"🌍 *Регионы:*\n{regions_text}",
-        parse_mode="Markdown"
+        parse_mode="Markdown",
     )
+
 
 @requires_auth
 async def logs_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -179,12 +231,13 @@ async def logs_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     text = "📜 **Последние действия в системе:**\n\n"
     for l in logs:
-        dt = l['created_at'].strftime("%H:%M")
-        action = l['action'].replace("_", " ").capitalize()
-        cargo = f" ({l['cargo_name']})" if l['cargo_name'] else ""
+        dt = l["created_at"].strftime("%H:%M")
+        action = l["action"].replace("_", " ").capitalize()
+        cargo = f" ({l['cargo_name']})" if l["cargo_name"] else ""
         text += f"• `{dt}` **{l['user_name']}**: {action}{cargo}\n"
-    
+
     await update.message.reply_text(text, parse_mode="Markdown")
+
 
 async def view_request_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -199,10 +252,17 @@ async def view_request_handler(update: Update, context: ContextTypes.DEFAULT_TYP
     if not req:
         await query.edit_message_text("❌ Заявка не найдена.")
         return
-    
+
     card = build_card(req)
     keyboard = [
-        [InlineKeyboardButton("💰 Подать ставку / Изменить", web_app=WebAppInfo(url=f"{WEBAPP_URL}?req_id={req_id}"))],
-        [InlineKeyboardButton("💬 Комментарии", callback_data=f"comments_{req_id}")]
+        [
+            InlineKeyboardButton(
+                "💰 Подать ставку / Изменить",
+                web_app=WebAppInfo(url=f"{WEBAPP_URL}?req_id={req_id}"),
+            )
+        ],
+        [InlineKeyboardButton("💬 Комментарии", callback_data=f"comments_{req_id}")],
     ]
-    await query.edit_message_text(f"🔍 Заявка {req_id:04d}\n\n{card}", reply_markup=InlineKeyboardMarkup(keyboard))
+    await query.edit_message_text(
+        f"🔍 Заявка {req_id:04d}\n\n{card}", reply_markup=InlineKeyboardMarkup(keyboard)
+    )

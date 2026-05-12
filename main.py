@@ -4,7 +4,15 @@ import logging
 from datetime import datetime
 from dotenv import load_dotenv
 from telegram import Update, BotCommand
-from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, CallbackQueryHandler, filters, PicklePersistence
+from telegram.ext import (
+    Application,
+    CommandHandler,
+    ContextTypes,
+    MessageHandler,
+    CallbackQueryHandler,
+    filters,
+    PicklePersistence,
+)
 
 # Load env before other imports
 load_dotenv()
@@ -12,7 +20,16 @@ load_dotenv()
 from database import db
 from ai_assistant import ai_assistant
 from api.server import setup_api, web
-from handlers.commands import start_cmd, help_cmd, list_cmd, stats_cmd, profile_cmd, my_requests_cmd, users_cmd, logs_cmd
+from handlers.commands import (
+    start_cmd,
+    help_cmd,
+    list_cmd,
+    stats_cmd,
+    profile_cmd,
+    my_requests_cmd,
+    users_cmd,
+    logs_cmd,
+)
 from handlers.ai_handlers import handle_text_msg, handle_voice, handle_attachment
 from handlers.callbacks import handle_callbacks
 from handlers.discussion import handle_discussion_forward
@@ -56,7 +73,7 @@ async def post_init(application: Application):
         BotCommand("my_requests", "Мои созданные заявки"),
         BotCommand("profile", "Мой профиль и роль"),
         BotCommand("cancel", "Отменить текущее действие"),
-        BotCommand("ai", "Создать заявку или задать вопрос ИИ")
+        BotCommand("ai", "Создать заявку или задать вопрос ИИ"),
     ]
     await application.bot.set_my_commands(commands)
 
@@ -76,12 +93,16 @@ async def post_init(application: Application):
     site = web.TCPSite(runner, "0.0.0.0", port)
     await site.start()
 
-    logger.info(f"🚀 System initialized: DB, Cron, and API Server are live on port {port}.")
+    logger.info(
+        f"🚀 System initialized: DB, Cron, and API Server are live on port {port}."
+    )
+
 
 async def post_shutdown(application: Application):
     """Cleanup tasks after bot shutdown."""
     await db.close()
     logger.info("🛑 System shut down successfully.")
+
 
 def main():
     token = os.getenv("BOT_TOKEN")
@@ -93,12 +114,23 @@ def main():
     persistence = None
     try:
         os.makedirs(data_dir, exist_ok=True)
-        persistence = PicklePersistence(filepath=os.path.join(data_dir, "bot_data.pickle"))
+        persistence = PicklePersistence(
+            filepath=os.path.join(data_dir, "bot_data.pickle")
+        )
     except (PermissionError, OSError) as e:
-        logger.warning(f"Persistence error for {data_dir}: {e}. Falling back to memory-only persistence.")
+        logger.warning(
+            f"Persistence error for {data_dir}: {e}. Falling back to memory-only persistence."
+        )
         persistence = None
 
-    application = Application.builder().token(token).persistence(persistence).post_init(post_init).post_shutdown(post_shutdown).build()
+    application = (
+        Application.builder()
+        .token(token)
+        .persistence(persistence)
+        .post_init(post_init)
+        .post_shutdown(post_shutdown)
+        .build()
+    )
     application.add_error_handler(_error_handler)
 
     # Commands
@@ -111,25 +143,41 @@ def main():
     application.add_handler(CommandHandler("users", users_cmd))
     application.add_handler(CommandHandler("logs", logs_cmd))
     application.add_handler(CommandHandler("ai", handle_text_msg))
-    application.add_handler(CommandHandler("new", handle_text_msg)) # Start new request via AI
-    application.add_handler(CommandHandler("cancel", handle_text_msg)) # Handled in handle_text_msg logic
+    application.add_handler(
+        CommandHandler("new", handle_text_msg)
+    )  # Start new request via AI
+    application.add_handler(
+        CommandHandler("cancel", handle_text_msg)
+    )  # Handled in handle_text_msg logic
 
     # AI & Attachments
     application.add_handler(MessageHandler(filters.VOICE | filters.AUDIO, handle_voice))
-    application.add_handler(MessageHandler(filters.Document.ALL | filters.PHOTO, handle_attachment))
-    
+    application.add_handler(
+        MessageHandler(filters.Document.ALL | filters.PHOTO, handle_attachment)
+    )
+
     # General Text (AI Parsing) — only in private chats to avoid group interference
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND & filters.ChatType.PRIVATE, handle_text_msg))
+    application.add_handler(
+        MessageHandler(
+            filters.TEXT & ~filters.COMMAND & filters.ChatType.PRIVATE, handle_text_msg
+        )
+    )
 
     # Callbacks
     application.add_handler(CallbackQueryHandler(handle_callbacks))
 
     # Discussion group
-    application.add_handler(MessageHandler(filters.ChatType.GROUP | filters.ChatType.SUPERGROUP, handle_discussion_forward))
+    application.add_handler(
+        MessageHandler(
+            filters.ChatType.GROUP | filters.ChatType.SUPERGROUP,
+            handle_discussion_forward,
+        )
+    )
 
     # Run bot
     logger.info("🤖 Bot starting...")
     application.run_polling(allowed_updates=Update.ALL_TYPES)
+
 
 if __name__ == "__main__":
     main()

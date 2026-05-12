@@ -1,4 +1,5 @@
 """Test configuration: ensure project root is importable and required env is set."""
+
 import os
 import sys
 from pathlib import Path

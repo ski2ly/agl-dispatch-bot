@@ -14,23 +14,38 @@ logger = logging.getLogger(__name__)
 CHANNEL_ID = os.getenv("CHANNEL_ID")
 DATA_DIR = os.getenv("DATA_DIR", "data")
 MAX_AI_TEXT = 4000  # Hard cap on user text sent to OpenAI to limit cost & DoS surface.
-AI_KEYWORDS = ["заявка", "перевозка", "груз", "везти", "маршрут", "отправить", "машина", "контейнер"]
+AI_KEYWORDS = [
+    "заявка",
+    "перевозка",
+    "груз",
+    "везти",
+    "маршрут",
+    "отправить",
+    "машина",
+    "контейнер",
+]
 
-async def process_ai_message(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str, info_prefix=""):
-    if not ai_assistant.enabled: return
+
+async def process_ai_message(
+    update: Update, context: ContextTypes.DEFAULT_TYPE, text: str, info_prefix=""
+):
+    if not ai_assistant.enabled:
+        return
     user_id = update.effective_user.id
-    
+
     if text and len(text) > MAX_AI_TEXT:
         text = text[:MAX_AI_TEXT]
         info_prefix = (info_prefix + "\n").lstrip() + "⚠️ Текст обрезан."
 
     try:
         if update.effective_chat:
-            await context.bot.send_chat_action(chat_id=update.effective_chat.id, action=ChatAction.TYPING)
-            
+            await context.bot.send_chat_action(
+                chat_id=update.effective_chat.id, action=ChatAction.TYPING
+            )
+
         # Get persistent context from DB
         old_draft, history = await db.get_ai_context(user_id)
-        
+
         # Smart routing
         intent_res = await ai_assistant.process_intent(text)
         if intent_res.get("error"):
@@ -39,13 +54,17 @@ async def process_ai_message(update: Update, context: ContextTypes.DEFAULT_TYPE,
 
         intent = intent_res.get("intent")
         args = intent_res.get("args", {})
-        
+
         if intent == "cancel_request":
             if args.get("confirmed"):
                 await db.clear_ai_context(user_id)
-                await update.message.reply_text("❌ Создание заявки отменено. Черновик удален.")
+                await update.message.reply_text(
+                    "❌ Создание заявки отменено. Черновик удален."
+                )
             else:
-                await update.message.reply_text("❓ Вы уверены, что хотите отменить создание этой заявки и очистить данные?")
+                await update.message.reply_text(
+                    "❓ Вы уверены, что хотите отменить создание этой заявки и очистить данные?"
+                )
             return
 
         elif intent == "recall_request":
@@ -55,14 +74,21 @@ async def process_ai_message(update: Update, context: ContextTypes.DEFAULT_TYPE,
             if not found:
                 await update.message.reply_text("😔 Ничего не нашел по этому описанию.")
                 return
-            
+
             keyboard = []
             for r in found:
-                keyboard.append([InlineKeyboardButton(f"#{r['id']:04d} | {r['route_from']} ➔ {r['route_to']}", callback_data=f"recall_{r['id']}")])
-            
+                keyboard.append(
+                    [
+                        InlineKeyboardButton(
+                            f"#{r['id']:04d} | {r['route_from']} ➔ {r['route_to']}",
+                            callback_data=f"recall_{r['id']}",
+                        )
+                    ]
+                )
+
             await update.message.reply_text(
                 "📍 Какую заявку вы имели в виду? (Я подгружу её данные в черновик)",
-                reply_markup=InlineKeyboardMarkup(keyboard)
+                reply_markup=InlineKeyboardMarkup(keyboard),
             )
             return
 
@@ -71,12 +97,28 @@ async def process_ai_message(update: Update, context: ContextTypes.DEFAULT_TYPE,
             search_str = args.get("route_search", "")
             amount = args.get("amount")
             currency = args.get("currency", "USD")
-            open_reqs = await db.list_requests(limit=3, status="Открыта", search=search_str)
+            open_reqs = await db.list_requests(
+                limit=3, status="Открыта", search=search_str
+            )
             if not open_reqs:
-                await update.message.reply_text(f"❌ Не нашел открытых заявок по запросу '{search_str}'.")
+                await update.message.reply_text(
+                    f"❌ Не нашел открытых заявок по запросу '{search_str}'."
+                )
                 return
-            keyboard = [[InlineKeyboardButton(f"#{r['id']:04d} | {r['route_from']} ➔ {r['route_to']}", callback_data=f"aibid_{r['id']}_{amount}_{currency}")] for r in open_reqs]
-            await update.message.reply_text(f"💰 Ставка {amount} {currency}. К какой заявке прикрепить?", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
+            keyboard = [
+                [
+                    InlineKeyboardButton(
+                        f"#{r['id']:04d} | {r['route_from']} ➔ {r['route_to']}",
+                        callback_data=f"aibid_{r['id']}_{amount}_{currency}",
+                    )
+                ]
+                for r in open_reqs
+            ]
+            await update.message.reply_text(
+                f"💰 Ставка {amount} {currency}. К какой заявке прикрепить?",
+                reply_markup=InlineKeyboardMarkup(keyboard),
+                parse_mode="Markdown",
+            )
             return
 
         elif intent == "query_database":
@@ -84,22 +126,35 @@ async def process_ai_message(update: Update, context: ContextTypes.DEFAULT_TYPE,
             answer = await ai_assistant.answer_db_query(text, db)
             await update.message.reply_text(answer, parse_mode="Markdown")
             return
-            
+
         elif intent == "chat":
             await update.message.reply_text(intent_res.get("text", "Не понял вас."))
             return
 
         # Create/Update request logic
         templates = await db.list_requests(limit=3, search=text[:30])
-        template_data = [{"id": t["id"], "route_from": t["route_from"], "route_to": t["route_to"], "cargo_name": t["cargo_name"]} for t in templates]
+        template_data = [
+            {
+                "id": t["id"],
+                "route_from": t["route_from"],
+                "route_to": t["route_to"],
+                "cargo_name": t["cargo_name"],
+            }
+            for t in templates
+        ]
 
-        parsed = await ai_assistant.parse_request(text, current_draft=old_draft, templates=template_data, history=history)
+        parsed = await ai_assistant.parse_request(
+            text, current_draft=old_draft, templates=template_data, history=history
+        )
         if "error" in parsed:
             await update.message.reply_text(f"❌ Ошибка ИИ: {parsed['error']}")
             return
 
         if parsed.get("not_logistics"):
-            if info_prefix: await update.message.reply_text(f"{info_prefix}\n🤖 Это не похоже на логистику.")
+            if info_prefix:
+                await update.message.reply_text(
+                    f"{info_prefix}\n🤖 Это не похоже на логистику."
+                )
             return
 
         # Handle explicit finish intent
@@ -107,58 +162,78 @@ async def process_ai_message(update: Update, context: ContextTypes.DEFAULT_TYPE,
             parsed["ready_to_publish"] = True
 
         merged = ai_assistant.merge_parsed_data(old_draft, parsed)
-        
+
         # Update history (keep last 10 items)
         history.append({"is_user": True, "text": text})
         if parsed.get("next_question"):
             history.append({"is_user": False, "text": parsed["next_question"]})
-        
-        history = history[-10:] # Prevent history from growing too large
-        
-        await db.save_ai_context(user_id, merged, history=history) # Persistent save
+
+        history = history[-10:]  # Prevent history from growing too large
+
+        await db.save_ai_context(user_id, merged, history=history)  # Persistent save
 
         preview = ai_assistant.build_preview(merged)
-        
+
         is_ready = merged.get("ready_to_publish")
         if is_ready:
             keyboard = [
-                [InlineKeyboardButton("🚀 Опубликовать в канал", callback_data="confirm_ai")],
+                [
+                    InlineKeyboardButton(
+                        "🚀 Опубликовать в канал", callback_data="confirm_ai"
+                    )
+                ],
                 [InlineKeyboardButton("📝 Добавить детали", callback_data="more_ai")],
-                [InlineKeyboardButton("❌ Отмена", callback_data="cancel_ai")]
+                [InlineKeyboardButton("❌ Отмена", callback_data="cancel_ai")],
             ]
             status_text = "✨ Готово к публикации!"
         else:
             keyboard = [
-                [InlineKeyboardButton("🚀 Опубликовать (как есть)", callback_data="confirm_ai")],
+                [
+                    InlineKeyboardButton(
+                        "🚀 Опубликовать (как есть)", callback_data="confirm_ai"
+                    )
+                ],
                 [InlineKeyboardButton("📝 Дополнить данные", callback_data="more_ai")],
-                [InlineKeyboardButton("❌ Отмена", callback_data="cancel_ai")]
+                [InlineKeyboardButton("❌ Отмена", callback_data="cancel_ai")],
             ]
             status_text = "📋 Черновик (недостаточно данных):"
-        
+
         # Cleanup old bot message
         old_msg_id = context.user_data.get("last_ai_msg_id")
         if old_msg_id:
-            try: await context.bot.delete_message(update.effective_chat.id, old_msg_id)
-            except: pass
-            
-        sent_msg = await update.message.reply_text(f"{info_prefix}\n{status_text}\n\n{preview}\n\nВсе верно?", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="HTML")
+            try:
+                await context.bot.delete_message(update.effective_chat.id, old_msg_id)
+            except:
+                pass
+
+        sent_msg = await update.message.reply_text(
+            f"{info_prefix}\n{status_text}\n\n{preview}\n\nВсе верно?",
+            reply_markup=InlineKeyboardMarkup(keyboard),
+            parse_mode="HTML",
+        )
         context.user_data["last_ai_msg_id"] = sent_msg.message_id
-        
+
     except Exception as e:
         logger.error(f"process_ai_message error: {e}", exc_info=True)
+
 
 @requires_auth
 async def handle_text_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
-    if not text: return
-    
+    if not text:
+        return
+
     # Task 5: Check if we are waiting for feedback text
     if "awaiting_feedback_req_id" in context.user_data:
         req_id = context.user_data.pop("awaiting_feedback_req_id")
         manager_name = context.user_data.get("profile", {}).get("name", "Менеджер")
         comment_text = f"📝 Комментарий (Опрос): {text}"
-        await db.add_comment(req_id, update.effective_user.id, manager_name, comment_text, "feedback")
-        await update.message.reply_text(f"✅ Ваш комментарий успешно добавлен к заявке #{req_id:04d}.")
+        await db.add_comment(
+            req_id, update.effective_user.id, manager_name, comment_text, "feedback"
+        )
+        await update.message.reply_text(
+            f"✅ Ваш комментарий успешно добавлен к заявке #{req_id:04d}."
+        )
         return
 
     low_text = text.lower().strip()
@@ -173,10 +248,13 @@ async def handle_text_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if text.startswith("/ai"):
         content = text[3:].strip()
         if not content:
-            await update.message.reply_text("🤖 Я слушаю! Напишите подробности заявки или отправьте голосовое.")
+            await update.message.reply_text(
+                "🤖 Я слушаю! Напишите подробности заявки или отправьте голосовое."
+            )
             return
 
     await process_ai_message(update, context, content)
+
 
 @requires_auth
 async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -188,7 +266,9 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     os.makedirs(DATA_DIR, exist_ok=True)
     # Per-message tempfile so concurrent voices from one user don't overwrite each other.
-    tmp = tempfile.NamedTemporaryFile(prefix="voice_", suffix=".ogg", dir=DATA_DIR, delete=False)
+    tmp = tempfile.NamedTemporaryFile(
+        prefix="voice_", suffix=".ogg", dir=DATA_DIR, delete=False
+    )
     file_path = tmp.name
     tmp.close()
 
@@ -211,33 +291,51 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await wait_msg.delete()
     import html
+
     safe_text = html.escape(text)
-    await process_ai_message(update, context, text, info_prefix=f"🎤 <i>«{safe_text}»</i>")
+    await process_ai_message(
+        update, context, text, info_prefix=f"🎤 <i>«{safe_text}»</i>"
+    )
+
 
 async def confirm_ai_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    
+
     try:
         user_id = update.effective_user.id
         profile = context.user_data.get("profile", {})
-        
+
         parsed, history = await db.get_ai_context(user_id)
         if not parsed:
             await query.edit_message_text("❌ Черновик не найден или уже опубликован.")
             return
-        
+
         # ── Validate required fields before publishing ──
-        required = ["route_from", "route_to", "cargo_name", "cargo_weight", "cargo_places"]
-        missing = [f for f in required if not parsed.get(f) or str(parsed[f]).strip() in ("", "-", "None")]
-        
+        required = [
+            "route_from",
+            "route_to",
+            "cargo_name",
+            "cargo_weight",
+            "cargo_places",
+        ]
+        missing = [
+            f
+            for f in required
+            if not parsed.get(f) or str(parsed[f]).strip() in ("", "-", "None")
+        ]
+
         is_sng = parsed.get("regions") in ("СНГ", "CIS")
         if not is_sng:
-            if not parsed.get("customs_address") or str(parsed.get("customs_address", "")).strip() in ("", "-", "None"):
+            if not parsed.get("customs_address") or str(
+                parsed.get("customs_address", "")
+            ).strip() in ("", "-", "None"):
                 missing.append("customs_address (Затаможка)")
-            if not parsed.get("clearance_address") or str(parsed.get("clearance_address", "")).strip() in ("", "-", "None"):
+            if not parsed.get("clearance_address") or str(
+                parsed.get("clearance_address", "")
+            ).strip() in ("", "-", "None"):
                 missing.append("clearance_address (Растаможка)")
-        
+
         if missing:
             preview = ai_assistant.build_preview(parsed)
             await query.edit_message_text(
@@ -246,65 +344,81 @@ async def confirm_ai_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"{preview}\n\n"
                 f"Допишите недостающие данные.",
                 parse_mode="HTML",
-                reply_markup=InlineKeyboardMarkup([
-                    [InlineKeyboardButton("📝 Дополнить данные", callback_data="more_ai")],
-                    [InlineKeyboardButton("❌ Отмена", callback_data="cancel_ai")]
-                ])
+                reply_markup=InlineKeyboardMarkup(
+                    [
+                        [
+                            InlineKeyboardButton(
+                                "📝 Дополнить данные", callback_data="more_ai"
+                            )
+                        ],
+                        [InlineKeyboardButton("❌ Отмена", callback_data="cancel_ai")],
+                    ]
+                ),
             )
             return
-        
+
         # ── Validate region against known regions ──
         settings = await db.get_settings()
         known_regions = settings.get("regions", [])
         if known_regions and isinstance(known_regions, list):
-            region_names = [r["name"] if isinstance(r, dict) else str(r) for r in known_regions]
+            region_names = [
+                r["name"] if isinstance(r, dict) else str(r) for r in known_regions
+            ]
             if parsed.get("regions") and parsed["regions"] not in region_names:
                 # Try to map — if AI produced an unknown region, default to "Другое"
                 parsed["regions"] = "Другое"
-        
+
         fields = ai_assistant.to_request_fields(parsed)
 
         # Query DB to get the user's correct profile (fix for task 7 missing name)
         user_record = await db.get_user(user_id)
         author_name = user_record.get("name") if user_record else profile.get("name")
 
-        fields.update({
-            "creator_id": user_id, 
-            "creator_name": author_name,
-            "responsible": author_name,
-            "status": "Открыта"
-        })
-        
+        fields.update(
+            {
+                "creator_id": user_id,
+                "creator_name": author_name,
+                "responsible": author_name,
+                "status": "Открыта",
+            }
+        )
+
         req = await db.create_request(fields)
         req_id = req["id"]
-        
+
         # Log and Comment
-        await db.add_comment(req_id, user_id, profile.get("name"), "Заявка создана через AI", "system")
+        await db.add_comment(
+            req_id, user_id, profile.get("name"), "Заявка создана через AI", "system"
+        )
         await db.log_activity(req_id, user_id, profile.get("name"), "created_by_ai")
-        
+
         # Channel notification — use settings channel_id first, fallback to env
         target_channel = settings.get("channel_id") or CHANNEL_ID
         if target_channel:
             card = build_card(req)
             msg = await context.bot.send_message(chat_id=target_channel, text=card)
             await db.update_request(req_id, {"channel_msg_id": msg.message_id})
-        
+
         # Cleanup
         await db.clear_ai_context(user_id)
         context.user_data.pop("last_ai_msg_id", None)
-            
-        await query.edit_message_text(f"✅ Готово! Заявка #{req_id:04d} создана и отправлена в канал.")
-        
+
+        await query.edit_message_text(
+            f"✅ Готово! Заявка #{req_id:04d} создана и отправлена в канал."
+        )
+
     except Exception as e:
         logger.error(f"confirm_ai_logic error: {e}", exc_info=True)
         await query.edit_message_text(f"❌ Ошибка при создании: {e}")
+
 
 @requires_auth
 async def handle_attachment(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle photo or document attachments."""
     msg = update.effective_message
-    if not msg: return
-    
+    if not msg:
+        return
+
     # Check if we are in a dialogue for a new request (persistent DB draft)
     draft, history = await db.get_ai_context(update.effective_user.id)
     if not draft:
@@ -313,4 +427,6 @@ async def handle_attachment(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # In a real TMS we would save these to a cloud storage (S3/Telegraph/Direct link)
     # For now, we just log that an attachment was received
-    await update.message.reply_text("📎 Вложение получено и будет прикреплено к заявке при сохранении.")
+    await update.message.reply_text(
+        "📎 Вложение получено и будет прикреплено к заявке при сохранении."
+    )

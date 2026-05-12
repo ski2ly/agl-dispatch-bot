@@ -1,4 +1,5 @@
 """Tests for utils.security: HMAC verification of Telegram WebApp initData."""
+
 import time
 import hmac
 import hashlib
@@ -6,14 +7,15 @@ from urllib.parse import quote
 
 from utils.security import verify_init_data, extract_user_from_init_data
 
-
 TOKEN = "test_bot_token"
 
 
-def _build_init_data(user_payload: str = '{"id":42,"first_name":"Albert"}',
-                     auth_date: int | None = None,
-                     extra: dict | None = None,
-                     token: str = TOKEN) -> str:
+def _build_init_data(
+    user_payload: str = '{"id":42,"first_name":"Albert"}',
+    auth_date: int | None = None,
+    extra: dict | None = None,
+    token: str = TOKEN,
+) -> str:
     """Build a valid initData string with a correct HMAC for the given token."""
     if auth_date is None:
         auth_date = int(time.time())

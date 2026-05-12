@@ -1,4 +1,5 @@
 """Tests for login_key hashing — covers normalization, pepper requirement, and uniqueness."""
+
 import os
 import importlib
 
@@ -7,6 +8,7 @@ import pytest
 
 def _reload_db():
     import database
+
     importlib.reload(database)
     return database
 
@@ -34,7 +36,9 @@ def test_hash_changes_with_pepper(monkeypatch):
     """Without LOGIN_KEY_PEPPER → no hashing. With a different pepper → different hash."""
     db = _reload_db()
     h_default = db.hash_login_key("AGL_AK")
-    monkeypatch.setenv("LOGIN_KEY_PEPPER", "another_long_pepper_at_least_thirty_two_chars__")
+    monkeypatch.setenv(
+        "LOGIN_KEY_PEPPER", "another_long_pepper_at_least_thirty_two_chars__"
+    )
     db = _reload_db()
     h_other = db.hash_login_key("AGL_AK")
     assert h_default != h_other

@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+
 async def check():
     dsn = os.getenv("DATABASE_URL")
     if not dsn:
@@ -20,8 +21,11 @@ async def check():
         ORDER BY ordinal_position
     """)
     for c in cols:
-        print(f"{c['column_name']}: {c['data_type']} (Nullable: {c['is_nullable']}, Default: {c['column_default']})")
+        print(
+            f"{c['column_name']}: {c['data_type']} (Nullable: {c['is_nullable']}, Default: {c['column_default']})"
+        )
     await conn.close()
+
 
 if __name__ == "__main__":
     asyncio.run(check())

@@ -15,7 +15,7 @@ BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHANNEL_ID = os.getenv("CHANNEL_ID")
 _upload_counts = {}
 _upload_counts_last_gc = 0.0
-_bid_cooldowns = {} # (user_id, req_id) -> (hash, timestamp)
+_bid_cooldowns = {}  # (user_id, req_id) -> (hash, timestamp)
 
 
 def _gc_upload_counts(now: float):
@@ -24,23 +24,30 @@ def _gc_upload_counts(now: float):
     if now - _upload_counts_last_gc < 60:
         return
     _upload_counts_last_gc = now
-    stale = [uid for uid, times in _upload_counts.items() if not times or now - times[-1] > 300]
+    stale = [
+        uid
+        for uid, times in _upload_counts.items()
+        if not times or now - times[-1] > 300
+    ]
     for uid in stale:
         _upload_counts.pop(uid, None)
+
 
 def json_serial(obj):
     """JSON serializer for objects not serializable by default json code"""
     if isinstance(obj, datetime):
         return obj.isoformat()
-    raise TypeError ("Type %s not serializable" % type(obj))
+    raise TypeError("Type %s not serializable" % type(obj))
+
 
 def safe_json_response(data):
     return web.json_response(data, dumps=lambda x: json.dumps(x, default=json_serial))
 
+
 async def check_auth(request):
     """Helper to verify initData and ensure user exists in DB."""
     try:
-        if request.method == 'GET':
+        if request.method == "GET":
             init_data = request.query.get("initData", "")
         else:
             body = await request.json()
@@ -50,9 +57,11 @@ async def check_auth(request):
         return None, "Invalid request format"
 
     if not verify_init_data(init_data, BOT_TOKEN):
-        logger.warning(f"Auth failed: Invalid initData or token (Token len: {len(BOT_TOKEN) if BOT_TOKEN else 0})")
+        logger.warning(
+            f"Auth failed: Invalid initData or token (Token len: {len(BOT_TOKEN) if BOT_TOKEN else 0})"
+        )
         return None, "Unauthorized"
-    
+
     user_id, user_name = extract_user_from_init_data(init_data)
     if not user_id:
         logger.warning(f"Auth failed: Could not extract user_id from initData")
@@ -60,47 +69,54 @@ async def check_auth(request):
 
     profile = await db.get_user(user_id)
     if not profile:
-        logger.warning(f"Auth failed: Profile not found for ID {user_id} ({user_name}). Fallback check should have handled this if they are a superuser.")
+        logger.warning(
+            f"Auth failed: Profile not found for ID {user_id} ({user_name}). Fallback check should have handled this if they are a superuser."
+        )
         return None, "Profile not found"
-    
+
     logger.info(f"Auth success: {user_name} ({user_id}) as {profile.get('role')}")
     return profile, None
+
 
 async def api_health(request):
     return web.json_response({"status": "ok"})
 
+
 async def api_profile(request):
     """Get the profile of the current authenticated user."""
     profile, err = await check_auth(request)
-    if err: return safe_json_response({"error": err, "auth_needed": True})
+    if err:
+        return safe_json_response({"error": err, "auth_needed": True})
     return safe_json_response({"profile": profile})
+
 
 async def api_users(request):
     """Admin only: list all users."""
     profile, err = await check_auth(request)
     if err or profile["role"] not in ["admin", "superuser"]:
         return safe_json_response({"error": "Forbidden", "auth_needed": True})
-    
+
     try:
         users = await db.list_users()
-        is_superuser = profile.get('role') == 'superuser'
-        
-        # Superuser sees everything, including login keys. 
+        is_superuser = profile.get("role") == "superuser"
+
+        # Superuser sees everything, including login keys.
         # Regular admins see the list but NOT the keys.
         clean_users = []
         for u in users:
-            if u.get('role') == 'superuser':
+            if u.get("role") == "superuser":
                 continue
-                
+
             user_data = dict(u)
             if not is_superuser:
-                user_data.pop('login_key', None)
+                user_data.pop("login_key", None)
             clean_users.append(user_data)
-        
+
         return safe_json_response({"ok": True, "users": clean_users})
     except Exception as e:
         logger.error(f"api_users error: {e}")
         return safe_json_response({"error": str(e), "users": []})
+
 
 ALLOWED_ROLES = {"manager", "admin"}  # superuser is granted only via SUPERUSER_IDS env
 
@@ -141,7 +157,9 @@ async def api_user_update(request):
     # Safety: do not allow modifying superusers via this endpoint, and don't let an admin
     # delete or demote their own account (would lock them out instantly).
     async with db._pool.acquire() as conn:
-        target_user = await conn.fetchrow("SELECT id, telegram_id, role FROM users WHERE id = $1", target_user_id)
+        target_user = await conn.fetchrow(
+            "SELECT id, telegram_id, role FROM users WHERE id = $1", target_user_id
+        )
     if not target_user:
         return safe_json_response({"error": "User not found"})
     if target_user["role"] == "superuser":
@@ -163,7 +181,9 @@ async def api_user_update(request):
         if new_name is not None and validated_name is None:
             return safe_json_response({"error": "Invalid name"})
         if new_role is not None and new_role not in ALLOWED_ROLES:
-            return safe_json_response({"error": f"Role must be one of: {sorted(ALLOWED_ROLES)}"})
+            return safe_json_response(
+                {"error": f"Role must be one of: {sorted(ALLOWED_ROLES)}"}
+            )
 
         await db.update_user_profile(target_user_id, name=validated_name, role=new_role)
         return safe_json_response({"ok": True})
@@ -187,15 +207,22 @@ async def api_user_create(request):
     name = _validate_name(data.get("name"))
     role = data.get("role")
     manual_key = data.get("login_key")
-    
+
     if not name:
         return safe_json_response({"error": "Invalid name"})
     if role not in ALLOWED_ROLES:
-        return safe_json_response({"error": f"Role must be one of: {sorted(ALLOWED_ROLES)}"})
+        return safe_json_response(
+            {"error": f"Role must be one of: {sorted(ALLOWED_ROLES)}"}
+        )
 
     from database import generate_login_key
-    new_key = manual_key.strip() if manual_key and manual_key.strip() else generate_login_key()
-    
+
+    new_key = (
+        manual_key.strip()
+        if manual_key and manual_key.strip()
+        else generate_login_key()
+    )
+
     try:
         await db.create_user(name, role, new_key)
         # Plaintext returned exactly once — never stored in DB or logs.
@@ -203,6 +230,7 @@ async def api_user_create(request):
     except Exception as e:
         logger.error(f"User create error: {e}")
         return safe_json_response({"error": "Internal error"})
+
 
 # Brute-force protection on /api/login_with_key.
 # We track failed attempts per Telegram ID; after MAX_FAILS within WINDOW_S seconds
@@ -262,28 +290,38 @@ async def api_login_with_key(request):
             return safe_json_response({"error": "Invalid key"})
         # Success — clear the fail counter.
         _login_fails.pop(tg_id, None)
-        return safe_json_response({"ok": True, "name": user['name']})
+        return safe_json_response({"ok": True, "name": user["name"]})
     except Exception as e:
         logger.error(f"api_login_with_key error: {e}")
         return safe_json_response({"error": "Internal error"})
 
+
 async def api_requests(request):
     profile, err = await check_auth(request)
-    if err: return safe_json_response({"error": err, "auth_needed": True})
-    
+    if err:
+        return safe_json_response({"error": err, "auth_needed": True})
+
     status = request.query.get("status")
     region = request.query.get("region")
     manager = request.query.get("manager")
     search = request.query.get("search")
     transport = request.query.get("transport")
-    
-    reqs = await db.list_requests(status=status, region=region, manager=manager, search=search, transport=transport)
+
+    reqs = await db.list_requests(
+        status=status,
+        region=region,
+        manager=manager,
+        search=search,
+        transport=transport,
+    )
     return safe_json_response({"requests": reqs})
+
 
 async def api_request_details(request):
     """Get full details for a specific request."""
     profile, err = await check_auth(request)
-    if err: return safe_json_response({"error": err, "auth_needed": True})
+    if err:
+        return safe_json_response({"error": err, "auth_needed": True})
 
     req_id_raw = request.query.get("id")
     try:
@@ -297,28 +335,35 @@ async def api_request_details(request):
     bids = await db.get_bids(req_id)
     comments = await db.get_comments(req_id)
     attachments = await db.get_attachments(req_id)
-    return safe_json_response({"request": req, "bids": bids, "comments": comments, "attachments": attachments})
+    return safe_json_response(
+        {"request": req, "bids": bids, "comments": comments, "attachments": attachments}
+    )
+
 
 async def api_my_bids(request):
     """List bids for the current user."""
     profile, err = await check_auth(request)
-    if err: return safe_json_response({"error": err, "auth_needed": True})
-    
-    user_id = profile['telegram_id']
+    if err:
+        return safe_json_response({"error": err, "auth_needed": True})
+
+    user_id = profile["telegram_id"]
     if not user_id:
         return safe_json_response({"error": "Invalid user identity", "bids": []})
-        
+
     bids = await db.get_user_bids(user_id)
     return safe_json_response({"bids": bids})
+
 
 async def api_my_requests(request):
     """List requests created by the current user."""
     profile, err = await check_auth(request)
-    if err: return safe_json_response({"error": err, "auth_needed": True})
-    
-    user_id = profile['telegram_id']
+    if err:
+        return safe_json_response({"error": err, "auth_needed": True})
+
+    user_id = profile["telegram_id"]
     reqs = await db.list_requests(creator_id=user_id)
     return safe_json_response({"requests": reqs})
+
 
 async def api_bid_cancel(request):
     """Cancel own bid — employees only."""
@@ -336,8 +381,13 @@ async def api_bid_cancel(request):
         return safe_json_response({"error": "Invalid bid id"})
 
     async with db._pool.acquire() as conn:
-        await conn.execute("UPDATE bids SET status = 'Отменена' WHERE id = $1 AND user_id = $2", bid_id, user_id)
+        await conn.execute(
+            "UPDATE bids SET status = 'Отменена' WHERE id = $1 AND user_id = $2",
+            bid_id,
+            user_id,
+        )
         return safe_json_response({"ok": True})
+
 
 async def api_update_status(request):
     """Update request status. Only the creator of the request or an admin can do it."""
@@ -359,9 +409,13 @@ async def api_update_status(request):
     if not existing:
         return safe_json_response({"error": "Not found"})
     is_admin = profile.get("role") in ("admin", "superuser")
-    is_creator = existing.get("creator_id") and int(existing["creator_id"]) == int(profile["telegram_id"])
+    is_creator = existing.get("creator_id") and int(existing["creator_id"]) == int(
+        profile["telegram_id"]
+    )
     if not (is_admin or is_creator):
-        return safe_json_response({"error": "Только создатель заявки или администратор может менять статус"})
+        return safe_json_response(
+            {"error": "Только создатель заявки или администратор может менять статус"}
+        )
 
     winner = data.get("winner")
     reason = data.get("reason") or data.get("cancel_reason")
@@ -372,12 +426,22 @@ async def api_update_status(request):
         async with db._pool.acquire() as conn:
             await conn.execute(
                 "UPDATE requests SET status = $1, cancel_reason = $2, updated_at = NOW() WHERE id = $3",
-                new_status, reason, req_id,
+                new_status,
+                reason,
+                req_id,
             )
-            if new_status == 'Успешно реализована' and winner:
-                await conn.execute("UPDATE bids SET status = 'Выиграла' WHERE request_id = $1 AND manager_name = $2", req_id, winner)
-                await conn.execute("UPDATE bids SET status = 'Проиграла' WHERE request_id = $1 AND manager_name != $2", req_id, winner)
-        
+            if new_status == "Успешно реализована" and winner:
+                await conn.execute(
+                    "UPDATE bids SET status = 'Выиграла' WHERE request_id = $1 AND manager_name = $2",
+                    req_id,
+                    winner,
+                )
+                await conn.execute(
+                    "UPDATE bids SET status = 'Проиграла' WHERE request_id = $1 AND manager_name != $2",
+                    req_id,
+                    winner,
+                )
+
         # Sync to channel
         updated_req = await db.get_request(int(req_id))
         if updated_req and updated_req.get("channel_msg_id"):
@@ -386,13 +450,18 @@ async def api_update_status(request):
             if target_channel:
                 try:
                     text = build_card(updated_req)
-                    if updated_req['status'] != 'Открыта':
-                        status_emoji = "✅" if "Успешно" in updated_req['status'] else "❌"
-                        text = f"{status_emoji} СТАТУС: {updated_req['status'].upper()}\n\n" + text
+                    if updated_req["status"] != "Открыта":
+                        status_emoji = (
+                            "✅" if "Успешно" in updated_req["status"] else "❌"
+                        )
+                        text = (
+                            f"{status_emoji} СТАТУС: {updated_req['status'].upper()}\n\n"
+                            + text
+                        )
                     await request.app["bot"].edit_message_text(
                         chat_id=target_channel,
                         message_id=int(updated_req["channel_msg_id"]),
-                        text=text
+                        text=text,
                     )
                 except Exception as e:
                     logger.error(f"Failed to update channel status: {e}")
@@ -402,118 +471,119 @@ async def api_update_status(request):
         logger.error(f"api_update_status error: {e}")
         return safe_json_response({"error": "Internal error"})
 
+
 async def api_export_xlsx(request):
     """Admin only: Generate XLSX and send via Telegram Bot."""
     data = await request.json()
     init_data = data.get("initData", "")
     if not verify_init_data(init_data, BOT_TOKEN):
         return safe_json_response({"error": "Unauthorized"})
-    
+
     admin_id, _ = extract_user_from_init_data(init_data)
     admin_profile = await db.get_user(admin_id)
     if not admin_profile or admin_profile["role"] not in ["admin", "superuser"]:
         return safe_json_response({"error": "Forbidden"})
-    
+
     try:
         all_reqs = await db.get_requests_for_export()
         if not all_reqs:
             return safe_json_response({"error": "No data to export"})
-            
+
         # Convert records to list of dicts and format data
         data_list = []
         for r in all_reqs:
             row = dict(r)
             # Format ID: 29 -> #00029
-            if row.get('id'):
-                row['id'] = f"#{int(row['id']):05d}"
+            if row.get("id"):
+                row["id"] = f"#{int(row['id']):05d}"
             # Format datetimes
-            if row.get('created_at'):
-                row['created_at'] = row['created_at'].strftime('%d.%m.%Y %H:%M')
-            if row.get('first_bid_at'):
-                row['first_bid_at'] = row['first_bid_at'].strftime('%d.%m.%Y %H:%M')
+            if row.get("created_at"):
+                row["created_at"] = row["created_at"].strftime("%d.%m.%Y %H:%M")
+            if row.get("first_bid_at"):
+                row["first_bid_at"] = row["first_bid_at"].strftime("%d.%m.%Y %H:%M")
             else:
-                row['first_bid_at'] = "-"
-            
+                row["first_bid_at"] = "-"
+
             # Round response time
-            if row.get('response_time_min') is not None:
-                row['response_time_min'] = round(float(row['response_time_min']), 1)
+            if row.get("response_time_min") is not None:
+                row["response_time_min"] = round(float(row["response_time_min"]), 1)
             else:
-                row['response_time_min'] = "-"
-                
+                row["response_time_min"] = "-"
+
             data_list.append(row)
-            
+
         # Define pretty mapping and order
         mapping = {
-            'id': 'ID Заявки',
-            'created_at': 'Дата создания',
-            'first_bid_at': 'Первая ставка',
-            'response_time_min': 'Время до 1-й ставки (мин)',
-            'bids_count': 'Кол-во ставок',
-            'responsible': 'Ответственный',
-            'status': 'Статус',
-            'regions': 'Регион',
-            'route_from': 'Откуда',
-            'route_to': 'Куда',
-            'transport_cat': 'Тип транспорта',
-            'transport_sub': 'Подтип',
-            'cargo_name': 'Наименование груза',
-            'cargo_value': 'Стоимость груза',
-            'cargo_weight': 'Вес',
-            'cargo_places': 'Места',
-            'client_company': 'Компания клиента',
-            'contact_phone': 'Телефон клиента',
-            'cancel_reason': 'Причина отмены',
-            'target': 'Таргет ($)',
-            'message_text': 'Доп. информация'
+            "id": "ID Заявки",
+            "created_at": "Дата создания",
+            "first_bid_at": "Первая ставка",
+            "response_time_min": "Время до 1-й ставки (мин)",
+            "bids_count": "Кол-во ставок",
+            "responsible": "Ответственный",
+            "status": "Статус",
+            "regions": "Регион",
+            "route_from": "Откуда",
+            "route_to": "Куда",
+            "transport_cat": "Тип транспорта",
+            "transport_sub": "Подтип",
+            "cargo_name": "Наименование груза",
+            "cargo_value": "Стоимость груза",
+            "cargo_weight": "Вес",
+            "cargo_places": "Места",
+            "client_company": "Компания клиента",
+            "contact_phone": "Телефон клиента",
+            "cancel_reason": "Причина отмены",
+            "target": "Таргет ($)",
+            "message_text": "Доп. информация",
         }
-        
+
         try:
             import pandas as pd
             import io
-            
+
             df = pd.DataFrame(data_list)
-            
+
             # Filter and rename columns based on mapping
             existing_cols = [c for c in mapping.keys() if c in df.columns]
             df = df[existing_cols].rename(columns=mapping)
-            
+
             output = io.BytesIO()
-            with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                df.to_excel(writer, index=False, sheet_name='Аналитика Заявок')
+            with pd.ExcelWriter(output, engine="openpyxl") as writer:
+                df.to_excel(writer, index=False, sheet_name="Аналитика Заявок")
             output.seek(0)
-            
+
             bot = request.app["bot"]
             await bot.send_document(
                 chat_id=admin_id,
                 document=output,
                 filename=f"AGL_Analytics_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx",
-                caption="📊 Профессиональная выгрузка базы заявок для аналитики."
+                caption="📊 Профессиональная выгрузка базы заявок для аналитики.",
             )
             return safe_json_response({"ok": True})
-            
+
         except Exception as excel_err:
             logger.warning(f"Excel generation failed, falling back to CSV: {excel_err}")
             # Fallback to CSV with Russian headers
             import csv
             import io
-            
+
             output = io.StringIO()
             # Select columns for CSV
             csv_cols = [c for c in mapping.keys() if data_list and c in data_list[0]]
-            
-            writer = csv.DictWriter(output, fieldnames=csv_cols, extrasaction='ignore')
+
+            writer = csv.DictWriter(output, fieldnames=csv_cols, extrasaction="ignore")
             # Write custom headers
             writer.writerow({c: mapping[c] for c in csv_cols})
             writer.writerows(data_list)
-            
-            output_bytes = io.BytesIO(output.getvalue().encode('utf-8-sig'))
-            
+
+            output_bytes = io.BytesIO(output.getvalue().encode("utf-8-sig"))
+
             bot = request.app["bot"]
             await bot.send_document(
                 chat_id=admin_id,
                 document=output_bytes,
                 filename=f"AGL_Export_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
-                caption="⚠️ XLSX не удался, отправляю CSV с русскими заголовками."
+                caption="⚠️ XLSX не удался, отправляю CSV с русскими заголовками.",
             )
             return safe_json_response({"ok": True})
 
@@ -522,20 +592,62 @@ async def api_export_xlsx(request):
         return safe_json_response({"error": "Internal error"})
 
 
-
 ALLOWED_REQUEST_FIELDS = {
-    "responsible", "status", "regions", "transport_cat", "transport_sub",
-    "cargo_name", "hs_code", "cargo_value", "cargo_weight", "cargo_places", "cargo_volume",
-    "route_from", "route_to", "client_company", "contact_name", "contact_phone",
-    "message_text", "target", "delivery_terms", "route_type", "loading_address",
-    "customs_address", "clearance_address", "unloading_address", "transit_rf",
-    "border_crossing", "urgency_type", "export_decl", "origin_cert",
-    "container_type", "road_type", "container_owner", "glonass_seal",
-    "seal_instructions", "flight_type", "stackable", "departure_ports",
-    "multimodal_next", "company", "delivery_terms_eu", "transit_rf_allowed",
-    "road_type_cn", "border_crossing_cn", "container_type_cn", "loading_days",
-    "customs_days", "urgency_days", "ports_list", "dangerous_cargo", "packaging",
-    "cancel_reason", "channel_msg_id", "mute_reminders", "last_notified_at", "winner_name",
+    "responsible",
+    "status",
+    "regions",
+    "transport_cat",
+    "transport_sub",
+    "cargo_name",
+    "hs_code",
+    "cargo_value",
+    "cargo_weight",
+    "cargo_places",
+    "cargo_volume",
+    "route_from",
+    "route_to",
+    "client_company",
+    "contact_name",
+    "contact_phone",
+    "message_text",
+    "target",
+    "delivery_terms",
+    "route_type",
+    "loading_address",
+    "customs_address",
+    "clearance_address",
+    "unloading_address",
+    "transit_rf",
+    "border_crossing",
+    "urgency_type",
+    "export_decl",
+    "origin_cert",
+    "container_type",
+    "road_type",
+    "container_owner",
+    "glonass_seal",
+    "seal_instructions",
+    "flight_type",
+    "stackable",
+    "departure_ports",
+    "multimodal_next",
+    "company",
+    "delivery_terms_eu",
+    "transit_rf_allowed",
+    "road_type_cn",
+    "border_crossing_cn",
+    "container_type_cn",
+    "loading_days",
+    "customs_days",
+    "urgency_days",
+    "ports_list",
+    "dangerous_cargo",
+    "packaging",
+    "cancel_reason",
+    "channel_msg_id",
+    "mute_reminders",
+    "last_notified_at",
+    "winner_name",
 }
 ALLOWED_STATUSES = {"Открыта", "В работе", "Успешно реализована", "Отменена"}
 
@@ -561,13 +673,16 @@ def _sanitize_request_payload(payload: dict, *, is_admin: bool) -> dict:
 async def api_submit(request):
     """Create or update a request."""
     profile, err = await check_auth(request)
-    if err: return safe_json_response({"error": err, "auth_needed": True})
+    if err:
+        return safe_json_response({"error": err, "auth_needed": True})
 
     data = await request.json()
     action = data.get("action", "new")
     req_id = data.get("id") or data.get("req_id")
     raw_payload = data.get("payload", {})
-    payload = _sanitize_request_payload(raw_payload, is_admin=profile.get("role") in ("admin", "superuser"))
+    payload = _sanitize_request_payload(
+        raw_payload, is_admin=profile.get("role") in ("admin", "superuser")
+    )
 
     try:
         if action == "edit" and req_id:
@@ -583,13 +698,19 @@ async def api_submit(request):
             if not existing:
                 return safe_json_response({"error": "Not found"})
             is_admin = profile.get("role") in ("admin", "superuser")
-            is_creator = existing.get("creator_id") and int(existing["creator_id"]) == int(profile["telegram_id"])
+            is_creator = existing.get("creator_id") and int(
+                existing["creator_id"]
+            ) == int(profile["telegram_id"])
             if not (is_admin or is_creator):
-                return safe_json_response({"error": "Только создатель заявки или администратор может её редактировать"})
+                return safe_json_response(
+                    {
+                        "error": "Только создатель заявки или администратор может её редактировать"
+                    }
+                )
 
             await db.update_request(req_id_int, payload)
             final_id = req_id_int
-            
+
             # Post UPDATE to channel if status or key fields changed
             updated_req = await db.get_request(final_id)
             if updated_req and updated_req.get("channel_msg_id"):
@@ -599,44 +720,54 @@ async def api_submit(request):
                     try:
                         text = build_card(updated_req)
                         # If status is not 'Открыта', we can prepend it
-                        if updated_req['status'] != 'Открыта':
-                            status_emoji = "✅" if "Успешно" in updated_req['status'] else "❌"
-                            text = f"{status_emoji} СТАТУС: {updated_req['status'].upper()}\n\n" + text
-                        
+                        if updated_req["status"] != "Открыта":
+                            status_emoji = (
+                                "✅" if "Успешно" in updated_req["status"] else "❌"
+                            )
+                            text = (
+                                f"{status_emoji} СТАТУС: {updated_req['status'].upper()}\n\n"
+                                + text
+                            )
+
                         await request.app["bot"].edit_message_text(
                             chat_id=target_channel,
                             message_id=int(updated_req["channel_msg_id"]),
-                            text=text
+                            text=text,
                         )
                     except Exception as e:
                         logger.error(f"Failed to update channel message: {e}")
         else:
             # New request
-            user_id = profile['telegram_id']
+            user_id = profile["telegram_id"]
             payload["creator_id"] = user_id
             payload["creator_name"] = profile["name"]
             req = await db.create_request(payload)
             final_id = req["id"]
-            
+
             # Link attachments if any
             attachment_ids = data.get("attachment_ids", [])
             if attachment_ids:
                 await db.link_attachments(final_id, attachment_ids)
-            
-            await db.log_activity(final_id, user_id, profile["name"], "created_via_webapp")
-            
+
+            await db.log_activity(
+                final_id, user_id, profile["name"], "created_via_webapp"
+            )
+
             # Post to channel
             settings = await db.get_settings()
             target_channel = settings.get("channel_id") or os.getenv("CHANNEL_ID")
-            
+
             if target_channel:
-                msg = await request.app["bot"].send_message(chat_id=target_channel, text=build_card(req))
+                msg = await request.app["bot"].send_message(
+                    chat_id=target_channel, text=build_card(req)
+                )
                 await db.update_request(final_id, {"channel_msg_id": msg.message_id})
-            
+
         return safe_json_response({"ok": True, "id": final_id})
     except Exception as e:
         logger.error(f"api_submit error: {e}")
         return safe_json_response({"error": "Internal error"})
+
 
 ALLOWED_CURRENCIES = {"USD", "EUR", "RUB", "CNY", "UZS", "KZT"}
 
@@ -690,38 +821,50 @@ async def api_bid(request):
         bid_hash = hashlib.md5(bid_content.encode()).hexdigest()
         now = time.time()
         cooldown_key = (user_id, int(req_id))
-        
+
         if cooldown_key in _bid_cooldowns:
             old_hash, old_time = _bid_cooldowns[cooldown_key]
             if old_hash == bid_hash and now - old_time < 5:
                 logger.info(f"Deduplicated bid for req_id={req_id} by user={user_id}")
                 return safe_json_response({"ok": True, "note": "duplicate ignored"})
-        
+
         _bid_cooldowns[cooldown_key] = (bid_hash, now)
 
-        logger.info(f"Submitting bid for req_id={req_id} by {profile['name']} (ID: {user_id})")
-        
+        logger.info(
+            f"Submitting bid for req_id={req_id} by {profile['name']} (ID: {user_id})"
+        )
+
         # Check if updating to provide better notification
         existing_bid = await db.get_user_bid(int(req_id), user_id)
         is_update = existing_bid is not None
-        
+
         await db.upsert_bid(int(req_id), user_id, profile["name"], data)
-        await db.log_activity(int(req_id), user_id, profile["name"], "bid_updated" if is_update else "bid_submitted", {"amount": data.get("amount")})
-        
+        await db.log_activity(
+            int(req_id),
+            user_id,
+            profile["name"],
+            "bid_updated" if is_update else "bid_submitted",
+            {"amount": data.get("amount")},
+        )
+
         # Add internal comment
         bid_data = {**data, "request_id": int(req_id), "manager_name": profile["name"]}
         bid_card = build_bid_card(bid_data)
         if is_update:
             comment_text = f"🔄 Ставка обновлена: <b>{data.get('amount')} {data.get('currency')}</b>"
-            await db.add_comment(int(req_id), user_id, profile["name"], comment_text, "bid_update")
+            await db.add_comment(
+                int(req_id), user_id, profile["name"], comment_text, "bid_update"
+            )
         else:
             await db.add_comment(int(req_id), user_id, profile["name"], bid_card, "bid")
-        
+
         # Notify channel/discussion if possible
         settings = await db.get_settings()
-        discussion_id = settings.get("discussion_id") or os.getenv("DISCUSSION_GROUP_ID")
+        discussion_id = settings.get("discussion_id") or os.getenv(
+            "DISCUSSION_GROUP_ID"
+        )
         target_channel = settings.get("channel_id") or os.getenv("CHANNEL_ID")
-        
+
         req = await db.get_request(int(req_id))
         bot = request.app["bot"]
 
@@ -731,16 +874,22 @@ async def api_bid(request):
                 notif_text = bid_card
                 if is_update:
                     notif_text = f"🔄 <b>{profile['name']} обновил ставку</b>\n\nАктуальная ставка: <b>{data.get('amount')} {data.get('currency')}</b>\n#ставка"
-                
-                logger.info(f"Syncing bid to discussion: channel={target_channel}, msg={msg_id}")
-                await sync_bid_to_discussion(bot, discussion_id, target_channel, msg_id, notif_text)
+
+                logger.info(
+                    f"Syncing bid to discussion: channel={target_channel}, msg={msg_id}"
+                )
+                await sync_bid_to_discussion(
+                    bot, discussion_id, target_channel, msg_id, notif_text
+                )
             else:
                 await bot.send_message(chat_id=discussion_id, text=bid_card)
 
         # Notify the creator of the request
         creator_id = req.get("creator_id") if req else None
-        logger.info(f"Notification check: creator_id={creator_id}, current_user={user_id}")
-        
+        logger.info(
+            f"Notification check: creator_id={creator_id}, current_user={user_id}"
+        )
+
         if creator_id and int(creator_id) != user_id:
             try:
                 notify_text = (
@@ -751,15 +900,18 @@ async def api_bid(request):
                     f"👤 От: {profile['name']}\n\n"
                     f"Посмотреть подробности можно в Mini App."
                 )
-                await bot.send_message(chat_id=int(creator_id), text=notify_text, parse_mode="HTML")
+                await bot.send_message(
+                    chat_id=int(creator_id), text=notify_text, parse_mode="HTML"
+                )
                 logger.info(f"Notification sent to creator {creator_id}")
             except Exception as e:
                 logger.error(f"Failed to notify creator {creator_id}: {e}")
-        
+
         return safe_json_response({"ok": True})
     except Exception as e:
         logger.error(f"api_bid error: {e}", exc_info=True)
         return safe_json_response({"error": "Internal error"})
+
 
 async def api_comments(request):
     # Comments contain business correspondence — restrict to authenticated employees.
@@ -775,6 +927,7 @@ async def api_comments(request):
     comments = await db.get_comments(req_id)
     return safe_json_response({"comments": comments})
 
+
 async def api_upload(request):
     profile, err = await check_auth(request)
     if err:
@@ -786,7 +939,7 @@ async def api_upload(request):
     now = time.time()
     _gc_upload_counts(now)
     times = [t for t in _upload_counts.get(user_id, []) if now - t < 60]
-    if len(times) >= 20: # Increased limit for photos
+    if len(times) >= 20:  # Increased limit for photos
         return web.json_response({"error": "Rate limit (20 files/min)"}, status=429)
     times.append(now)
     _upload_counts[user_id] = times
@@ -794,7 +947,7 @@ async def api_upload(request):
     try:
         reader = await request.multipart()
         field = await reader.next()
-        if not field or field.name != 'file':
+        if not field or field.name != "file":
             return web.json_response({"error": "No file field"}, status=400)
 
         filename = field.filename
@@ -807,49 +960,62 @@ async def api_upload(request):
 
         # Generate a safe unique name
         import uuid
+
         ext = os.path.splitext(filename)[1]
         unique_name = f"{uuid.uuid4().hex}{ext}"
         file_path = os.path.join(upload_dir, unique_name)
 
         size = 0
-        with open(file_path, 'wb') as f:
+        with open(file_path, "wb") as f:
             while True:
                 chunk = await field.read_chunk()
                 if not chunk:
                     break
                 size += len(chunk)
                 f.write(chunk)
-                if size > 20 * 1024 * 1024: # 20MB limit
-                    return web.json_response({"error": "File too large (max 20MB)"}, status=413)
+                if size > 20 * 1024 * 1024:  # 20MB limit
+                    return web.json_response(
+                        {"error": "File too large (max 20MB)"}, status=413
+                    )
 
-        file_type = field.headers.get('Content-Type', 'application/octet-stream')
+        file_type = field.headers.get("Content-Type", "application/octet-stream")
         # Store in DB without request_id for now
-        attachment_id = await db.add_attachment(None, filename, f"/uploads/{unique_name}", file_type, size)
+        attachment_id = await db.add_attachment(
+            None, filename, f"/uploads/{unique_name}", file_type, size
+        )
 
-        return web.json_response({
-            "ok": True,
-            "attachment_id": attachment_id,
-            "url": f"/uploads/{unique_name}",
-            "name": filename,
-            "type": file_type
-        })
+        return web.json_response(
+            {
+                "ok": True,
+                "attachment_id": attachment_id,
+                "url": f"/uploads/{unique_name}",
+                "name": filename,
+                "type": file_type,
+            }
+        )
     except Exception as e:
         logger.error(f"Upload error: {e}")
         return web.json_response({"error": "Upload failed"}, status=500)
 
+
 async def index_handler(request):
-    return web.FileResponse('webapp/index.html')
+    return web.FileResponse("webapp/index.html")
+
 
 async def api_broadcast(request):
     # Check permissions
     # Note: Using multipart for file upload so we check auth from initData in URL
     init_data = request.query.get("initData", "")
     if not init_data:
-        return web.json_response({"error": "Unauthorized", "auth_needed": True}, status=401)
+        return web.json_response(
+            {"error": "Unauthorized", "auth_needed": True}, status=401
+        )
 
     profile, err = await check_auth(request)
     if err or profile.get("role") not in ["admin", "superuser"]:
-        return web.json_response({"error": "Forbidden", "auth_needed": True}, status=403)
+        return web.json_response(
+            {"error": "Forbidden", "auth_needed": True}, status=403
+        )
 
     try:
         reader = await request.multipart()
@@ -863,11 +1029,11 @@ async def api_broadcast(request):
             field = await reader.next()
             if not field:
                 break
-            if field.name == 'target':
+            if field.name == "target":
                 target = await field.text()
-            elif field.name == 'text':
+            elif field.name == "text":
                 text = await field.text()
-            elif field.name == 'file':
+            elif field.name == "file":
                 filename = field.filename
                 file_bytes = await field.read()
 
@@ -891,13 +1057,20 @@ async def api_broadcast(request):
             try:
                 if file_bytes and filename:
                     # Determine type
-                    ext = filename.lower().split('.')[-1]
-                    if ext in ['jpg', 'jpeg', 'png']:
-                        await bot.send_photo(chat_id=tid, photo=file_bytes, caption=formatted_text)
+                    ext = filename.lower().split(".")[-1]
+                    if ext in ["jpg", "jpeg", "png"]:
+                        await bot.send_photo(
+                            chat_id=tid, photo=file_bytes, caption=formatted_text
+                        )
                     else:
                         # For documents, we must pass it as a file-like object or named tuple
                         # Since python-telegram-bot handles bytes, we just pass the tuple (filename, bytes)
-                        await bot.send_document(chat_id=tid, document=file_bytes, filename=filename, caption=formatted_text)
+                        await bot.send_document(
+                            chat_id=tid,
+                            document=file_bytes,
+                            filename=filename,
+                            caption=formatted_text,
+                        )
                 else:
                     await bot.send_message(chat_id=tid, text=formatted_text)
                 sent_count += 1
@@ -908,6 +1081,7 @@ async def api_broadcast(request):
     except Exception as e:
         logger.error(f"Broadcast error: {e}", exc_info=True)
         return web.json_response({"error": "Internal error"}, status=500)
+
 
 async def api_request_bids(request):
     """List bids for a specific request — sensitive competitor pricing data, employees only."""
@@ -921,11 +1095,15 @@ async def api_request_bids(request):
         return safe_json_response({"error": "Invalid id"})
     bids = await db.list_bids(req_id)
     return safe_json_response({"bids": bids})
+
+
 async def api_list_tariffs(request):
     profile, err = await check_auth(request)
-    if err: return safe_json_response({"error": err, "auth_needed": True})
+    if err:
+        return safe_json_response({"error": err, "auth_needed": True})
     tariffs = await db.list_tariffs()
     return safe_json_response({"tariffs": tariffs})
+
 
 async def api_upload_tariff(request):
     profile, err = await check_auth(request)
@@ -937,80 +1115,91 @@ async def api_upload_tariff(request):
         # Field 1: title
         field_title = await reader.next()
         title = await field_title.text()
-        
+
         # Field 2: file
         field_file = await reader.next()
         filename = field_file.filename
-        
+
         upload_dir = "uploads"
         import uuid
+
         ext = os.path.splitext(filename)[1]
         unique_name = f"tariff_{uuid.uuid4().hex}{ext}"
         file_path = os.path.join(upload_dir, unique_name)
-        
+
         size = 0
-        with open(file_path, 'wb') as f:
+        with open(file_path, "wb") as f:
             while True:
                 chunk = await field_file.read_chunk()
-                if not chunk: break
+                if not chunk:
+                    break
                 size += len(chunk)
                 f.write(chunk)
-        
-        file_type = field_file.headers.get('Content-Type', 'application/octet-stream')
-        await db.add_tariff(title, filename, f"/uploads/{unique_name}", file_type, size, profile["name"])
+
+        file_type = field_file.headers.get("Content-Type", "application/octet-stream")
+        await db.add_tariff(
+            title, filename, f"/uploads/{unique_name}", file_type, size, profile["name"]
+        )
         return safe_json_response({"ok": True})
     except Exception as e:
         logger.error(f"Tariff upload error: {e}")
         return safe_json_response({"error": "Upload failed"})
 
+
 async def api_delete_tariff(request):
     profile, err = await check_auth(request)
     if err or profile["role"] not in ["admin", "superuser"]:
         return safe_json_response({"error": "Forbidden"})
-    
+
     data = await request.json()
     tariff_id = data.get("id")
     await db.delete_tariff(int(tariff_id))
     return safe_json_response({"ok": True})
 
+
 async def api_user_bid(request):
     profile, err = await check_auth(request)
-    if err: return safe_json_response({"error": err, "auth_needed": True})
+    if err:
+        return safe_json_response({"error": err, "auth_needed": True})
     user_id = profile.get("telegram_id")
     try:
         req_id = int(request.query.get("id"))
     except:
         return safe_json_response({"error": "Invalid id"})
-    
+
     bid = await db.get_user_bid(req_id, user_id)
     return safe_json_response({"bid": bid})
+
 
 async def verify_admin(init_data):
     """Helper to check if user is admin/superuser via init_data."""
     user_id, _ = extract_user_from_init_data(init_data)
     user = await db.get_user(user_id)
-    return user and user.get('role') in ['admin', 'superuser']
+    return user and user.get("role") in ["admin", "superuser"]
+
 
 async def api_stats(request):
     profile, err = await check_auth(request)
     if err or profile["role"] not in ["admin", "superuser"]:
         return safe_json_response({"error": "Forbidden"})
-    
+
     try:
         days = int(request.query.get("days", 30))
     except (TypeError, ValueError):
         days = 30
-    
+
     stats = await db.get_stats(days=days)
     return safe_json_response({"ok": True, "stats": stats})
+
 
 async def api_logs(request):
     profile, err = await check_auth(request)
     if err or profile["role"] not in ["admin", "superuser"]:
         return safe_json_response({"error": "Forbidden"})
-    
+
     logs = await db.get_recent_logs()
     return safe_json_response({"ok": True, "logs": logs})
+
 
 async def api_user_rotate_key(request):
     data = await request.json()
@@ -1032,6 +1221,7 @@ async def api_user_rotate_key(request):
         return safe_json_response({"error": "User not found"})
     return safe_json_response({"ok": True, "new_key": new_key})
 
+
 async def api_get_settings(request):
     """Settings include channel_id, ai_prompt, etc — restrict to employees."""
     profile, err = await check_auth(request)
@@ -1040,6 +1230,7 @@ async def api_get_settings(request):
 
     settings = await db.get_settings()
     return safe_json_response({"ok": True, "settings": settings})
+
 
 async def api_update_setting(request):
     data = await request.json()
@@ -1064,6 +1255,7 @@ async def api_update_setting(request):
     await db.update_setting(key, value)
     return safe_json_response({"ok": True})
 
+
 async def api_ping_logistics(request: web.Request):
     try:
         # Posts to the public Telegram channel — gate to employees to prevent spam.
@@ -1073,13 +1265,15 @@ async def api_ping_logistics(request: web.Request):
 
         data = await request.json()
         try:
-            req_id = int(data.get('request_id'))
+            req_id = int(data.get("request_id"))
         except (TypeError, ValueError):
             return web.json_response({"error": "Invalid request_id"}, status=400)
 
         req_data = await db.get_request(req_id)
         if not req_data or not req_data.get("channel_msg_id"):
-            return web.json_response({"error": "Сообщение в канале не найдено"}, status=404)
+            return web.json_response(
+                {"error": "Сообщение в канале не найдено"}, status=404
+            )
 
         settings = await db.get_settings()
         channel_id = settings.get("channel_id") or os.getenv("CHANNEL_ID")
@@ -1090,18 +1284,34 @@ async def api_ping_logistics(request: web.Request):
         await bot.send_message(
             chat_id=channel_id,
             reply_to_message_id=int(req_data["channel_msg_id"]),
-            text=f"‼️ Уважаемые коллеги, заявка #{req_data['id']:04d} ({req_data['route_from']} ➔ {req_data['route_to']}) всё ещё актуальна! Ждём ваших ставок."
+            text=f"‼️ Уважаемые коллеги, заявка #{req_data['id']:04d} ({req_data['route_from']} ➔ {req_data['route_to']}) всё ещё актуальна! Ждём ваших ставок.",
         )
         from utils.helpers import TZ
+
         await db.update_request(req_id, {"last_notified_at": datetime.now(TZ)})
         return web.json_response({"ok": True})
     except Exception as e:
         logger.error(f"Ping API error: {e}")
         return web.json_response({"error": "Internal error"}, status=500)
 
-DICTIONARY_KEYS = {"incoterms", "ports", "border_crossings", "transport_subtypes", "transport_types", "regions", "currencies", "cancel_reasons", "sources"}
+
+DICTIONARY_KEYS = {
+    "incoterms",
+    "ports",
+    "border_crossings",
+    "transport_subtypes",
+    "transport_types",
+    "regions",
+    "currencies",
+    "cancel_reasons",
+    "sources",
+}
 SETTABLE_KEYS = DICTIONARY_KEYS | {
-    "ai_prompt_extra", "ai_strictness", "channel_id", "discussion_id", "reminder_interval"
+    "ai_prompt_extra",
+    "ai_strictness",
+    "channel_id",
+    "discussion_id",
+    "reminder_interval",
 }
 
 
@@ -1115,6 +1325,7 @@ async def api_get_dictionary(request):
         return safe_json_response({"error": "Unknown dictionary"})
     settings = await db.get_settings()
     return safe_json_response({"ok": True, "items": settings.get(name, [])})
+
 
 @web.middleware
 async def _error_middleware(request, handler):
@@ -1162,21 +1373,21 @@ def setup_api(app):
     app.router.add_post("/api/export_xlsx", api_export_xlsx)
     app.router.add_get("/api/comments", api_comments)
     app.router.add_post("/api/upload", api_upload)
-    
+
     app.router.add_get("/api/tariffs", api_list_tariffs)
     app.router.add_post("/api/tariffs/upload", api_upload_tariff)
     app.router.add_post("/api/tariffs/delete", api_delete_tariff)
     app.router.add_get("/api/user_bid", api_user_bid)
     app.router.add_post("/api/broadcast", api_broadcast)
-    
+
     # Ensure directories exist before adding static routes
     for d in ["uploads", "logo"]:
         if not os.path.exists(d):
             os.makedirs(d)
-            
+
     app.router.add_static("/uploads", "uploads")
     app.router.add_static("/logo", "logo")
-    
+
     # CORS — restrict to the configured WEBAPP_URL origin (Telegram MiniApp).
     # Wildcard with credentials would be dangerous: any site could call our APIs in the
     # user's authenticated context. We rely on Telegram initData for CSRF-grade auth,
@@ -1191,7 +1402,9 @@ def setup_api(app):
             allow_methods=("GET", "POST", "OPTIONS"),
         )
     else:
-        logger.warning("WEBAPP_URL not configured — CORS will reject all cross-origin requests")
+        logger.warning(
+            "WEBAPP_URL not configured — CORS will reject all cross-origin requests"
+        )
     cors = aiohttp_cors.setup(app, defaults=allowed_origins)
     for route in list(app.router.routes()):
         try:

@@ -525,7 +525,7 @@ async def api_export_xlsx(request):
 
 ALLOWED_REQUEST_FIELDS = {
     "responsible", "status", "regions", "transport_cat", "transport_sub",
-    "cargo_name", "hs_code", "cargo_value", "cargo_weight", "cargo_places",
+    "cargo_name", "hs_code", "cargo_value", "cargo_weight", "cargo_places", "cargo_volume",
     "route_from", "route_to", "client_company", "contact_name", "contact_phone",
     "message_text", "target", "delivery_terms", "route_type", "loading_address",
     "customs_address", "clearance_address", "unloading_address", "transit_rf",
@@ -840,6 +840,75 @@ async def api_upload(request):
 async def index_handler(request):
     return web.FileResponse('webapp/index.html')
 
+async def api_broadcast(request):
+    # Check permissions
+    # Note: Using multipart for file upload so we check auth from initData in URL
+    init_data = request.query.get("initData", "")
+    if not init_data:
+        return web.json_response({"error": "Unauthorized", "auth_needed": True}, status=401)
+
+    profile, err = await check_auth(request)
+    if err or profile.get("role") not in ["admin", "superuser"]:
+        return web.json_response({"error": "Forbidden", "auth_needed": True}, status=403)
+
+    try:
+        reader = await request.multipart()
+
+        target = "all"
+        text = ""
+        file_bytes = None
+        filename = None
+
+        while True:
+            field = await reader.next()
+            if not field:
+                break
+            if field.name == 'target':
+                target = await field.text()
+            elif field.name == 'text':
+                text = await field.text()
+            elif field.name == 'file':
+                filename = field.filename
+                file_bytes = await field.read()
+
+        bot = request.app["bot"]
+        formatted_text = f"Уважаемые коллеги, {text}"
+
+        users_to_notify = []
+        if target == "all":
+            all_users = await db.list_users()
+            users_to_notify = [u for u in all_users if u.get("telegram_id")]
+        else:
+            try:
+                target_id = int(target)
+                users_to_notify = [{"telegram_id": target_id}]
+            except ValueError:
+                return web.json_response({"error": "Invalid target"}, status=400)
+
+        sent_count = 0
+        for u in users_to_notify:
+            tid = int(u["telegram_id"])
+            try:
+                if file_bytes and filename:
+                    # Determine type
+                    ext = filename.lower().split('.')[-1]
+                    if ext in ['jpg', 'jpeg', 'png']:
+                        await bot.send_photo(chat_id=tid, photo=file_bytes, caption=formatted_text)
+                    else:
+                        # For documents, we must pass it as a file-like object or named tuple
+                        # Since python-telegram-bot handles bytes, we just pass the tuple (filename, bytes)
+                        await bot.send_document(chat_id=tid, document=file_bytes, filename=filename, caption=formatted_text)
+                else:
+                    await bot.send_message(chat_id=tid, text=formatted_text)
+                sent_count += 1
+            except Exception as e:
+                logger.warning(f"Failed to send broadcast to {tid}: {e}")
+
+        return web.json_response({"ok": True, "sent": sent_count})
+    except Exception as e:
+        logger.error(f"Broadcast error: {e}", exc_info=True)
+        return web.json_response({"error": "Internal error"}, status=500)
+
 async def api_request_bids(request):
     """List bids for a specific request — sensitive competitor pricing data, employees only."""
     profile, err = await check_auth(request)
@@ -1098,6 +1167,7 @@ def setup_api(app):
     app.router.add_post("/api/tariffs/upload", api_upload_tariff)
     app.router.add_post("/api/tariffs/delete", api_delete_tariff)
     app.router.add_get("/api/user_bid", api_user_bid)
+    app.router.add_post("/api/broadcast", api_broadcast)
     
     # Ensure directories exist before adding static routes
     for d in ["uploads", "logo"]:

@@ -173,6 +173,40 @@ async def handle_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
+    # Task 5: Feedback polls handlers
+    if data.startswith("fb_"):
+        parts = data.split("_")
+        req_id = _safe_int(parts[1])
+        action = parts[2]
+
+        req = await db.get_request(req_id)
+        if not req:
+            await query.answer("Заявка не найдена", show_alert=True)
+            return
+
+        manager_name = context.user_data.get("profile", {}).get("name", "Менеджер")
+
+        if action == "confirmed":
+            await db.add_comment(req_id, update.effective_user.id, manager_name, "✅ Заявку подтвердили", "feedback")
+            await query.edit_message_text(f"Спасибо! Статус '✅ Подтвердили' сохранён в истории заявки #{req_id:04d}.")
+        elif action == "not_interested":
+            await db.add_comment(req_id, update.effective_user.id, manager_name, "❌ Клиент не заинтересован", "feedback")
+            await query.edit_message_text(f"Спасибо! Статус '❌ Не заинтересован' сохранён в истории заявки #{req_id:04d}.")
+        elif action == "need_rate":
+            await db.add_comment(req_id, update.effective_user.id, manager_name, "🔄 Нужна другая ставка", "feedback")
+            await query.edit_message_text(f"Спасибо! Статус '🔄 Нужна другая ставка' сохранён в истории заявки #{req_id:04d}.")
+        elif action in ("wait_date", "other"):
+            # Task 5: Interactive feedback prompt natively in Telegram
+            prompt = "До какого числа ждём?" if action == "wait_date" else "Что именно произошло с заявкой?"
+
+            # Store state in context.user_data to be caught by a message handler
+            context.user_data["awaiting_feedback_req_id"] = req_id
+
+            await query.edit_message_text(
+                f"Отправьте мне ответным сообщением: {prompt} (для заявки #{req_id:04d})",
+            )
+        return
+
     if data.startswith("remind_later_") or data.startswith("remind_mute_") or data.startswith("ping_logistics_"):
         # All three encode the request_id as the trailing _<int>; parse defensively.
         parts = data.rsplit("_", 1)
@@ -192,7 +226,23 @@ async def handle_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await query.edit_message_text(f"🔇 Уведомления по заявке #{req_id:04d} отключены.")
             return
 
-        # ping_logistics_
+        # Task 10: Confirmation logic for ping logistics
+        if data.startswith("ping_logistics_conf_"):
+            keyboard = [
+                [InlineKeyboardButton("✅ Да, отправить", callback_data=f"ping_logistics_do_{req_id}")],
+                [InlineKeyboardButton("❌ Отмена", callback_data=f"ping_logistics_cancel_{req_id}")]
+            ]
+            await query.edit_message_text(
+                f"Отправить напоминание по заявке #{req_id:04d}?",
+                reply_markup=InlineKeyboardMarkup(keyboard)
+            )
+            return
+
+        if data.startswith("ping_logistics_cancel_"):
+            await query.edit_message_text(f"Напоминание по заявке #{req_id:04d} отменено.")
+            return
+
+        # ping_logistics_do_ or legacy ping_logistics_
         req = await db.get_request(req_id)
         if not (req and req.get("channel_msg_id")):
             await query.answer("Заявка не найдена в канале")

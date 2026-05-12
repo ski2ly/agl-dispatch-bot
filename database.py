@@ -98,6 +98,7 @@ class Database:
             cargo_value TEXT,
             cargo_weight TEXT,
             cargo_places TEXT,
+            cargo_volume TEXT,
             route_from TEXT,
             route_to TEXT,
             client_company TEXT,
@@ -238,6 +239,7 @@ class Database:
                 ADD COLUMN IF NOT EXISTS cancel_reason TEXT,
                 ADD COLUMN IF NOT EXISTS mute_reminders BOOLEAN DEFAULT FALSE,
                 ADD COLUMN IF NOT EXISTS source TEXT,
+                ADD COLUMN IF NOT EXISTS cargo_volume TEXT,
                 ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
                 ALTER TABLE ai_sessions ADD COLUMN IF NOT EXISTS history JSONB DEFAULT '[]';
             """)

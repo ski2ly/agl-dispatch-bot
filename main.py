@@ -13,10 +13,11 @@ from database import db
 from ai_assistant import ai_assistant
 from api.server import setup_api, web
 from handlers.commands import start_cmd, help_cmd, list_cmd, stats_cmd, profile_cmd, my_requests_cmd, users_cmd, logs_cmd
+from handlers.broadcast import broadcast_handler
 from handlers.ai_handlers import handle_text_msg, handle_voice, handle_attachment
 from handlers.callbacks import handle_callbacks
 from handlers.discussion import handle_discussion_forward
-from handlers.cron import reminder_cron
+from handlers.cron import reminder_cron, feedback_cron
 
 # Configure logging
 logging.basicConfig(
@@ -56,13 +57,15 @@ async def post_init(application: Application):
         BotCommand("my_requests", "Мои созданные заявки"),
         BotCommand("profile", "Мой профиль и роль"),
         BotCommand("cancel", "Отменить текущее действие"),
-        BotCommand("ai", "Создать заявку или задать вопрос ИИ")
+        BotCommand("ai", "Создать заявку или задать вопрос ИИ"),
+        BotCommand("broadcast", "Админ: Рассылка уведомлений")
     ]
     await application.bot.set_my_commands(commands)
 
     # 3. Start reminder cron under a supervisor so it auto-restarts on crash.
     bot = application.bot
     asyncio.create_task(_supervised_cron(lambda: reminder_cron(bot), "reminder_cron"))
+    asyncio.create_task(_supervised_cron(lambda: feedback_cron(bot), "feedback_cron"))
 
     # 4. Start web server
     # Increased limit to 32MB to allow photo and document uploads via MiniApp.
@@ -102,6 +105,7 @@ def main():
     application.add_error_handler(_error_handler)
 
     # Commands
+    application.add_handler(broadcast_handler)
     application.add_handler(CommandHandler("start", start_cmd))
     application.add_handler(CommandHandler("help", help_cmd))
     application.add_handler(CommandHandler("list", list_cmd))

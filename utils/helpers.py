@@ -34,61 +34,72 @@ def build_card(req: dict) -> str:
 
     req_id = req.get("id", 0)
     t_cat = str(req.get("transport_cat", ""))
-    t_emoji = "🚛"
-    if "Авиа" in t_cat: t_emoji = "✈️"
-    elif "Ж/Д" in t_cat or "Вагон" in t_cat: t_emoji = "🚆"
-    elif "Мульти" in t_cat or "Мор" in t_cat: t_emoji = "🚢"
-    
     reg = req.get("regions", "Другое")
-    # Dynamic region emoji — try cached settings, fallback to hardcoded defaults
-    _DEFAULT_EMOJI = {"Европа": "🇪🇺", "Китай": "🇨🇳", "СНГ": "🗺️", "Турция": "🇹🇷", "Индия/ЮВА": "🇮🇳"}
-    reg_emoji = _DEFAULT_EMOJI.get(reg, "🌍")
 
     lines = [
-        f"{t_emoji} НОВАЯ ЗАЯВКА #{req_id:04d}",
+        f"НОВАЯ ЗАЯВКА #{req_id:05d}",
         "",
-        f"🌍 Направление: {reg_emoji} {reg}",
-        f"📦 Тип перевозки: {t_cat}",
-        f"📣 Источник: {v('source', 'Не указан')}",
+        f"Направление: {reg}",
+        f"Тип перевозки: {t_cat}",
+        f"Источник: {v('source', 'Не указан')}",
         "",
-        f"📍 Откуда: {v('route_from', '?')} ➔ Куда: {v('route_to', '?')}",
+        f"{v('route_from', '?')} ➔ {v('route_to', '?')}",
     ]
 
     # Optional address lines — only show if filled
     for key, label in [("loading_address", "Погрузка"), ("customs_address", "Затаможка"), ("clearance_address", "Растаможка"), ("unloading_address", "Выгрузка")]:
         val = v(key)
-        if val: lines.append(f"📍 {label}: {val}")
+        if val: lines.append(f"{label}: {val}")
 
     lines.append("")
-    lines.append(f"📦 Груз: {v('cargo_name', '?')}")
-    if v('hs_code'): lines.append(f"📦 ТН ВЭД: {v('hs_code')}")
-    if v('dangerous_cargo') and v('dangerous_cargo') not in ('Нет',): lines.append(f"⚠️ Опасный: {v('dangerous_cargo')}")
+    lines.append(f"Груз: {v('cargo_name', '?')}")
+    if v('hs_code'): lines.append(f"ТН ВЭД: {v('hs_code')}")
+    if v('dangerous_cargo') and v('dangerous_cargo') == 'Да':
+        adr = v('adr_class')
+        lines.append(f"Опасный: Да (ADR {adr if adr else 'не указан'})")
+    elif v('dangerous_cargo') and v('dangerous_cargo') != 'Нет':
+        lines.append(f"Опасный: {v('dangerous_cargo')}")
     lines.append("")
-    if v('cargo_weight'): lines.append(f"⚖️ Вес: {v('cargo_weight')}")
-    if v('cargo_places'): lines.append(f"📏 Места/Объем: {v('cargo_places')}")
-    if v('packaging'): lines.append(f"📦 Упаковка: {v('packaging')}")
+    if v('cargo_weight'): lines.append(f"Вес: {v('cargo_weight')} кг")
+    if v('cargo_places'): lines.append(f"Мест: {v('cargo_places')}")
+    if v('cargo_volume'): lines.append(f"Объем: {v('cargo_volume')} м³")
+    if v('packaging'): lines.append(f"Упаковка: {v('packaging')}")
     lines.append("")
-    lines.append(f"💰 Стоимость: {v('cargo_value') or 'НЕ УКАЗАНА ⚠️'}")
-    lines.append(f"🕒 Срочность: {v('urgency_type') or v('urgency_days') or 'Стандарт'}")
+    val = v('cargo_value')
+    if val:
+        curr = v('cargo_currency') or 'USD'
+        lines.append(f"Стоимость: {val} {curr}")
+    else:
+        lines.append(f"Стоимость: НЕ УКАЗАНА")
+    lines.append(f"Срочность: {v('urgency_type') or v('urgency_days') or 'Стандарт'}")
 
     # Specific fields
     spec_map = {
         "delivery_terms_eu": "Условия", "route_type": "Маршрут", "export_decl": "Экспортная", 
         "origin_cert": "Сертификат", "road_type_cn": "Тип фуры", "border_crossing_cn": "Погранпереход",
-        "container_owner": "Контейнер", "glonass_seal": "Пломба", "loading_days": "Дней на погрузку",
-        "customs_days": "Дней на затаможку", "stackable": "Штабелируемый", "flight_type": "Рейс", "ports_list": "Порт"
+        "container_owner": "Контейнер", "glonass_seal": "Пломба", "days_loading": "Дней на погр. (ПРР+Там)",
+        "days_unloading": "Дней на выгрузке (ПРР+Там)", "stackable": "Штабелируемый", "flight_type": "Рейс", "ports_list": "Порт"
     }
-    spec_fields = [f"• {label}: {v(k)}" for k, label in spec_map.items() if v(k)]
+    spec_fields = []
+    for k, label in spec_map.items():
+        val = v(k)
+        if val:
+            display_label = label
+            if "," in val:
+                if label == "Погранпереход": display_label = "Погранпереходы"
+                elif label == "Порт": display_label = "Порты"
+                elif label == "Маршрут": display_label = "Маршруты"
+            spec_fields.append(f"• {display_label}: {val}")
     
     if spec_fields:
         lines.append("")
-        lines.append("📋 Специфика:")
+        lines.append("Специфика:")
         lines.extend(spec_fields)
     
     if v('message_text'):
-        lines.extend(["", "📄 Дополнительно:", v('message_text')])
+        lines.extend(["", "Дополнительно:", v('message_text')])
     
-    lines.extend(["", f"👤 Менеджер: {v('responsible') or '—'}", "#заявка"])
+    lines.extend(["", f"Менеджер: {v('responsible') or '—'}", "#заявка"])
     return "\n".join(lines)
 
 def build_bid_card(bid: dict) -> str:
@@ -98,19 +109,19 @@ def build_bid_card(bid: dict) -> str:
     parse_mode or none at all. The caller can wrap in <b> if needed.
     """
     lines = [
-        f"💰 НОВАЯ СТАВКА",
-        f"📦 По заявке: #{int(bid.get('request_id', 0)):05d}",
+        f"НОВАЯ СТАВКА",
+        f"По заявке: #{int(bid.get('request_id', 0)):05d}",
         "",
-        f"💵 СУММА: {bid.get('amount')} {bid.get('currency')}",
-        f"👤 Менеджер: {bid.get('manager_name') or '-'}",
-        f"📅 Валидность: {bid.get('validity') or '-'}",
+        f"СУММА: {bid.get('amount')} {bid.get('currency')}",
+        f"Менеджер: {bid.get('manager_name') or '-'}",
+        f"Валидность: {bid.get('validity') or '-'}",
         "",
-        "ℹ️ УСЛОВИЯ:",
-        f"⏳ П/В: {bid.get('loading_hours') or '24ч'}",
-        f"⏳ Простой: {bid.get('demurrage') or '-'}",
-        f"💳 Оплата: {bid.get('payment') or bid.get('payment_method') or bid.get('payment_terms') or '-'}",
+        "УСЛОВИЯ:",
+        f"П/В: {bid.get('loading_hours') or '24ч'}",
+        f"Простой: {bid.get('demurrage') or '-'}",
+        f"Оплата: {bid.get('payment') or bid.get('payment_method') or bid.get('payment_terms') or '-'}",
         "",
-        "📝 КОММЕНТАРИЙ:",
+        "КОММЕНТАРИЙ:",
         f"{bid.get('comment') or '-'}",
         "",
         "#ставка"
@@ -185,19 +196,17 @@ async def sync_bid_to_discussion(bot, discussion_id, channel_id, channel_msg_id,
                         chat_id=target_disc_id,
                         text=bid_card_text,
                         reply_to_message_id=target_msg_id,
+                        message_thread_id=target_msg_id, # Ensure it's treated as a comment/thread
                         parse_mode="HTML"
                     )
                     return True
                 else:
                     log.error(f"API getDiscussionMessage failed: {res}")
                     
-                    # 3. FORUM FALLBACK: If 404 and we have a discussion group, try sending to a thread
-                    # In many "Forum" groups linked to channels, the thread_id IS the channel_msg_id.
-                    if res.get("error_code") == 404 and target_discussion:
-                        log.info(f"Attempting Forum Thread fallback: chat={target_discussion}, thread={channel_msg_id}")
+                    # 3. DIRECT THREAD FALLBACK: Use channel_msg_id as thread_id
+                    if target_discussion:
+                        log.info(f"Using direct thread ID fallback: chat={target_discussion}, thread={channel_msg_id}")
                         try:
-                            # In Topic-enabled groups, to make it a "comment", it must be a reply 
-                            # to the first message of the topic. Often that message ID == thread ID.
                             await bot.send_message(
                                 chat_id=target_discussion,
                                 text=bid_card_text,
@@ -205,21 +214,12 @@ async def sync_bid_to_discussion(bot, discussion_id, channel_id, channel_msg_id,
                                 reply_to_message_id=int(channel_msg_id),
                                 parse_mode="HTML"
                             )
-                            log.info(f"Forum Thread fallback SUCCESS (sent to thread/reply {channel_msg_id})")
                             return True
-                        except Exception as e_forum:
-                            log.warning(f"Forum Thread fallback (reply mode) failed: {e_forum}. Trying without reply...")
-                            try:
-                                await bot.send_message(
-                                    chat_id=target_discussion,
-                                    text=bid_card_text,
-                                    message_thread_id=int(channel_msg_id),
-                                    parse_mode="HTML"
-                                )
-                                log.info("Forum Thread fallback SUCCESS (no-reply mode)")
-                                return True
-                            except Exception as e_final:
-                                log.error(f"Forum Thread fallback totally failed: {e_final}")
+                        except Exception as e_final:
+                            log.error(f"Thread fallback failed: {e_final}")
+                            # Last ditch: send as regular message to group
+                            await bot.send_message(chat_id=target_discussion, text=bid_card_text, parse_mode="HTML")
+                            return True
                     
                     raise Exception(f"API error: {res.get('description')}")
         

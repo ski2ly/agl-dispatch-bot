@@ -23,6 +23,7 @@ async def set_user_commands(bot, chat_id, role):
             BotCommand("stats", "Общая статистика и аналитика"),
             BotCommand("users", "Список сотрудников"),
             BotCommand("logs", "Логи последних действий"),
+            BotCommand("broadcast", "Рассылка уведомлений"),
         ])
     
     try:
@@ -70,9 +71,10 @@ async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if is_admin:
         help_text += (
-            "\n⚡️ **Админ-панель:**\n"
-            "🔸 /stats — Общая статистика и аналитика.\n"
-            "🔸 /users — Список сотрудников.\n"
+            "🛠 **Админ-функции:**\n"
+            "• `/stats` — аналитика\n"
+            "• `/users` — управление персоналом\n"
+            "• `/broadcast` — рассылка уведомлений коллегам\n"
             "🔸 /logs — Логи последних действий.\n"
         )
 
@@ -202,7 +204,10 @@ async def view_request_handler(update: Update, context: ContextTypes.DEFAULT_TYP
     
     card = build_card(req)
     keyboard = [
-        [InlineKeyboardButton("💰 Подать ставку / Изменить", web_app=WebAppInfo(url=f"{WEBAPP_URL}?req_id={req_id}"))],
+        [
+            InlineKeyboardButton("💰 Подать ставку", web_app=WebAppInfo(url=f"{WEBAPP_URL}?req_id={req_id}")),
+            InlineKeyboardButton("📊 История ставок", callback_data=f"bids_history_{req_id}")
+        ],
         [InlineKeyboardButton("💬 Комментарии", callback_data=f"comments_{req_id}")]
     ]
     await query.edit_message_text(f"🔍 Заявка {req_id:04d}\n\n{card}", reply_markup=InlineKeyboardMarkup(keyboard))

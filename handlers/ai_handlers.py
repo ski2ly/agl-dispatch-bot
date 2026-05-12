@@ -152,6 +152,16 @@ async def handle_text_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
     if not text: return
     
+    if 'awaiting_feedback' in context.user_data:
+        fbk_data = context.user_data['awaiting_feedback']
+        req_id = fbk_data['req_id']
+        action = fbk_data['action']
+        prefix = "Ждём до: " if action == 'wait' else "Другое: "
+        await db.add_comment(req_id, update.effective_user.id, update.effective_user.first_name, f"Фидбэк: {prefix}{text}", type="feedback")
+        await update.message.reply_text("✅ Фидбэк успешно сохранён.")
+        del context.user_data['awaiting_feedback']
+        return
+
     low_text = text.lower().strip()
     if low_text in ["отмена", "/cancel"]:
         await db.clear_ai_context(update.effective_user.id)
@@ -211,7 +221,8 @@ async def confirm_ai_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     try:
         user_id = update.effective_user.id
-        profile = context.user_data.get("profile", {})
+        profile = context.user_data.get("profile") or {}
+        user_name = profile.get("name") or update.effective_user.first_name or "Сотрудник"
         
         parsed, history = await db.get_ai_context(user_id)
         if not parsed:
@@ -256,8 +267,8 @@ async def confirm_ai_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
         fields = ai_assistant.to_request_fields(parsed)
         fields.update({
             "creator_id": user_id, 
-            "creator_name": profile.get("name"),
-            "responsible": profile.get("name"), 
+            "creator_name": user_name,
+            "responsible": user_name, 
             "status": "Открыта"
         })
         
@@ -265,8 +276,8 @@ async def confirm_ai_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
         req_id = req["id"]
         
         # Log and Comment
-        await db.add_comment(req_id, user_id, profile.get("name"), "Заявка создана через AI", "system")
-        await db.log_activity(req_id, user_id, profile.get("name"), "created_by_ai")
+        await db.add_comment(req_id, user_id, user_name, "Заявка создана через AI", "system")
+        await db.log_activity(req_id, user_id, user_name, "created_by_ai")
         
         # Channel notification — use settings channel_id first, fallback to env
         target_channel = settings.get("channel_id") or CHANNEL_ID

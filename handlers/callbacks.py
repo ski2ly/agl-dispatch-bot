@@ -2,6 +2,7 @@ import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 from handlers.ai_handlers import confirm_ai_logic
+from handlers.auth import requires_auth
 from handlers.commands import view_request_handler
 from utils.helpers import build_bid_card, sync_bid_to_discussion
 
@@ -16,6 +17,7 @@ def _safe_int(s):
         return None
 
 
+@requires_auth
 async def handle_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     if not query or not query.data:
@@ -39,6 +41,50 @@ async def handle_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await view_request_handler(update, context)
         return
 
+    if data.startswith("fbk_"):
+        parts = data.split("_", 2)
+        action = parts[1]
+        req_id = int(parts[2])
+        
+        if action in ["wait", "other"]:
+            context.user_data['awaiting_feedback'] = {
+                'req_id': req_id,
+                'action': action,
+            }
+            prompt = "Укажите до какой даты ждём:" if action == 'wait' else "Напишите подробности:"
+            await query.edit_message_text(f"📝 Опрос по заявке #{req_id:05d}\n\n{prompt}\n(Напишите ответ следующим сообщением)")
+            return
+            
+        labels = {
+            "confirm": "Подтвердили",
+            "not_interested": "Клиент не заинтересован",
+            "new_bid": "Нужна другая ставка"
+        }
+        text_val = labels.get(action, "Другое")
+        await db.add_comment(req_id, update.effective_user.id, update.effective_user.first_name, f"Фидбэк: {text_val}", type="feedback")
+        await query.edit_message_text(f"✅ Фидбэк сохранён: {text_val}")
+        return
+
+    if data.startswith("bids_history_"):
+        req_id = int(data.split("_")[2])
+        bids = await db.get_bids(req_id)
+        if not bids:
+            await query.answer("По этой заявке ставок пока нет", show_alert=True)
+            return
+
+        text = f"📊 *История ставок по заявке #{req_id:05d}*\n\n"
+        for b in bids:
+            dt = b['created_at'].strftime("%d.%m %H:%M") if b.get('created_at') else "—"
+            manager = b.get('manager_name') or 'Неизвестно'
+            amount = b.get('amount', '?')
+            curr = b.get('currency', '')
+            pay_terms = b.get('payment_terms') or 'Не указано'
+            text += f"👤 {manager}  💰 {amount} {curr}  📅 {dt}\n📋 {pay_terms}\n\n"
+        
+        await query.message.reply_text(text, parse_mode="Markdown")
+        await query.answer()
+        return
+
     if data.startswith("comments_"):
         req_id = _safe_int(data.split("_", 1)[1])
         if not req_id:
@@ -48,13 +94,13 @@ async def handle_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
         comments = await db.get_comments(req_id)
         if not comments:
             await query.edit_message_text(
-                f"💬 Комментарии по заявке #{req_id:04d}\n\nПока комментариев нет.",
+                f"💬 Комментарии по заявке #{req_id:05d}\n\nПока комментариев нет.",
                 reply_markup=InlineKeyboardMarkup([
                     [InlineKeyboardButton("← Назад к заявке", callback_data=f"view_{req_id}")]
                 ])
             )
             return
-        lines = [f"💬 Комментарии по заявке #{req_id:04d}\n"]
+        lines = [f"💬 Комментарии по заявке #{req_id:05d}\n"]
         for c in comments[-15:]:  # Last 15 comments
             badge = "💬" if c.get("type") == "discussion" else ("🤖" if c.get("type") == "ai" else "👤")
             name = c.get("user_name") or "Система"
@@ -94,7 +140,7 @@ async def handle_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 preview = ai_assistant.build_preview(new_draft)
                 await query.answer("Заявка подгружена!")
                 await query.edit_message_text(
-                    f"🔄 Данные заявки #{req_id:04d} подгружены в черновик.\n\n{preview}\n\nЧто нужно изменить или добавить?",
+                    f"🔄 Данные заявки #{req_id:05d} подгружены в черновик.\n\n{preview}\n\nЧто нужно изменить или добавить?",
                     parse_mode="Markdown",
                     reply_markup=InlineKeyboardMarkup([
                         [InlineKeyboardButton("✅ Опубликовать как новую", callback_data="confirm_ai")],
@@ -168,7 +214,7 @@ async def handle_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         await query.answer("Ставка принята!")
         await query.edit_message_text(
-            f"✅ Ставка **{amount} {currency}** успешно добавлена к заявке #{req_id:04d}!",
+            f"✅ Ставка **{amount} {currency}** успешно добавлена к заявке #{req_id:05d}!",
             parse_mode="Markdown",
         )
         return
@@ -183,13 +229,13 @@ async def handle_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         if data.startswith("remind_later_"):
             await query.answer("Напомним завтра")
-            await query.edit_message_text(f"⏳ Напоминание по заявке #{req_id:04d} отложено на 24 часа.")
+            await query.edit_message_text(f"⏳ Напоминание по заявке #{req_id:05d} отложено на 24 часа.")
             return
 
         if data.startswith("remind_mute_"):
             await db.update_request(req_id, {"mute_reminders": True})
             await query.answer("Уведомления отключены")
-            await query.edit_message_text(f"🔇 Уведомления по заявке #{req_id:04d} отключены.")
+            await query.edit_message_text(f"🔇 Уведомления по заявке #{req_id:05d} отключены.")
             return
 
         # ping_logistics_
@@ -206,10 +252,10 @@ async def handle_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await context.bot.send_message(
                 chat_id=channel_id,
                 reply_to_message_id=int(req["channel_msg_id"]),
-                text=f"‼️ Уважаемые коллеги, заявка #{req['id']:04d} ({req['route_from']} ➔ {req['route_to']}) всё ещё актуальна! Ждём ваших ставок.",
+                text=f"‼️ Уважаемые коллеги, заявка #{req['id']:05d} ({req['route_from']} ➔ {req['route_to']}) всё ещё актуальна! Ждём ваших ставок.",
             )
             await query.answer("Напоминание отправлено!")
-            await query.edit_message_text(f"🔔 Вы напомнили логистам о заявке #{req_id:04d}.")
+            await query.edit_message_text(f"🔔 Вы напомнили логистам о заявке #{req_id:05d}.")
         except Exception as e:
             logger.error(f"Ping failed: {e}")
             await query.answer("Ошибка при отправке")

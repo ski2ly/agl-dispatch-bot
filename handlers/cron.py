@@ -40,7 +40,7 @@ async def reminder_cron(bot):
                     ]
                     await bot.send_message(
                         chat_id=cid,
-                        text=f"⚠️ <b>Напоминание:</b> По вашей заявке #{req['id']:04d} ({req['route_from']} ➔ {req['route_to']}) всё ещё нет ставок. Проверьте актуальность.",
+                        text=f"⚠️ <b>Напоминание:</b> По вашей заявке #{req['id']:05d} ({req['route_from']} ➔ {req['route_to']}) всё ещё нет ставок. Проверьте актуальность.",
                         parse_mode="HTML",
                         reply_markup=InlineKeyboardMarkup(keyboard)
                     )
@@ -53,3 +53,36 @@ async def reminder_cron(bot):
             pass
 
         await asyncio.sleep(6 * 3600) # Run every 6 hours
+
+async def feedback_cron(bot):
+    """Periodic task to ask managers for feedback after 24 hours."""
+    logger.info("⏰ Feedback cron task started")
+    await asyncio.sleep(120)  # offset from reminder
+    
+    while True:
+        try:
+            reqs = await db.get_requests_for_feedback(hours_old=24)
+            from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+            for req in reqs:
+                cid = req.get("creator_id")
+                req_id = req["id"]
+                if cid:
+                    keyboard = [
+                        [InlineKeyboardButton("✅ Подтвердили", callback_data=f"fbk_confirm_{req_id}")],
+                        [InlineKeyboardButton("❌ Клиент не заинтересован", callback_data=f"fbk_not_interested_{req_id}")],
+                        [InlineKeyboardButton("⏳ Ждём до даты", callback_data=f"fbk_wait_{req_id}")],
+                        [InlineKeyboardButton("🔄 Нужна другая ставка", callback_data=f"fbk_new_bid_{req_id}")],
+                        [InlineKeyboardButton("💬 Другое", callback_data=f"fbk_other_{req_id}")]
+                    ]
+                    await bot.send_message(
+                        chat_id=cid,
+                        text=f"📊 <b>Опрос по заявке #{req_id:05d}</b>\n({req.get('route_from')} ➔ {req.get('route_to')})\n\nПрошло 24 часа. Что произошло с заявкой?",
+                        parse_mode="HTML",
+                        reply_markup=InlineKeyboardMarkup(keyboard)
+                    )
+                # Mark as requested so we don't ask again
+                await db.update_request(req_id, {"feedback_requested": True})
+        except Exception as e:
+            logger.error(f"Feedback cron error: {e}")
+        
+        await asyncio.sleep(3600)  # check once an hour

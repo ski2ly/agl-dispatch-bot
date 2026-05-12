@@ -96,8 +96,12 @@ class Database:
             cargo_name TEXT,
             hs_code TEXT,
             cargo_value TEXT,
+            cargo_currency TEXT DEFAULT 'USD',
             cargo_weight TEXT,
             cargo_places TEXT,
+            cargo_volume TEXT,
+            adr_class TEXT,
+            packaging TEXT,
             route_from TEXT,
             route_to TEXT,
             client_company TEXT,
@@ -120,6 +124,8 @@ class Database:
             urgency_days TEXT,
             loading_days TEXT,
             customs_days TEXT,
+            days_loading TEXT,
+            days_unloading TEXT,
             export_decl TEXT,
             origin_cert TEXT,
             container_type TEXT,
@@ -144,6 +150,7 @@ class Database:
             created_at TIMESTAMPTZ DEFAULT NOW(),
             updated_at TIMESTAMPTZ DEFAULT NOW(),
             last_notified_at TIMESTAMPTZ,
+            feedback_requested BOOLEAN DEFAULT FALSE,
             source TEXT
         );
 
@@ -238,6 +245,11 @@ class Database:
                 ADD COLUMN IF NOT EXISTS cancel_reason TEXT,
                 ADD COLUMN IF NOT EXISTS mute_reminders BOOLEAN DEFAULT FALSE,
                 ADD COLUMN IF NOT EXISTS source TEXT,
+                ADD COLUMN IF NOT EXISTS cargo_currency TEXT DEFAULT 'USD',
+                ADD COLUMN IF NOT EXISTS feedback_requested BOOLEAN DEFAULT FALSE,
+                ADD COLUMN IF NOT EXISTS adr_class TEXT,
+                ADD COLUMN IF NOT EXISTS days_loading TEXT,
+                ADD COLUMN IF NOT EXISTS days_unloading TEXT,
                 ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
                 ALTER TABLE ai_sessions ADD COLUMN IF NOT EXISTS history JSONB DEFAULT '[]';
             """)
@@ -352,7 +364,7 @@ class Database:
                     'target', 'last_notified_at', 'cancel_reason', 'clearance_address', 'unloading_address',
                     'delivery_terms_eu', 'transit_rf_allowed', 'road_type_cn', 'border_crossing_cn',
                     'container_type_cn', 'loading_days', 'customs_days', 'urgency_days', 'ports_list',
-                    'dangerous_cargo', 'packaging', 'message_text', 'source'
+                    'dangerous_cargo', 'packaging', 'message_text', 'source', 'cargo_volume'
                 ]:
                     if col not in req_cols:
                         await conn.execute(f"ALTER TABLE requests ADD COLUMN IF NOT EXISTS {col} TEXT")
@@ -367,6 +379,8 @@ class Database:
                     await conn.execute("ALTER TABLE bids ADD COLUMN IF NOT EXISTS manager_name TEXT")
                 if 'status' not in bid_cols:
                     await conn.execute("ALTER TABLE bids ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'Ожидание'")
+                if 'updated_at' not in bid_cols:
+                    await conn.execute("ALTER TABLE bids ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW()")
                 
                 # Add unique index for upsert
                 await conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_bids_request_user ON bids(request_id, user_id)")
@@ -633,10 +647,10 @@ class Database:
         async with self._pool.acquire() as conn:
             await conn.execute(
                 """
-                INSERT INTO bids (request_id, user_id, manager_name, amount, currency, validity, payment_terms, loading_hours, demurrage, comment)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+                INSERT INTO bids (request_id, user_id, manager_name, amount, currency, validity, payment_terms, loading_hours, demurrage, comment, updated_at)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW())
                 ON CONFLICT (request_id, user_id) DO UPDATE SET
-                    amount=$4, currency=$5, validity=$6, payment_terms=$7, loading_hours=$8, demurrage=$9, comment=$10, created_at=NOW()
+                    amount=$4, currency=$5, validity=$6, payment_terms=$7, loading_hours=$8, demurrage=$9, comment=$10, updated_at=NOW()
                 """,
                 request_id, user_id, manager_name, fields.get("amount"), fields.get("currency"),
                 fields.get("validity"), fields.get("payment_terms") or fields.get("payment_method"),
@@ -805,7 +819,7 @@ class Database:
                 ("Виолетта", "admin", "agl_vr"),
                 ("Диёрахон", "manager", "agl_di"),
                 ("Дмитрий", "manager", "agl_da"),
-                ("Жамшид (директор)", "admin", "agl_jt"),
+                ("Жамшид", "admin", "agl_jt"),
                 ("Константин", "manager", "agl_kk"),
                 ("Мубина", "manager", "agl_mo"),
                 ("Нозим", "admin", "agl_nb"),
@@ -1052,5 +1066,18 @@ class Database:
     async def clear_ai_context(self, user_id: int):
         async with self._pool.acquire() as conn:
             await conn.execute("DELETE FROM ai_sessions WHERE user_id = $1", user_id)
+
+    async def get_requests_for_feedback(self, hours_old: int = 24):
+        """Finds requests created >= `hours_old` hours ago where feedback hasn't been requested yet."""
+        async with self._pool.acquire() as conn:
+            query = """
+            SELECT * FROM requests 
+            WHERE created_at <= NOW() - INTERVAL '1 hour' * $1
+              AND feedback_requested = FALSE
+              AND status != 'Отменена'
+              AND status != 'Успешно реализована'
+            """
+            rows = await conn.fetch(query, hours_old)
+            return [dict(r) for r in rows]
 
 db = Database()

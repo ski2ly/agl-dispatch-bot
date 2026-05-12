@@ -82,9 +82,9 @@ class SheetsManager:
 
     def _req_to_row(self, req: dict):
         """Map request dict to a sheet row (38 columns)."""
-        # Column A: ID (#0042)
+        # Column A: ID (#00001)
         req_id = req.get("id", 0)
-        id_str = f"#{int(req_id):04d}"
+        id_str = f"#{int(req_id):05d}"
         
         # Mapping based on the existing analytical sheet structure
         row = [
@@ -101,22 +101,23 @@ class SheetsManager:
             req.get("transport_sub", "-"),             # K: Подтип/Контейнер/Фура
             req.get("cargo_weight", "-"),              # L: Вес
             req.get("cargo_places", "-"),              # M: Места
-            req.get("departure_date", "-"),            # N: Дата готовности
-            req.get("urgency_type", "-"),              # O: Срочность
-            req.get("delivery_terms", "-"),            # P: Incoterms
-            req.get("route_type", "-"),                # Q: Маршрут (РФ/Турция)
-            req.get("transit_rf", "-"),                # R: Транзит РФ
-            req.get("container_type", "-"),            # S: Контейнер
-            req.get("export_decl", "-"),               # T: Экспортная
-            req.get("origin_cert", "-"),               # U: Серт. происх.
-            req.get("border_crossing", "-"),           # V: Погранпереход
-            req.get("glonass_seal", "-"),              # W: ГЛОНАСС
-            req.get("departure_ports", "-"),           # X: Порты
-            req.get("client_company", "-"),            # Y: Компания клиента
-            req.get("contact_phone", "-"),             # Z: Телефон
-            req.get("message_text", "-"),              # AA: Доп. инфо
-            req.get("created_at", "-"),                # AB: Дата создания
-            "", "", "", "", "", "", "", "", "", ""    # AC-AL: Reserved/Manager bids
+            req.get("cargo_volume", "-"),              # N: Объем
+            req.get("departure_date", "-"),            # O: Дата готовности
+            req.get("urgency_type", "-"),              # P: Срочность
+            req.get("delivery_terms", "-"),            # Q: Incoterms
+            req.get("route_type", "-"),                # R: Маршрут (РФ/Турция)
+            req.get("transit_rf", "-"),                # S: Транзит РФ
+            req.get("container_type", "-"),            # T: Контейнер
+            req.get("export_decl", "-"),               # U: Экспортная
+            req.get("origin_cert", "-"),               # V: Серт. происх.
+            req.get("border_crossing", "-"),           # W: Погранпереход
+            req.get("glonass_seal", "-"),              # X: ГЛОНАСС
+            req.get("departure_ports", "-"),           # Y: Порты
+            req.get("client_company", "-"),            # Z: Компания клиента
+            req.get("contact_phone", "-"),             # AA: Телефон
+            req.get("message_text", "-"),              # AB: Доп. инфо
+            req.get("created_at", "-"),                # AC: Дата создания
+            "", "", "", "", "", "", "", "", ""        # AD-AL: Reserved/Manager bids
         ]
         return row
 
@@ -162,7 +163,7 @@ class SheetsManager:
                 logger.error(f"Row cache refresh failed: {e}")
                 return None
 
-        search_val = f"#{int(req_id):04d}"
+        search_val = f"#{int(req_id):05d}"
         return self._row_cache.get(search_val)
 
     def _get_manager_col(self, name):

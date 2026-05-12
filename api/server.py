@@ -458,8 +458,11 @@ async def api_export_xlsx(request):
             'transport_sub': 'Подтип',
             'cargo_name': 'Наименование груза',
             'cargo_value': 'Стоимость груза',
+            "hs_code": "ТН ВЭД",
+            "adr_class": "Класс ADR",
             'cargo_weight': 'Вес',
-            'cargo_places': 'Места',
+            'cargo_places': 'Кол-во мест',
+            'cargo_volume': 'Объем',
             'client_company': 'Компания клиента',
             'contact_phone': 'Телефон клиента',
             'cancel_reason': 'Причина отмены',
@@ -525,17 +528,17 @@ async def api_export_xlsx(request):
 
 ALLOWED_REQUEST_FIELDS = {
     "responsible", "status", "regions", "transport_cat", "transport_sub",
-    "cargo_name", "hs_code", "cargo_value", "cargo_weight", "cargo_places",
-    "route_from", "route_to", "client_company", "contact_name", "contact_phone",
+    "cargo_name", "hs_code", "cargo_value", "cargo_currency", "cargo_weight", "cargo_places", "cargo_volume", "packaging", "dangerous_cargo", "adr_class", "urgency_type",
+    "client_company", "contact_name", "contact_phone",
     "message_text", "target", "delivery_terms", "route_type", "loading_address",
     "customs_address", "clearance_address", "unloading_address", "transit_rf",
-    "border_crossing", "urgency_type", "export_decl", "origin_cert",
+    "export_decl", "origin_cert",
     "container_type", "road_type", "container_owner", "glonass_seal",
     "seal_instructions", "flight_type", "stackable", "departure_ports",
     "multimodal_next", "company", "delivery_terms_eu", "transit_rf_allowed",
     "road_type_cn", "border_crossing_cn", "container_type_cn", "loading_days",
-    "customs_days", "urgency_days", "ports_list", "dangerous_cargo", "packaging",
-    "cancel_reason", "channel_msg_id", "mute_reminders", "last_notified_at", "winner_name",
+    "customs_days", "urgency_days", "ports_list",
+    "cancel_reason", "channel_msg_id", "mute_reminders", "last_notified_at", "winner_name", "source", "days_loading", "days_unloading"
 }
 ALLOWED_STATUSES = {"Открыта", "В работе", "Успешно реализована", "Отменена"}
 
@@ -589,6 +592,10 @@ async def api_submit(request):
 
             await db.update_request(req_id_int, payload)
             final_id = req_id_int
+            
+            fbk = raw_payload.get('feedback')
+            if fbk:
+                await db.add_comment(final_id, profile["id"], profile["name"], f"Фидбэк: {fbk}", type="feedback")
             
             # Post UPDATE to channel if status or key fields changed
             updated_req = await db.get_request(final_id)
@@ -744,11 +751,11 @@ async def api_bid(request):
         if creator_id and int(creator_id) != user_id:
             try:
                 notify_text = (
-                    f"💰 <b>Новая ставка по вашей заявке #{int(req_id):05d}</b>\n"
-                    f"📦 Груз: {req.get('cargo_name', '-')}\n"
-                    f"📍 Маршрут: {req.get('route_from', '-')} → {req.get('route_to', '-')}\n\n"
-                    f"💵 Сумма: <b>{data.get('amount')} {data.get('currency')}</b>\n"
-                    f"👤 От: {profile['name']}\n\n"
+                    f"Новая ставка по вашей заявке #{int(req_id):05d}\n"
+                    f"Груз: {req.get('cargo_name', '-')}\n"
+                    f"Маршрут: {req.get('route_from', '-')} ➔ {req.get('route_to', '-')}\n\n"
+                    f"Сумма: <b>{data.get('amount')} {data.get('currency')}</b>\n"
+                    f"От: {profile['name']}\n\n"
                     f"Посмотреть подробности можно в Mini App."
                 )
                 await bot.send_message(chat_id=int(creator_id), text=notify_text, parse_mode="HTML")
@@ -1030,6 +1037,48 @@ async def api_ping_logistics(request: web.Request):
         logger.error(f"Ping API error: {e}")
         return web.json_response({"error": "Internal error"}, status=500)
 
+async def api_admin_broadcast(request):
+    """Send broadcast message to users."""
+    profile, err = await check_auth(request)
+    if err or profile["role"] not in ["admin", "superuser"]:
+        return safe_json_response({"error": "Forbidden"})
+    
+    data = await request.json()
+    text = data.get("text", "")
+    target = data.get("target", "all")
+    file_id = data.get("file_id")
+    
+    if not text:
+        return safe_json_response({"error": "Text required"})
+    
+    bot = request.app["bot"]
+    users = await db.list_users()
+    sent = 0
+    
+    # Target can be "all" or a list of telegram IDs
+    target_list = []
+    if target == "all":
+        target_list = [str(u["telegram_id"]) for u in users if u.get("telegram_id")]
+    elif isinstance(target, list):
+        target_list = [str(t) for t in target]
+    else:
+        target_list = [str(target)]
+
+    for u in users:
+        uid = str(u.get("telegram_id"))
+        if uid not in target_list: continue
+        
+        try:
+            if file_id:
+                await bot.send_document(chat_id=int(uid), document=file_id, caption=f"📢 {text}")
+            else:
+                await bot.send_message(chat_id=int(uid), text=f"📢 {text}")
+            sent += 1
+        except Exception as e:
+            logger.error(f"Broadcast error for {uid}: {e}")
+            
+    return safe_json_response({"ok": True, "sent": sent})
+
 DICTIONARY_KEYS = {"incoterms", "ports", "border_crossings", "transport_subtypes", "transport_types", "regions", "currencies", "cancel_reasons", "sources"}
 SETTABLE_KEYS = DICTIONARY_KEYS | {
     "ai_prompt_extra", "ai_strictness", "channel_id", "discussion_id", "reminder_interval"
@@ -1092,6 +1141,7 @@ def setup_api(app):
     app.router.add_post("/api/ping_logistics", api_ping_logistics)
     app.router.add_post("/api/export_xlsx", api_export_xlsx)
     app.router.add_get("/api/comments", api_comments)
+    app.router.add_post("/api/admin/broadcast", api_admin_broadcast)
     app.router.add_post("/api/upload", api_upload)
     
     app.router.add_get("/api/tariffs", api_list_tariffs)

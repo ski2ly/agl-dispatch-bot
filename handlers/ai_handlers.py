@@ -152,6 +152,15 @@ async def handle_text_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
     if not text: return
     
+    # Task 5: Check if we are waiting for feedback text
+    if "awaiting_feedback_req_id" in context.user_data:
+        req_id = context.user_data.pop("awaiting_feedback_req_id")
+        manager_name = context.user_data.get("profile", {}).get("name", "Менеджер")
+        comment_text = f"📝 Комментарий (Опрос): {text}"
+        await db.add_comment(req_id, update.effective_user.id, manager_name, comment_text, "feedback")
+        await update.message.reply_text(f"✅ Ваш комментарий успешно добавлен к заявке #{req_id:04d}.")
+        return
+
     low_text = text.lower().strip()
     if low_text in ["отмена", "/cancel"]:
         await db.clear_ai_context(update.effective_user.id)
@@ -254,10 +263,15 @@ async def confirm_ai_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 parsed["regions"] = "Другое"
         
         fields = ai_assistant.to_request_fields(parsed)
+
+        # Query DB to get the user's correct profile (fix for task 7 missing name)
+        user_record = await db.get_user(user_id)
+        author_name = user_record.get("name") if user_record else profile.get("name")
+
         fields.update({
             "creator_id": user_id, 
-            "creator_name": profile.get("name"),
-            "responsible": profile.get("name"), 
+            "creator_name": author_name,
+            "responsible": author_name,
             "status": "Открыта"
         })
         

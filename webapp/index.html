@@ -135,7 +135,7 @@
                             <div id="request-comments-list" class="space-y-3"></div>
                         </div>
 
-                        <button type="button" onclick="mainButtonClicked()" class="w-full py-5 bg-[var(--corp-emerald)] text-white text-xs font-bold uppercase rounded-2xl shadow-xl mt-6">СОХРАНИТЬ ИЗМЕНЕНИЯ</button>
+                        <button type="button" onclick="mainButtonClicked()" id="save-btn" class="w-full py-5 bg-[var(--corp-emerald)] text-white text-xs font-bold uppercase rounded-2xl shadow-xl mt-6">СОХРАНИТЬ ИЗМЕНЕНИЯ</button>
                     </div>
                     <section class="space-y-4">
                         <div class="grid grid-cols-2 gap-4"><input type="text" id="route_from" placeholder="Откуда *" class="w-full p-4 tg-input text-sm"><input type="text" id="route_to" placeholder="Куда *" class="w-full p-4 tg-input text-sm"></div>
@@ -151,9 +151,24 @@
                     <div id="dynamic-fields" class="space-y-6 bg-[var(--secondary-bg)] p-6 rounded-[2rem] border border-[var(--corp-lime)]/10"></div>
                     <section class="space-y-5">
                         <input type="text" id="cargo_name" placeholder="Груз *" class="w-full p-4 tg-input text-sm">
-                        <div class="grid grid-cols-2 gap-4"><input type="text" id="cargo_value" placeholder="Стоимость *" class="w-full p-4 tg-input text-sm"><input type="text" id="hs_code" placeholder="ТН ВЭД *" class="w-full p-4 tg-input text-sm"></div>
-                        <div class="grid grid-cols-2 gap-4"><input type="text" id="cargo_weight" placeholder="Вес (т) *" class="w-full p-4 tg-input text-sm"><input type="text" id="cargo_places" placeholder="Объем/Места *" class="w-full p-4 tg-input text-sm"></div>
-                        <div class="grid grid-cols-2 gap-4"><input type="text" id="packaging" placeholder="Упаковка" class="w-full p-4 tg-input text-sm"><select id="dangerous_cargo" class="w-full p-4 tg-input text-sm"><option value="Нет">Обычный</option><option value="Да">ОПАСНЫЙ (ADR)</option></select></div>
+                        <div class="grid grid-cols-2 gap-4"><div class="flex"><input type="text" id="cargo_value" placeholder="Стоимость *" class="w-full p-4 tg-input text-sm rounded-r-none"><select id="cargo_currency" class="p-4 tg-input text-sm rounded-l-none border-l-0"><option value="USD">USD</option><option value="EUR">EUR</option><option value="RUB">RUB</option><option value="CNY">CNY</option><option value="Другое...">Другое...</option></select></div><input type="text" id="hs_code" placeholder="ТН ВЭД *" class="w-full p-4 tg-input text-sm"></div>
+                        <div class="grid grid-cols-2 gap-4"><input type="text" id="cargo_weight" placeholder="Вес (в кг) *" class="w-full p-4 tg-input text-sm"><input type="text" id="cargo_places" placeholder="Кол-во мест *" class="w-full p-4 tg-input text-sm"></div>
+                        <input type="text" id="cargo_volume" placeholder="Объём (м³) *" class="w-full p-4 tg-input text-sm">
+                        <div class="grid grid-cols-2 gap-4"><input type="text" id="packaging" placeholder="Упаковка" class="w-full p-4 tg-input text-sm"><select id="dangerous_cargo" class="w-full p-4 tg-input text-sm" onchange="toggleADR()"><option value="Нет">Обычный</option><option value="Да">ОПАСНЫЙ (ADR)</option></select></div>
+                        <div id="adr-class-container" class="hidden">
+                            <label class="block text-[10px] font-bold uppercase opacity-40 mb-1">Класс опасности (АДР)</label>
+                            <select id="dangerous_class" class="w-full p-4 tg-input text-sm">
+                                <option value="Класс 1 — Взрывчатые вещества">Класс 1 — Взрывчатые вещества</option>
+                                <option value="Класс 2 — Газы">Класс 2 — Газы</option>
+                                <option value="Класс 3 — Легковоспламеняющиеся жидкости">Класс 3 — Легковоспламеняющиеся жидкости</option>
+                                <option value="Класс 4 — Легковоспламеняющиеся твёрдые">Класс 4 — Легковоспламеняющиеся твёрдые</option>
+                                <option value="Класс 5 — Окисляющие вещества">Класс 5 — Окисляющие вещества</option>
+                                <option value="Класс 6 — Токсичные вещества">Класс 6 — Токсичные вещества</option>
+                                <option value="Класс 7 — Радиоактивные">Класс 7 — Радиоактивные</option>
+                                <option value="Класс 8 — Коррозионные вещества">Класс 8 — Коррозионные вещества</option>
+                                <option value="Класс 9 — Прочие опасные">Класс 9 — Прочие опасные</option>
+                            </select>
+                        </div>
                         <select id="urgency_type" class="w-full p-4 tg-input text-sm"><option value="Стандарт">Срочность: Стандарт</option><option value="Срочно">🔥 СРОЧНО</option></select>
                     </section>
                     <section class="space-y-5">
@@ -305,6 +320,9 @@
             <!-- SETTINGS -->
             <div id="admin-settings" class="admin-tab p-6 space-y-6">
                 <div class="space-y-2">
+                    <button onclick="openBroadcastModal()" class="w-full py-4 bg-[var(--corp-emerald)] text-white text-[10px] font-extrabold uppercase rounded-2xl">📢 Массовая рассылка</button>
+                </div>
+                <div class="space-y-2 pt-4 border-t border-[var(--corp-lime)]/10">
                     <label class="block text-[10px] font-bold uppercase opacity-40">AI Дополнительный промпт</label>
                     <textarea id="set-ai-prompt" class="w-full p-4 tg-input text-xs" rows="4" placeholder="Дополнительные инструкции для AI ассистента..."></textarea>
                 </div>
@@ -381,6 +399,21 @@
             <div id="tariffs-list-container" class="space-y-3 pb-8">
                 <!-- Dynamic: populated by loadTariffsList() -->
             </div>
+        </div>
+    </div>
+
+    <!-- BROADCAST MODAL -->
+    <div id="broadcast-modal" class="fixed inset-0 z-[130] bg-black/60 flex items-center justify-center hidden backdrop-blur-sm">
+        <div class="w-[90%] glass-card p-8 space-y-6 animate-fade">
+            <div class="flex justify-between items-center"><h2 class="text-xl font-extrabold uppercase">Рассылка</h2><button onclick="closeBroadcastModal()" class="text-2xl">×</button></div>
+            <div class="space-y-4">
+                <select id="broadcast-target" class="w-full p-4 tg-input text-sm font-bold">
+                    <option value="all">Всем пользователям</option>
+                </select>
+                <textarea id="broadcast-text" placeholder="Уважаемые коллеги, [текст сообщения]" class="w-full p-4 tg-input text-xs" rows="5"></textarea>
+                <input type="file" id="broadcast-file" class="w-full text-[10px]">
+            </div>
+            <button onclick="sendBroadcast()" class="w-full py-5 btn-primary text-xs uppercase shadow-2xl">Отправить</button>
         </div>
     </div>
 
@@ -552,11 +585,18 @@
                     );
                     let actionEl;
                     if (view === 'tenders') {
-                        actionEl = el('button', {
-                            class: 'w-full py-4 btn-primary text-[10px] font-bold',
-                            onclick: () => openBidModal(r.id),
-                            text: 'СДЕЛАТЬ СТАВКУ'
-                        });
+                        actionEl = el('div', { class: 'flex space-x-2 w-full' },
+                            el('button', {
+                                class: 'flex-1 py-4 btn-primary text-[10px] font-bold',
+                                onclick: () => openBidModal(r.id),
+                                text: 'СДЕЛАТЬ СТАВКУ'
+                            }),
+                            el('button', {
+                                class: 'px-4 py-4 bg-[var(--secondary-bg)] text-[var(--corp-deep)] border border-[var(--corp-lime)]/30 text-[10px] font-bold rounded-xl',
+                                onclick: () => openBidHistory(r.id),
+                                text: 'ИСТОРИЯ'
+                            })
+                        );
                     } else {
                         actionEl = el('div', { class: 'flex justify-between items-center w-full space-x-2' },
                             el('div', { class: 'flex-1 p-3 bg-[var(--secondary-bg)] rounded-xl text-xs font-bold text-[var(--corp-emerald)]', text: 'Ваша ставка: ' + (r.amount || '0') + ' ' + (r.currency || '') }),
@@ -595,6 +635,25 @@
                 document.getElementById('bid-modal').classList.remove('hidden');
             });
         }
+        function openBidHistory(reqId) {
+            // Task 4: Bid History modal/alert
+            tg.MainButton.showProgress();
+            fetch(`/api/request_bids?initData=${encodeURIComponent(tg.initData)}&id=${reqId}`)
+            .then(r => r.json()).then(res => {
+                tg.MainButton.hideProgress();
+                if (!res.bids || res.bids.length === 0) {
+                    tg.showAlert("По этой заявке ставок пока нет");
+                    return;
+                }
+                let histText = `История ставок (Заявка #${reqId}):\n\n`;
+                res.bids.forEach(b => {
+                    const dt = format_datetime(b.created_at);
+                    histText += `👤 ${b.manager_name || 'Неизвестно'}  💰 ${b.amount} ${b.currency}  📅 ${dt}\n📋 ${b.payment_terms || b.payment_method || '-'}\n\n`;
+                });
+                tg.showAlert(histText);
+            });
+        }
+
         function closeBidModal() {
             activeBidReqId = null;
             document.getElementById('bid-modal').classList.add('hidden');
@@ -713,6 +772,34 @@
             document.getElementById('step-2').classList.add('active');
         }
         function selectMethod(met) { selectedMethod = met; document.querySelectorAll('#step-2 button').forEach(b => b.classList.remove('choice-active')); const idMap = { 'Авто': 'met-road', 'Контейнер': 'met-cont', 'Ж/Д Вагон': 'met-rail', 'Авиа': 'met-air', 'Мультимодальная': 'met-multi' }; if(idMap[met]) document.getElementById(idMap[met]).classList.add('choice-active'); currentStep = 3; document.getElementById('step-2').classList.remove('active'); document.getElementById('step-3').classList.add('active'); document.getElementById('summary-badge').textContent = `${selectedDirection} | ${selectedMethod}`; setupFields(); updateMainButton(); }
+
+        function toggleADR() {
+            const dc = document.getElementById('dangerous_cargo');
+            const cont = document.getElementById('adr-class-container');
+            if (dc && cont) {
+                if (dc.value === 'Да') cont.classList.remove('hidden');
+                else cont.classList.add('hidden');
+            }
+        }
+
+        function toggleCustomCheckbox(cb, inputId) {
+            const inp = document.getElementById(inputId);
+            if (inp) {
+                if (cb.checked) inp.classList.remove('hidden');
+                else inp.classList.add('hidden');
+            }
+        }
+
+        function getCheckboxValues(name, customInputId) {
+            const cbs = document.querySelectorAll(`input[name="${name}"]:checked`);
+            let vals = Array.from(cbs).map(cb => cb.value);
+            const customInp = document.getElementById(customInputId);
+            if (customInp && !customInp.classList.contains('hidden') && customInp.value.trim()) {
+                vals.push(customInp.value.trim());
+            }
+            return vals.join(', ');
+        }
+
         function goToStep1() { currentStep = 1; document.getElementById('step-2').classList.remove('active'); document.getElementById('step-1').classList.add('active'); }
         function goToStep2() { 
             if (editModeId) { resetForm(); switchTab('list'); return; }
@@ -729,7 +816,14 @@
                 html += `<div class="space-y-4 pt-4 border-t border-[var(--corp-lime)]/10"><label class="block text-[10px] font-bold uppercase opacity-40">Европа: Специфика</label>`;
                 html += `<select id="delivery_terms_eu" class="w-full p-4 tg-input text-sm font-bold"><option value="">Инкотермс...</option></select>`;
                 if (selectedMethod === 'Авто') {
-                    html += `<select id="route_type" class="w-full p-4 tg-input text-sm"><option value="через РФ + КЗ">Маршрут: через РФ + КЗ</option><option value="через Турцию">Маршрут: через Турцию (Т3)</option></select>`;
+                    html += `<div class="p-3 bg-[var(--secondary-bg)] rounded-xl border border-[var(--corp-lime)]/20 text-xs">`;
+                    html += `<label class="block text-[10px] font-bold uppercase opacity-40 mb-2">Маршрут (можно несколько)</label>`;
+                    html += `<label class="flex items-center space-x-2"><input type="checkbox" name="route_type_cb" value="через РФ + КЗ" class="form-checkbox h-4 w-4 text-[var(--corp-emerald)]"><span>через РФ + КЗ</span></label>`;
+                    html += `<label class="flex items-center space-x-2"><input type="checkbox" name="route_type_cb" value="через Турцию" class="form-checkbox h-4 w-4 text-[var(--corp-emerald)]"><span>через Турцию (Т3)</span></label>`;
+                    html += `<label class="flex items-center space-x-2"><input type="checkbox" onchange="toggleCustomCheckbox(this, 'route_type_cb_custom')" class="form-checkbox h-4 w-4 text-[var(--corp-emerald)]"><span>Другое</span></label>`;
+                    html += `<input type="text" id="route_type_cb_custom" class="hidden w-full p-2 mt-2 tg-input text-xs" placeholder="Свой вариант...">`;
+                    html += `</div>`;
+                    html += `<input type="hidden" id="route_type">`;
                     html += `<select id="transit_rf_allowed" class="w-full p-4 tg-input text-sm"><option value="Разрешен">Транзит по РФ: Разрешен</option><option value="Запрещен">Транзит по РФ: Запрещен</option></select>`;
                 } else if (selectedMethod === 'Ж/Д Вагон' || selectedMethod === 'Контейнер') {
                     html += `<select id="route_type" class="w-full p-4 tg-input text-sm"><option value="через РФ + КЗ">Маршрут: через РФ + КЗ</option><option value="через Турцию–Иран">Маршрут: через Турцию–Иран</option><option value="ТРАСЕКА (Поти)">Маршрут: ТРАСЕКА (Поти)</option></select>`;
@@ -739,8 +833,19 @@
                 html += `<div class="space-y-4 pt-4 border-t border-[var(--corp-lime)]/10"><label class="block text-[10px] font-bold uppercase opacity-40">Китай: Специфика</label>`;
                 html += `<div class="grid grid-cols-2 gap-4"><select id="export_decl" class="w-full p-4 tg-input text-xs"><option value="Не нужна">Экспортная: Нет</option><option value="Нужна">Экспортная: Да</option></select><select id="origin_cert" class="w-full p-4 tg-input text-xs"><option value="Не нужен">Серт CO: Нет</option><option value="Нужен">Серт CO: Да</option></select></div>`;
                 if (selectedMethod === 'Авто') {
-                    html += `<select id="border_crossing_cn" class="w-full p-4 tg-input text-sm font-bold"><option value="КЗ (Хоргос)">Погранпереход: КЗ (Хоргос)</option><option value="Кашгар (Иркештам)">Погранпереход: Кашгар (Иркештам)</option></select>`;
-                    html += `<select id="road_type_cn" class="w-full p-4 tg-input text-sm"><option value="Целая фура">Тип: Целая фура</option><option value="Сборная">Тип: Сборная (LTL)</option></select>`;
+                    // Task 13: Checkboxes for border_crossing_cn
+                    html += `<div class="p-3 bg-[var(--secondary-bg)] rounded-xl border border-[var(--corp-lime)]/20 text-xs">`;
+                    html += `<label class="block text-[10px] font-bold uppercase opacity-40 mb-2">Погранпереход (можно несколько)</label>`;
+                    html += `<label class="flex items-center space-x-2"><input type="checkbox" name="border_crossing_cn_cb" value="КЗ (Хоргос)" class="form-checkbox h-4 w-4 text-[var(--corp-emerald)]"><span>КЗ (Хоргос)</span></label>`;
+                    html += `<label class="flex items-center space-x-2"><input type="checkbox" name="border_crossing_cn_cb" value="Кашгар (Иркештам)" class="form-checkbox h-4 w-4 text-[var(--corp-emerald)]"><span>Кашгар (Иркештам)</span></label>`;
+                    html += `<label class="flex items-center space-x-2"><input type="checkbox" name="border_crossing_cn_cb" value="Алашанькоу" class="form-checkbox h-4 w-4 text-[var(--corp-emerald)]"><span>Алашанькоу</span></label>`;
+                    html += `<label class="flex items-center space-x-2"><input type="checkbox" onchange="toggleCustomCheckbox(this, 'border_crossing_cn_cb_custom')" class="form-checkbox h-4 w-4 text-[var(--corp-emerald)]"><span>Другое</span></label>`;
+                    html += `<input type="text" id="border_crossing_cn_cb_custom" class="hidden w-full p-2 mt-2 tg-input text-xs" placeholder="Свой вариант...">`;
+                    html += `</div>`;
+                    html += `<input type="hidden" id="border_crossing_cn">`;
+
+                    // Task 3: Transport subtypes for Auto (China)
+                    html += `<select id="road_type_cn" class="w-full p-4 tg-input text-sm"><option value="Целая фура 90м³">Целая фура 90м³</option><option value="Целая фура 110м³">Целая фура 110м³</option><option value="Шаланда">Шаланда</option><option value="Сборная (LTL)">Сборная (LTL)</option></select>`;
                 } else if (selectedMethod === 'Ж/Д Вагон' || selectedMethod === 'Контейнер') {
                     html += `<select id="route_type" class="w-full p-4 tg-input text-sm"><option value="через КЗ (Хоргос)">Маршрут: через КЗ (Хоргос)</option><option value="через КЗ (Достык)">Маршрут: через КЗ (Достык)</option></select>`;
                 }
@@ -750,7 +855,7 @@
                 if (selectedMethod === 'Авто') {
                     html += `<select id="route_type" class="w-full p-4 tg-input text-sm"><option value="Прямой">Маршрут: Прямой</option><option value="Глонас-пломба">Маршрут: Глонас-пломба</option></select>`;
                 }
-                html += `<div class="grid grid-cols-2 gap-4"><input type="number" id="loading_days" placeholder="Дней на погр." class="w-full p-4 tg-input text-xs"><input type="number" id="customs_days" placeholder="Дней на затам." class="w-full p-4 tg-input text-xs"></div></div>`;
+                html += `<div class="grid grid-cols-2 gap-4"><input type="text" id="loading_days" placeholder="Дней на погр. (ПРР+там.)" class="w-full p-4 tg-input text-xs"><input type="text" id="customs_days" placeholder="Дней на выгр. (ПРР+там.)" class="w-full p-4 tg-input text-xs"></div></div>`;
             } else if(selectedDirection === 'Турция') {
                 html += `<div class="space-y-4 pt-4 border-t border-[var(--corp-lime)]/10"><label class="block text-[10px] font-bold uppercase opacity-40">Турция: Специфика</label>`;
                 if (selectedMethod === 'Авто') {
@@ -768,6 +873,23 @@
             }
 
             // 2. Method Specific Logic (Independent of Region)
+
+            // Task 3: Transport subtypes across ALL categories
+            html += `<div class="space-y-4 pt-4 border-t border-[var(--corp-lime)]/10"><label class="block text-[10px] font-bold uppercase opacity-40">Уточнение транспорта</label>`;
+            html += `<select id="transport_sub" class="w-full p-4 tg-input text-sm font-bold">`;
+            if (selectedMethod === 'Авто') {
+                html += `<option value="90м³">90м³</option><option value="110м³">110м³</option><option value="Шаланда">Шаланда</option>`;
+            } else if (selectedMethod === 'Контейнер') {
+                html += `<option value="20GP">20GP</option><option value="20HC">20HC</option><option value="40GP">40GP</option><option value="40HQ">40HQ</option><option value="45HC">45HC</option>`;
+            } else if (selectedMethod === 'Ж/Д Вагон') {
+                html += `<option value="Крытый вагон">Крытый вагон</option><option value="Полувагон">Полувагон</option><option value="Платформа">Платформа</option><option value="ЦМВ">ЦМВ</option>`;
+            } else if (selectedMethod === 'Мультимодальная') {
+                html += `<option value="Авто + Ж/Д">Авто + Ж/Д</option><option value="Авто + Море">Авто + Море</option><option value="Ж/Д + Море">Ж/Д + Море</option><option value="Авиа + Авто">Авиа + Авто</option>`;
+            } else if (selectedMethod === 'Авиа') {
+                html += `<option value="Пассажирский рейс">Пассажирский рейс</option><option value="Грузовой рейс">Грузовой рейс</option><option value="Чартер">Чартер</option>`;
+            }
+            html += `</select></div>`;
+
             if(selectedMethod === 'Авиа') {
                 html += `<div class="space-y-4 pt-4 border-t border-[var(--corp-lime)]/10"><label class="block text-[10px] font-bold uppercase opacity-40">Авиа: Детали</label>`;
                 html += `<div class="grid grid-cols-2 gap-4"><select id="flight_type" class="w-full p-4 tg-input text-xs"><option value="Прямой">Рейс: Прямой</option><option value="Транзитный">Рейс: Транзит</option></select><select id="stackable" class="w-full p-4 tg-input text-xs"><option value="Штабелируемый">Штаб: Да</option><option value="НЕ штабелируемый">Штаб: Нет</option></select></div></div>`;
@@ -796,11 +918,24 @@
 
         tg.MainButton.onClick(() => mainButtonClicked());
         function mainButtonClicked() {
-            const reqAll = ['route_from', 'route_to', 'cargo_name', 'cargo_value', 'hs_code', 'cargo_weight', 'cargo_places'];
+            const reqAll = ['route_from', 'route_to', 'cargo_name', 'cargo_value', 'cargo_weight', 'cargo_places'];
             for(let id of reqAll) {
                 const el = document.getElementById(id);
                 if(el && !el.value.trim()) {
                     tg.showAlert(`⚠️ Заполните обязательное поле: ${el.placeholder.replace('*','').trim()}`);
+                    return;
+                }
+            }
+
+            // Task 17: Conditional mandatory HS Code (ТН ВЭД)
+            const hsCodeEl = document.getElementById('hs_code');
+            if (hsCodeEl && !hsCodeEl.value.trim()) {
+                if (selectedDirection === 'Европа' || selectedDirection === 'Турция') {
+                    tg.showAlert("⚠️ Для направлений Европа и Турция код ТН ВЭД обязателен!");
+                    return;
+                }
+                if (selectedMethod !== 'Авто') {
+                    tg.showAlert("⚠️ Код ТН ВЭД обязателен для всех видов транспорта кроме Авто!");
                     return;
                 }
             }
@@ -810,8 +945,28 @@
                     return;
                 }
             }
-            const payload = { regions: selectedDirection, transport_cat: selectedMethod, route_from: document.getElementById('route_from').value, route_to: document.getElementById('route_to').value, loading_address: document.getElementById('loading_address').value, customs_address: document.getElementById('customs_address').value, clearance_address: document.getElementById('clearance_address').value, unloading_address: document.getElementById('unloading_address').value, cargo_name: document.getElementById('cargo_name').value, cargo_value: document.getElementById('cargo_value').value, hs_code: document.getElementById('hs_code').value, cargo_weight: document.getElementById('cargo_weight').value, cargo_places: document.getElementById('cargo_places').value, packaging: document.getElementById('packaging').value, dangerous_cargo: document.getElementById('dangerous_cargo').value, urgency_type: document.getElementById('urgency_type').value, client_company: document.getElementById('client_company').value, responsible: document.getElementById('responsible').value, target: document.getElementById('target').value, message_text: document.getElementById('message_text').value, source: document.getElementById('source').value, status: editModeId ? document.getElementById('status-select').value : 'Открыта' };
-            ['delivery_terms_eu','delivery_terms','route_type','transit_rf_allowed','export_decl','origin_cert','border_crossing_cn','road_type_cn','container_owner','container_type_cn','urgency_days','loading_days','customs_days','glonass_seal','ports_list','flight_type','stackable'].forEach(id => { const el = document.getElementById(id); if(el) payload[id] = el.value; });
+            const payload = { regions: selectedDirection, transport_cat: selectedMethod, route_from: document.getElementById('route_from').value, route_to: document.getElementById('route_to').value, loading_address: document.getElementById('loading_address').value, customs_address: document.getElementById('customs_address').value, clearance_address: document.getElementById('clearance_address').value, unloading_address: document.getElementById('unloading_address').value, cargo_name: document.getElementById('cargo_name').value, cargo_value: document.getElementById('cargo_value').value, hs_code: document.getElementById('hs_code').value, cargo_weight: document.getElementById('cargo_weight').value, cargo_places: document.getElementById('cargo_places').value, cargo_volume: document.getElementById('cargo_volume').value, packaging: document.getElementById('packaging').value, dangerous_cargo: document.getElementById('dangerous_cargo').value, urgency_type: document.getElementById('urgency_type').value, client_company: document.getElementById('client_company').value, responsible: document.getElementById('responsible').value, target: document.getElementById('target').value, message_text: document.getElementById('message_text').value, source: document.getElementById('source').value, status: editModeId ? document.getElementById('status-select').value : 'Открыта' };
+            ['delivery_terms_eu','delivery_terms','route_type','transit_rf_allowed','export_decl','origin_cert','border_crossing_cn','road_type_cn','container_owner','container_type_cn','urgency_days','loading_days','customs_days','glonass_seal','ports_list','flight_type','stackable','transport_sub'].forEach(id => { const el = document.getElementById(id); if(el) payload[id] = el.value; });
+
+            // Handle checkboxes for Route Type (Europe) and Border Crossings (China)
+            if (selectedDirection === 'Европа' && selectedMethod === 'Авто') {
+                payload.route_type = getCheckboxValues('route_type_cb', 'route_type_cb_custom');
+            }
+            if (selectedDirection === 'Китай' && selectedMethod === 'Авто') {
+                payload.border_crossing_cn = getCheckboxValues('border_crossing_cn_cb', 'border_crossing_cn_cb_custom');
+            }
+
+            // Task 18: Include dangerous_class if applicable
+            if (payload.dangerous_cargo === 'Да') {
+                const dc = document.getElementById('dangerous_class');
+                if (dc && dc.value) payload.dangerous_cargo = payload.dangerous_cargo + " (" + dc.value + ")";
+            }
+
+            // Combine cargo_value and currency
+            const cargoCurrencyEl = document.getElementById('cargo_currency');
+            if (payload.cargo_value && cargoCurrencyEl && payload.cargo_value.indexOf(cargoCurrencyEl.value) === -1) {
+                payload.cargo_value = payload.cargo_value + " " + cargoCurrencyEl.value;
+            }
             // Include cancel_reason & winner_name when editing (#14, #10)
             if (editModeId) {
                 const crEl = document.getElementById('cancel_reason');
@@ -827,15 +982,18 @@
 
         function pingLogistics() {
             if(!editModeId) return;
-            tg.MainButton.showProgress();
-            fetch('/api/ping_logistics', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({initData: tg.initData, request_id: editModeId})
-            }).then(r=>r.json()).then(res=>{
-                tg.MainButton.hideProgress();
-                if(res.ok) tg.showAlert("✅ Напоминание отправлено в канал!");
-                else tg.showAlert("❌ Ошибка: " + res.error);
+            tg.showConfirm(`Отправить напоминание по заявке #${editModeId}?`, (confirmed) => {
+                if(!confirmed) return;
+                tg.MainButton.showProgress();
+                fetch('/api/ping_logistics', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({initData: tg.initData, request_id: editModeId})
+                }).then(r=>r.json()).then(res=>{
+                    tg.MainButton.hideProgress();
+                    if(res.ok) tg.showAlert("✅ Напоминание отправлено в канал!");
+                    else tg.showAlert("❌ Ошибка: " + res.error);
+                });
             });
         }
 
@@ -884,9 +1042,37 @@
             editModeId = id; document.getElementById('btn-back-step3').textContent = '← База'; fetch(`/api/request_details?initData=${encodeURIComponent(tg.initData)}&id=${id}`).then(r => r.json()).then(res => {
                 const r = res.request; selectedDirection = r.regions; selectedMethod = r.transport_cat; switchTab('form'); currentStep = 3; document.querySelectorAll('.step-container').forEach(s => s.classList.remove('active')); document.getElementById('step-3').classList.add('active'); document.getElementById('summary-badge').textContent = `${r.regions} | ${r.transport_cat}`; 
                 setupFields(() => {
-                    ['cargo_name','cargo_value','hs_code','route_from','route_to','loading_address','customs_address','clearance_address','unloading_address','client_company','responsible','target','message_text','cargo_weight','cargo_places','packaging','dangerous_cargo','urgency_type','delivery_terms_eu','route_type','transit_rf_allowed','export_decl','origin_cert','border_crossing_cn','road_type_cn','container_owner','container_type_cn','urgency_days','loading_days','customs_days','glonass_seal','ports_list','flight_type','stackable','source'].forEach(fid => { const el = document.getElementById(fid); if(el) el.value = r[fid] || ''; });
+                    ['cargo_name','cargo_value','hs_code','route_from','route_to','loading_address','customs_address','clearance_address','unloading_address','client_company','responsible','target','message_text','cargo_weight','cargo_places','cargo_volume','packaging','dangerous_cargo','urgency_type','delivery_terms_eu','route_type','transit_rf_allowed','export_decl','origin_cert','border_crossing_cn','road_type_cn','container_owner','container_type_cn','urgency_days','loading_days','customs_days','glonass_seal','ports_list','flight_type','stackable','source','transport_sub'].forEach(fid => { const el = document.getElementById(fid); if(el) el.value = r[fid] || ''; });
                     document.getElementById('edit-only-fields').classList.remove('hidden'); const st = document.getElementById('status-select'); st.innerHTML = '<option value="Открыта">Открыта</option><option value="В работе">В работе</option><option value="Успешно реализована">Успешно ✅</option><option value="Отменена">Отменена ❌</option>'; st.value = r.status; 
                     
+                    // Task 8: Check access rights
+                    fetch(`/api/profile?initData=${encodeURIComponent(tg.initData)}`).then(rr => rr.json()).then(pData => {
+                        const prof = pData.profile;
+                        const isCreator = (r.creator_id && String(r.creator_id) === String(prof.telegram_id));
+                        const isAdmin = ['admin', 'superuser'].includes(prof.role);
+                        const canEdit = isAdmin || isCreator;
+
+                        const saveBtn = document.getElementById('save-btn');
+                        if (!canEdit) {
+                            if (saveBtn) {
+                                saveBtn.disabled = true;
+                                saveBtn.classList.add('opacity-40');
+                                saveBtn.textContent = 'НЕТ ПРАВ НА РЕДАКТИРОВАНИЕ';
+                            }
+                            // Make fields read only
+                            const inputs = document.getElementById('requestForm').querySelectorAll('input, select, textarea');
+                            inputs.forEach(inp => inp.disabled = true);
+                        } else {
+                            if (saveBtn) {
+                                saveBtn.disabled = false;
+                                saveBtn.classList.remove('opacity-40');
+                                saveBtn.textContent = 'СОХРАНИТЬ ИЗМЕНЕНИЯ';
+                            }
+                            const inputs = document.getElementById('requestForm').querySelectorAll('input, select, textarea');
+                            inputs.forEach(inp => inp.disabled = false);
+                        }
+                    });
+
                     // Attachments
                     uploadedAttachmentIds = []; clear(document.getElementById('attachments-list'));
                     if (res.attachments) res.attachments.forEach(att => { uploadedAttachmentIds.push(att.id); addAttachmentToUI(att); });
@@ -1184,6 +1370,7 @@
                     };
 
                     fillSelect('delivery_terms_eu', s.incoterms, 'Инкотермс...');
+                    fillSelect('delivery_terms', s.incoterms, 'Инкотермс...');
                     // Only fill border_crossing_cn from settings if the select has 0 or 1 options (#22)
                     const bcc = document.getElementById('border_crossing_cn');
                     if (bcc && bcc.options.length <= 1 && s.border_crossings && s.border_crossings.length > 0) {
@@ -1197,6 +1384,26 @@
                         fillSelect('ports_list', s.ports);
                     }
                     fillSelect('source', s.sources, '-- Откуда узнали о нас? --');
+
+                    // Tasks 1, 2, 6: Add 'Другое' option with prompt listener for all dynamic select lists
+                    ['delivery_terms_eu', 'delivery_terms', 'border_crossing_cn', 'container_type_cn', 'ports_list', 'source', 'cargo_currency', 'transport_sub'].forEach(id => {
+                        const sel = document.getElementById(id);
+                        if (sel) {
+                            sel.appendChild(el('option', { value: 'Другое...', text: 'Другое...' }));
+                            sel.addEventListener('change', function() {
+                                if (this.value === 'Другое...') {
+                                    const customVal = prompt("Введите свой вариант:");
+                                    if (customVal) {
+                                        const opt = el('option', { value: customVal, text: customVal });
+                                        this.insertBefore(opt, this.lastElementChild);
+                                        this.value = customVal;
+                                    } else {
+                                        this.selectedIndex = 0; // reset
+                                    }
+                                }
+                            });
+                        }
+                    });
                 }
                 if (callback) callback();
             }).catch(err => {
@@ -1286,6 +1493,54 @@
                 document.getElementById('set-channel-id').value = s.channel_id || '';
                 document.getElementById('set-discussion-id').value = s.discussion_id || '';
                 document.getElementById('set-reminder-interval').value = s.reminder_interval || 120;
+            });
+        }
+
+        function openBroadcastModal() {
+            document.getElementById('broadcast-modal').classList.remove('hidden');
+            const targetSelect = document.getElementById('broadcast-target');
+            clear(targetSelect);
+            targetSelect.appendChild(el('option', {value: 'all', text: 'Всем пользователям'}));
+            if (allUsers.length === 0) loadUsersList();
+            setTimeout(() => {
+                allUsers.forEach(u => {
+                    if (u.telegram_id) {
+                        targetSelect.appendChild(el('option', {value: u.telegram_id, text: u.name + ' (' + u.role + ')'}));
+                    }
+                });
+            }, 500);
+        }
+
+        function closeBroadcastModal() {
+            document.getElementById('broadcast-modal').classList.add('hidden');
+        }
+
+        function sendBroadcast() {
+            const text = document.getElementById('broadcast-text').value.trim();
+            if (!text) { tg.showAlert("Введите текст сообщения!"); return; }
+
+            const target = document.getElementById('broadcast-target').value;
+            const fileInput = document.getElementById('broadcast-file');
+
+            const formData = new FormData();
+            formData.append('target', target);
+            formData.append('text', text);
+            if (fileInput.files.length > 0) formData.append('file', fileInput.files[0]);
+
+            tg.MainButton.showProgress();
+            fetch(`/api/broadcast?initData=${encodeURIComponent(tg.initData)}`, {
+                method: 'POST',
+                body: formData
+            }).then(r => r.json()).then(res => {
+                tg.MainButton.hideProgress();
+                if (res.ok) {
+                    tg.showAlert("✅ Рассылка отправлена!");
+                    closeBroadcastModal();
+                    document.getElementById('broadcast-text').value = '';
+                    fileInput.value = '';
+                } else {
+                    tg.showAlert("❌ Ошибка: " + res.error);
+                }
             });
         }
 

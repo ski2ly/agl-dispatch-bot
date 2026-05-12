@@ -44,51 +44,62 @@ def build_card(req: dict) -> str:
     _DEFAULT_EMOJI = {"Европа": "🇪🇺", "Китай": "🇨🇳", "СНГ": "🗺️", "Турция": "🇹🇷", "Индия/ЮВА": "🇮🇳"}
     reg_emoji = _DEFAULT_EMOJI.get(reg, "🌍")
 
+    # Task 3: Combine sub type into transport string if provided
+    sub_cat = v('transport_sub')
+    if sub_cat:
+        t_cat = f"{t_cat} ({sub_cat})"
+
     lines = [
-        f"{t_emoji} НОВАЯ ЗАЯВКА #{req_id:04d}",
+        f"НОВАЯ ЗАЯВКА #{req_id:04d}",
         "",
-        f"🌍 Направление: {reg_emoji} {reg}",
-        f"📦 Тип перевозки: {t_cat}",
-        f"📣 Источник: {v('source', 'Не указан')}",
+        f"Направление: {reg}",
+        f"Тип перевозки: {t_cat}",
+        f"Источник: {v('source', 'Не указан')}",
         "",
-        f"📍 Откуда: {v('route_from', '?')} ➔ Куда: {v('route_to', '?')}",
+        f"{v('route_from', '?')} ➔ {v('route_to', '?')}",
     ]
 
     # Optional address lines — only show if filled
     for key, label in [("loading_address", "Погрузка"), ("customs_address", "Затаможка"), ("clearance_address", "Растаможка"), ("unloading_address", "Выгрузка")]:
         val = v(key)
-        if val: lines.append(f"📍 {label}: {val}")
+        if val: lines.append(f"{label}: {val}")
 
     lines.append("")
-    lines.append(f"📦 Груз: {v('cargo_name', '?')}")
-    if v('hs_code'): lines.append(f"📦 ТН ВЭД: {v('hs_code')}")
-    if v('dangerous_cargo') and v('dangerous_cargo') not in ('Нет',): lines.append(f"⚠️ Опасный: {v('dangerous_cargo')}")
+    lines.append(f"Груз: {v('cargo_name', '?')}")
+    if v('hs_code'): lines.append(f"ТН ВЭД: {v('hs_code')}")
+    if v('dangerous_cargo') and v('dangerous_cargo') not in ('Нет',): lines.append(f"Опасный: {v('dangerous_cargo')}")
     lines.append("")
-    if v('cargo_weight'): lines.append(f"⚖️ Вес: {v('cargo_weight')}")
-    if v('cargo_places'): lines.append(f"📏 Места/Объем: {v('cargo_places')}")
-    if v('packaging'): lines.append(f"📦 Упаковка: {v('packaging')}")
+    if v('cargo_weight'): lines.append(f"Вес: {v('cargo_weight')}")
+
+    # Split places and volume if possible (Task 15)
+    places = v('cargo_places')
+    volume = v('cargo_volume')
+    if places: lines.append(f"Мест: {places}")
+    if volume: lines.append(f"Объём: {volume}")
+
+    if v('packaging'): lines.append(f"Упаковка: {v('packaging')}")
     lines.append("")
-    lines.append(f"💰 Стоимость: {v('cargo_value') or 'НЕ УКАЗАНА ⚠️'}")
-    lines.append(f"🕒 Срочность: {v('urgency_type') or v('urgency_days') or 'Стандарт'}")
+    lines.append(f"Стоимость: {v('cargo_value') or 'НЕ УКАЗАНА'}")
+    lines.append(f"Срочность: {v('urgency_type') or v('urgency_days') or 'Стандарт'}")
 
     # Specific fields
     spec_map = {
         "delivery_terms_eu": "Условия", "route_type": "Маршрут", "export_decl": "Экспортная", 
         "origin_cert": "Сертификат", "road_type_cn": "Тип фуры", "border_crossing_cn": "Погранпереход",
-        "container_owner": "Контейнер", "glonass_seal": "Пломба", "loading_days": "Дней на погрузку",
-        "customs_days": "Дней на затаможку", "stackable": "Штабелируемый", "flight_type": "Рейс", "ports_list": "Порт"
+        "container_owner": "Контейнер", "glonass_seal": "Пломба", "loading_days": "Дней на погрузке (ПРР + таможня)",
+        "customs_days": "Дней на выгрузке (ПРР + таможня)", "stackable": "Штабелируемый", "flight_type": "Рейс", "ports_list": "Порт"
     }
     spec_fields = [f"• {label}: {v(k)}" for k, label in spec_map.items() if v(k)]
     
     if spec_fields:
         lines.append("")
-        lines.append("📋 Специфика:")
+        lines.append("Специфика:")
         lines.extend(spec_fields)
     
     if v('message_text'):
-        lines.extend(["", "📄 Дополнительно:", v('message_text')])
+        lines.extend(["", "Дополнительно:", v('message_text')])
     
-    lines.extend(["", f"👤 Менеджер: {v('responsible') or '—'}", "#заявка"])
+    lines.extend(["", f"Менеджер: {v('responsible') or '—'}", "#заявка"])
     return "\n".join(lines)
 
 def build_bid_card(bid: dict) -> str:
@@ -170,6 +181,14 @@ async def sync_bid_to_discussion(bot, discussion_id, channel_id, channel_msg_id,
             log.warning(f"Could not get channel info: {e}")
 
         # 2. Try direct API call
+    # Task 9: The message_thread_id is typically the message_id of the forwarded post
+    # in the linked discussion group, which is what we need to reply to.
+
+    # We will try to send a message directly to the discussion group,
+    # specifying the reply_to_message_id as the message_thread_id
+
+    # Often, channel_msg_id is not exactly equal to the discussion message ID
+    # But getDiscussionMessage can find it
         import aiohttp
         api_url = f"https://api.telegram.org/bot{bot.token}/getDiscussionMessage"
         async with aiohttp.ClientSession() as session:
@@ -185,6 +204,7 @@ async def sync_bid_to_discussion(bot, discussion_id, channel_id, channel_msg_id,
                         chat_id=target_disc_id,
                         text=bid_card_text,
                         reply_to_message_id=target_msg_id,
+                    message_thread_id=target_msg_id, # Add message_thread_id for topics
                         parse_mode="HTML"
                     )
                     return True
@@ -192,34 +212,23 @@ async def sync_bid_to_discussion(bot, discussion_id, channel_id, channel_msg_id,
                     log.error(f"API getDiscussionMessage failed: {res}")
                     
                     # 3. FORUM FALLBACK: If 404 and we have a discussion group, try sending to a thread
-                    # In many "Forum" groups linked to channels, the thread_id IS the channel_msg_id.
                     if res.get("error_code") == 404 and target_discussion:
+                        # In linked discussion groups, the message_id of the forwarded post is the thread id.
+                        # We can't know it just from the channel_msg_id, but sometimes they are the same or we can guess.
+                        # For a robust solution, we need to capture the forwarded message ID in the discussion group.
+                        # As a fallback, we try to use channel_msg_id as message_thread_id
                         log.info(f"Attempting Forum Thread fallback: chat={target_discussion}, thread={channel_msg_id}")
                         try:
-                            # In Topic-enabled groups, to make it a "comment", it must be a reply 
-                            # to the first message of the topic. Often that message ID == thread ID.
                             await bot.send_message(
                                 chat_id=target_discussion,
                                 text=bid_card_text,
-                                message_thread_id=int(channel_msg_id),
                                 reply_to_message_id=int(channel_msg_id),
                                 parse_mode="HTML"
                             )
-                            log.info(f"Forum Thread fallback SUCCESS (sent to thread/reply {channel_msg_id})")
+                            log.info(f"Forum Thread fallback SUCCESS (sent to reply {channel_msg_id})")
                             return True
                         except Exception as e_forum:
-                            log.warning(f"Forum Thread fallback (reply mode) failed: {e_forum}. Trying without reply...")
-                            try:
-                                await bot.send_message(
-                                    chat_id=target_discussion,
-                                    text=bid_card_text,
-                                    message_thread_id=int(channel_msg_id),
-                                    parse_mode="HTML"
-                                )
-                                log.info("Forum Thread fallback SUCCESS (no-reply mode)")
-                                return True
-                            except Exception as e_final:
-                                log.error(f"Forum Thread fallback totally failed: {e_final}")
+                            log.warning(f"Forum Thread fallback (reply mode) failed: {e_forum}.")
                     
                     raise Exception(f"API error: {res.get('description')}")
         

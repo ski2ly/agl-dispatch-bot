@@ -240,7 +240,10 @@ async def confirm_ai_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if not parsed.get("clearance_address") or str(parsed.get("clearance_address", "")).strip() in ("", "-", "None"):
                 missing.append("clearance_address (Растаможка)")
         
-        if missing:
+        user_obj = await db.get_user(user_id)
+        is_admin = user_obj and user_obj.get("role") in ["admin", "superuser"]
+
+        if missing and not is_admin:
             preview = ai_assistant.build_preview(parsed)
             await query.edit_message_text(
                 f"⚠️ Невозможно опубликовать — не заполнены обязательные поля:\n"
@@ -254,6 +257,10 @@ async def confirm_ai_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 ])
             )
             return
+        
+        if missing and is_admin:
+            # Admin can skip, but we should log it
+            logger.info(f"Admin {user_name} skipped validation for fields: {missing}")
         
         # ── Validate region against known regions ──
         settings = await db.get_settings()

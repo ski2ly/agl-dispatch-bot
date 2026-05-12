@@ -56,8 +56,68 @@
         }
         .bc-selected { background: var(--corp-cream) !important; color: var(--corp-deep) !important; border-color: var(--corp-lime) !important; }
         .bc-selected .bc-check-icon { opacity: 1 !important; color: var(--corp-emerald); }
-        .bc-selected .bc-check-icon::before { content: '✅'; }
-        .bc-selected .bc-check-icon { content: ''; } /* hide the empty box */
+        .bc-selected .bc-check-icon::before { content: '\2705'; }
+        .bc-selected .bc-check-icon { content: ''; }
+
+        /* Custom Input Modal */
+        .custom-input-overlay {
+            position: fixed; inset: 0; z-index: 200;
+            background: rgba(0,0,0,0.5); backdrop-filter: blur(6px);
+            display: flex; align-items: center; justify-content: center;
+            opacity: 0; pointer-events: none;
+            transition: opacity 0.25s ease;
+        }
+        .custom-input-overlay.visible { opacity: 1; pointer-events: auto; }
+        .custom-input-card {
+            width: 88%; max-width: 360px;
+            background: var(--bg); border-radius: 2rem;
+            padding: 2rem; box-shadow: 0 25px 60px rgba(0,0,0,0.3);
+            transform: translateY(20px) scale(0.95);
+            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .custom-input-overlay.visible .custom-input-card {
+            transform: translateY(0) scale(1);
+        }
+        .custom-input-card input {
+            width: 100%; padding: 1rem; margin: 1rem 0;
+            border: 2px solid rgba(27, 128, 86, 0.2); border-radius: 1rem;
+            background: var(--input-bg); color: var(--text-main);
+            font-family: 'Outfit', sans-serif; font-size: 14px; font-weight: 600;
+            outline: none; transition: border-color 0.2s;
+        }
+        .custom-input-card input:focus {
+            border-color: var(--corp-lime);
+            box-shadow: 0 0 0 4px rgba(134, 191, 107, 0.15);
+        }
+        .custom-input-actions { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
+        .custom-input-actions button {
+            flex: 1; padding: 0.9rem; border: none; border-radius: 1rem;
+            font-family: 'Outfit', sans-serif; font-weight: 700;
+            font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em;
+            cursor: pointer; transition: all 0.15s ease;
+        }
+        .custom-input-actions .ci-cancel {
+            background: var(--secondary-bg); color: var(--text-hint);
+        }
+        .custom-input-actions .ci-confirm {
+            background: linear-gradient(135deg, var(--corp-emerald), var(--corp-deep)); color: #fff;
+        }
+
+        /* Fix select dropdown on mobile: ensure proper tap target */
+        select.tg-input {
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%231B8056' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 1rem center;
+            background-size: 1em;
+            padding-right: 2.5rem;
+            cursor: pointer;
+            position: relative;
+            z-index: 10;
+            pointer-events: auto !important;
+        }
     </style>
 </head>
 <body class="antialiased min-h-screen pb-24">
@@ -486,6 +546,18 @@
             </div>
             <div id="tariffs-list-container" class="space-y-3 pb-8">
                 <!-- Dynamic: populated by loadTariffsList() -->
+            </div>
+        </div>
+    </div>
+
+    <!-- CUSTOM INPUT MODAL (replaces browser prompt) -->
+    <div id="custom-input-overlay" class="custom-input-overlay">
+        <div class="custom-input-card">
+            <div id="ci-title" style="font-weight:800;font-size:14px;text-transform:uppercase;letter-spacing:0.03em;opacity:0.7;">Введите значение</div>
+            <input type="text" id="ci-input" placeholder="Ваше значение..." autocomplete="off">
+            <div class="custom-input-actions">
+                <button class="ci-cancel" onclick="closeCustomInput(false)">Отмена</button>
+                <button class="ci-confirm" onclick="closeCustomInput(true)">Применить ✔</button>
             </div>
         </div>
     </div>
@@ -973,6 +1045,13 @@
             loadDictionaries(cb);
         }
 
+        // ── HTML Escaping helper (prevent XSS in preview) ──
+        function escapeHtml(str) {
+            if (!str) return '';
+            const s = String(str);
+            return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+
         tg.MainButton.onClick(() => mainButtonClicked());
         function mainButtonClicked() {
             const reqAll = ['route_from', 'route_to', 'cargo_name', 'cargo_value', 'hs_code', 'cargo_weight', 'cargo_places', 'cargo_volume'];
@@ -1035,13 +1114,14 @@
         let lastSubmissionPayload = null;
         function showPreview(p) {
             const container = document.getElementById('preview-content');
-            let h = `<div class="mb-2 pb-2 border-b border-white/5 flex justify-between items-center"><span class="opacity-40 uppercase text-[9px] font-bold">Направление</span><span class="font-extrabold text-[var(--corp-lime)]">${p.route_from} ➔ ${p.route_to}</span></div>`;
-            h += `<div><b>Груз:</b> ${p.cargo_name} (${p.cargo_weight} кг / ${p.cargo_volume} м³)</div>`;
-            if (p.dangerous_cargo === 'Да') h += `<div class="text-red-400 font-bold">⚠️ ОПАСНЫЙ ГРУЗ: ${p.adr_class}</div>`;
-            h += `<div><b>Транспорт:</b> ${p.transport_cat} ${p.transport_sub ? '('+p.transport_sub+')' : ''}</div>`;
-            h += `<div><b>Инкотермс:</b> ${p.delivery_terms || p.delivery_terms_eu || 'не указан'}</div>`;
-            h += `<div><b>Стоимость:</b> ${p.cargo_value || 'НЕ УКАЗАНА'} ${p.cargo_currency || ''}</div>`;
-            h += `<div class="mt-2 pt-2 border-t border-white/5 opacity-60 italic text-[10px]">${p.message_text || 'Без доп. информации'}</div>`;
+            const e = escapeHtml;
+            let h = `<div class="mb-2 pb-2 border-b border-white/5 flex justify-between items-center"><span class="opacity-40 uppercase text-[9px] font-bold">Направление</span><span class="font-extrabold text-[var(--corp-lime)]">${e(p.route_from)} ➤ ${e(p.route_to)}</span></div>`;
+            h += `<div><b>Груз:</b> ${e(p.cargo_name)} (${e(p.cargo_weight)} кг / ${e(p.cargo_volume)} м³)</div>`;
+            if (p.dangerous_cargo === 'Да') h += `<div class="text-red-400 font-bold">⚠️ ОПАСНЫЙ ГРУЗ: ${e(p.adr_class)}</div>`;
+            h += `<div><b>Транспорт:</b> ${e(p.transport_cat)} ${p.transport_sub ? '('+e(p.transport_sub)+')' : ''}</div>`;
+            h += `<div><b>Инкотермс:</b> ${e(p.delivery_terms || p.delivery_terms_eu || 'не указан')}</div>`;
+            h += `<div><b>Стоимость:</b> ${e(p.cargo_value || 'НЕ УКАЗАНА')} ${e(p.cargo_currency || '')}</div>`;
+            h += `<div class="mt-2 pt-2 border-t border-white/5 opacity-60 italic text-[10px]">${e(p.message_text || 'Без доп. информации')}</div>`;
             container.innerHTML = h;
             document.getElementById('preview-modal').classList.remove('hidden');
         }
@@ -1385,24 +1465,8 @@
             document.getElementById('edit-user-manual-key').value = res;
         }
 
-        function rotateUserKey() {
-            const userId = document.getElementById('edit-user-id').value;
-            const newKey = document.getElementById('edit-user-manual-key').value.trim();
-            if (!userId) return;
-            if (!newKey) { tg.showAlert("⚠️ Введите или сгенерируйте новый ключ"); return; }
-            
-            fetch('/api/user_rotate_key', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ initData: tg.initData, user_id: Number(userId), new_key: newKey })
-            }).then(r => r.json()).then(res => {
-                if (res.ok) {
-                    tg.showAlert("✅ Ключ успешно обновлен");
-                    document.getElementById('edit-user-manual-key').value = '';
-                    loadUsersList();
-                } else tg.showAlert("❌ Ошибка: " + res.error);
-            });
-        }
+
+
 
         function saveUser() {
             const userId = document.getElementById('edit-user-id').value;
@@ -1440,8 +1504,41 @@
             }
         }
 
-        function handleDangerousCargo(el) {
-            handleOtherInput(el);
+        // ── Custom Input Modal (replaces ugly browser prompt) ──
+        let _ciResolve = null;
+        let _ciTargetEl = null;
+
+        function openCustomInput(title, placeholder, targetEl) {
+            return new Promise((resolve) => {
+                _ciResolve = resolve;
+                _ciTargetEl = targetEl || null;
+                document.getElementById('ci-title').textContent = title || 'Введите значение';
+                const inp = document.getElementById('ci-input');
+                inp.value = '';
+                inp.placeholder = placeholder || 'Ваше значение...';
+                document.getElementById('custom-input-overlay').classList.add('visible');
+                setTimeout(() => inp.focus(), 300);
+            });
+        }
+
+        function closeCustomInput(confirmed) {
+            const overlay = document.getElementById('custom-input-overlay');
+            overlay.classList.remove('visible');
+            const val = document.getElementById('ci-input').value.trim();
+            if (_ciResolve) {
+                _ciResolve(confirmed && val ? val : null);
+                _ciResolve = null;
+            }
+        }
+
+        // Close on Enter key
+        document.getElementById('ci-input').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') { e.preventDefault(); closeCustomInput(true); }
+            if (e.key === 'Escape') { e.preventDefault(); closeCustomInput(false); }
+        });
+
+        async function handleDangerousCargo(el) {
+            await handleOtherInput(el);
             const adrContainer = document.getElementById('adr-class-container');
             if (el.value === 'Да') {
                 adrContainer.classList.remove('hidden');
@@ -1450,12 +1547,26 @@
                 document.getElementById('adr_class').value = '';
             }
         }
-        function handleOtherInput(selectEl) {
+
+        async function handleOtherInput(selectEl) {
             if (selectEl.value === 'Другое') {
-                let customVal = prompt('Введите значение вручную:');
-                if (customVal && customVal.trim() !== '') {
-                    customVal = customVal.trim();
+                const label = selectEl.closest('.space-y-2, .space-y-4, section, div');
+                const labelText = label ? (label.querySelector('label')?.textContent || '') : '';
+                const placeholder = selectEl.getAttribute('placeholder') || 'Введите значение...';
+                const title = labelText ? `${labelText.trim()}` : 'Своё значение';
+                
+                const customVal = await openCustomInput(title, placeholder);
+                if (customVal) {
+                    // Remove any previous "Other" options to avoid clutter
+                    for (let i = 0; i < selectEl.options.length; i++) {
+                        if (selectEl.options[i].dataset.isOther) {
+                            selectEl.remove(i);
+                            break;
+                        }
+                    }
                     let opt = new Option(customVal, customVal);
+                    opt.dataset.isOther = "true";
+                    // Insert before the "Другое..." option
                     selectEl.add(opt, selectEl.options.length - 1);
                     selectEl.value = customVal;
                 } else {
@@ -1498,10 +1609,16 @@
             } else {
                 current = current.filter(v => v !== 'Любой' && v !== 'Все');
                 
-                if (val === 'Другое') {
-                    const otherVal = prompt('Введите свое значение:');
-                    if (otherVal && otherVal.trim()) val = otherVal.trim();
-                    else { syncMultiUI(id); return; }
+            if (val === 'Другое') {
+                    openCustomInput('Своё значение', 'Введите свое значение...').then(otherVal => {
+                        if (otherVal) {
+                            current = current.filter(v => v !== 'Любой' && v !== 'Все');
+                            current.push(otherVal);
+                            input.value = current.join(', ');
+                        }
+                        syncMultiUI(id);
+                    });
+                    return;
                 }
 
                 const idx = current.indexOf(val);
@@ -1562,7 +1679,6 @@
                     };
 
                     fillSelect('delivery_terms_eu', s.incoterms, 'Инкотермс...');
-                    // Only fill border_crossing_cn from settings if the select has 0 or 1 options (#22)
                     const bcc = document.getElementById('border_crossing_cn');
                     if (bcc && bcc.options.length <= 1 && s.border_crossings && s.border_crossings.length > 0) {
                         fillSelect('border_crossing_cn', s.border_crossings);

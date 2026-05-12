@@ -140,7 +140,6 @@ class Database:
             departure_ports TEXT,
             ports_list TEXT,
             multimodal_next TEXT,
-            packaging TEXT,
             dangerous_cargo TEXT,
             winner_name TEXT,
             cancel_reason TEXT,
@@ -340,21 +339,6 @@ class Database:
                 except Exception as e:
                     logger.warning(f"Could not create login_key index: {e}")
 
-                # CLEANUP: Remove duplicates (users with NULL login_key_hash or duplicates)
-                # We keep the one with telegram_id or the newest one.
-                # ... (existing migrations)
-                await conn.execute("""
-                    DELETE FROM users 
-                    WHERE id NOT IN (
-                        SELECT MIN(id) 
-                        FROM users 
-                        GROUP BY COALESCE(login_key_hash, name || role || id::text)
-                    )
-                """)
-                
-                # SEED / INIT
-                await self.init_default_settings()
-                await self.init_staff()
                 logger.info("Database migrations and cleanup completed")
                 
                 # 2. Requests table columns
@@ -398,27 +382,17 @@ class Database:
                     await conn.execute("ALTER TABLE requests ADD COLUMN IF NOT EXISTS cancel_reason TEXT")
             except Exception as e:
                 logger.error(f"Migration error: {e}")
-            
-            # 8. Settings table
-            await conn.execute("""
-                CREATE TABLE IF NOT EXISTS settings (
-                    key TEXT PRIMARY KEY,
-                    value JSONB NOT NULL,
-                    updated_at TIMESTAMPTZ DEFAULT NOW()
-                );
-            """)
-            
-            # Migration for settings.value (TEXT -> JSONB)
-            val_type = await conn.fetchval("""
-                SELECT data_type FROM information_schema.columns 
-                WHERE table_name = 'settings' AND column_name = 'value'
-            """)
-            if val_type == 'text':
-                logger.info("Migrating settings.value from TEXT to JSONB...")
-                await conn.execute("ALTER TABLE settings ALTER COLUMN value TYPE JSONB USING value::jsonb")
 
+            # SEED / INIT (once, after all migrations)
             await self.init_default_settings()
-            await self.init_staff()
+            
+            # Use a setting flag to ensure staff is only seeded once (#52)
+            settings = await self.get_settings()
+            if not settings.get("db_seeded"):
+                await self.init_staff()
+                await self.update_setting("db_seeded", True)
+                logger.info("🌱 Database seeded with initial staff")
+            
             await self._sync_superusers()
             logger.info("✅ Database schema verified and initialized.")
 
@@ -805,38 +779,37 @@ class Database:
                     await self.update_setting(k, v)
 
     async def init_staff(self):
-        """Seed users table with initial staff. 
-        As requested: deletes previous list and adds the new 17 members.
+        """Seed users table with initial staff (UPSERT — safe for restarts).
+        
+        Uses ON CONFLICT to insert new staff members without deleting existing
+        users created through the admin panel. Existing staff get name/role updated.
         """
+        staff = [
+            ("Александр", "admin", "agl_ach"),
+            ("Альберт", "admin", "agl_ak"),
+            ("Арсен", "manager", "agl_ag"),
+            ("Виолетта", "admin", "agl_vr"),
+            ("Диёрахон", "manager", "agl_di"),
+            ("Дмитрий", "manager", "agl_da"),
+            ("Жамшид", "admin", "agl_jt"),
+            ("Константин", "manager", "agl_kk"),
+            ("Мубина", "manager", "agl_mo"),
+            ("Нозим", "admin", "agl_nb"),
+            ("Омон", "admin", "agl_oe"),
+            ("Саидамир", "admin", "agl_su"),
+            ("Саидахмад", "manager", "agl_ss"),
+            ("Сардор", "manager", "agl_si"),
+            ("Сардорхон", "admin", "agl_sn"),
+            ("Умиджан", "manager", "agl_ua"),
+            ("Акобир", "manager", "agl_au")
+        ]
         async with self._pool.acquire() as conn:
-            # Delete non-superusers to ensure a clean state for the new list
-            await conn.execute("DELETE FROM users WHERE role != 'superuser'")
-            
-            staff = [
-                ("Александр", "admin", "agl_ach"),
-                ("Альберт", "admin", "agl_ak"),
-                ("Арсен", "manager", "agl_ag"),
-                ("Виолетта", "admin", "agl_vr"),
-                ("Диёрахон", "manager", "agl_di"),
-                ("Дмитрий", "manager", "agl_da"),
-                ("Жамшид", "admin", "agl_jt"),
-                ("Константин", "manager", "agl_kk"),
-                ("Мубина", "manager", "agl_mo"),
-                ("Нозим", "admin", "agl_nb"),
-                ("Омон", "admin", "agl_oe"),
-                ("Саидамир", "admin", "agl_su"),
-                ("Саидахмад", "manager", "agl_ss"),
-                ("Сардор", "manager", "agl_si"),
-                ("Сардорхон", "admin", "agl_sn"),
-                ("Умиджан", "manager", "agl_ua"),
-                ("Акобир", "manager", "agl_au")
-            ]
             for name, role, key in staff:
                 key_hash = hash_login_key(key)
                 await conn.execute("""
                     INSERT INTO users (name, role, login_key, login_key_hash)
                     VALUES ($1, $2, $3, $4)
-                    ON CONFLICT (login_key_hash) DO UPDATE SET name = EXCLUDED.name, role = EXCLUDED.role, login_key = EXCLUDED.login_key
+                    ON CONFLICT (login_key_hash) DO NOTHING
                 """, name, role, key, key_hash)
 
     # LOGGING
@@ -882,82 +855,104 @@ class Database:
             return [dict(r) for r in rows]
 
     async def get_stats(self, days=30):
-        # Calculate start date based on days (if days=0, get all time)
-        date_filter = ""
-        params = []
-        if days > 0:
-            params.append(days)
-            date_filter = "AND created_at >= NOW() - INTERVAL '$1 days'"
-        
-        # Use helper to apply filter to queries
-        def apply_filter(q):
-            if "WHERE" in q.upper():
-                return q.replace("WHERE", f"WHERE {date_filter.replace('$1', '1') if params else '1=1'} AND")
-            else:
-                return q + f" WHERE {date_filter.replace('$1', '1') if params else '1=1'}"
-
+        """Aggregate statistics. Uses parameterized queries for safety."""
         async with self._pool.acquire() as conn:
-            # 1. Manager Activity
-            manager_stats = await conn.fetch(f"""
-                SELECT responsible as name, COUNT(*) as count 
-                FROM requests 
-                WHERE responsible IS NOT NULL AND responsible != ''
-                {"AND created_at >= NOW() - INTERVAL '" + str(days) + " days'" if days > 0 else ""}
-                GROUP BY responsible 
-                ORDER BY count DESC
-            """)
-            
-            # 2. Regional Distribution
-            region_stats = await conn.fetch(f"""
-                SELECT regions as name, COUNT(*) as count 
-                FROM requests 
-                WHERE 1=1 {"AND created_at >= NOW() - INTERVAL '" + str(days) + " days'" if days > 0 else ""}
-                GROUP BY regions
-            """)
-            
-            # 3. Success Rate
-            date_filter = f"AND created_at >= NOW() - INTERVAL '{days} days'" if days > 0 else ""
-            total_closed = await conn.fetchval(f"""
-                SELECT COUNT(*) FROM requests 
-                WHERE status IN ('Успешно реализована', 'Отменена') {date_filter}
-            """)
-            successful = await conn.fetchval(f"""
-                SELECT COUNT(*) FROM requests 
-                WHERE status = 'Успешно реализована' {date_filter}
-            """)
+            # Build date filter with parameterized interval
+            if days > 0:
+                # 1. Manager Activity
+                manager_stats = await conn.fetch("""
+                    SELECT responsible as name, COUNT(*) as count 
+                    FROM requests 
+                    WHERE responsible IS NOT NULL AND responsible != ''
+                    AND created_at >= NOW() - make_interval(days => $1)
+                    GROUP BY responsible ORDER BY count DESC
+                """, days)
+                # 2. Regional Distribution
+                region_stats = await conn.fetch("""
+                    SELECT regions as name, COUNT(*) as count 
+                    FROM requests 
+                    WHERE created_at >= NOW() - make_interval(days => $1)
+                    GROUP BY regions
+                """, days)
+                # 3. Success Rate
+                total_closed = await conn.fetchval("""
+                    SELECT COUNT(*) FROM requests 
+                    WHERE status IN ('Успешно реализована', 'Отменена')
+                    AND created_at >= NOW() - make_interval(days => $1)
+                """, days)
+                successful = await conn.fetchval("""
+                    SELECT COUNT(*) FROM requests 
+                    WHERE status = 'Успешно реализована'
+                    AND created_at >= NOW() - make_interval(days => $1)
+                """, days)
+                # 4. Cancellation Reasons
+                cancel_reasons = await conn.fetch("""
+                    SELECT cancel_reason as reason, COUNT(*) as count
+                    FROM requests
+                    WHERE status = 'Отменена' AND cancel_reason IS NOT NULL AND cancel_reason != ''
+                    AND created_at >= NOW() - make_interval(days => $1)
+                    GROUP BY cancel_reason ORDER BY count DESC LIMIT 5
+                """, days)
+                # 5. Average closing time (hours)
+                avg_time = await conn.fetchval("""
+                    SELECT AVG(EXTRACT(EPOCH FROM (updated_at - created_at))) / 3600
+                    FROM requests 
+                    WHERE status = 'Успешно реализована' AND updated_at IS NOT NULL
+                    AND created_at >= NOW() - make_interval(days => $1)
+                """, days)
+                # 6. Average time to first bid (minutes)
+                avg_response = await conn.fetchval("""
+                    SELECT AVG(EXTRACT(EPOCH FROM (b.min_bid_time - r.created_at))) / 60
+                    FROM requests r
+                    JOIN (
+                        SELECT request_id, MIN(created_at) as min_bid_time
+                        FROM bids GROUP BY request_id
+                    ) b ON r.id = b.request_id
+                    WHERE r.created_at IS NOT NULL
+                    AND r.created_at >= NOW() - make_interval(days => $1)
+                """, days)
+            else:
+                # All time — no date filter
+                manager_stats = await conn.fetch("""
+                    SELECT responsible as name, COUNT(*) as count 
+                    FROM requests 
+                    WHERE responsible IS NOT NULL AND responsible != ''
+                    GROUP BY responsible ORDER BY count DESC
+                """)
+                region_stats = await conn.fetch("""
+                    SELECT regions as name, COUNT(*) as count 
+                    FROM requests GROUP BY regions
+                """)
+                total_closed = await conn.fetchval("""
+                    SELECT COUNT(*) FROM requests 
+                    WHERE status IN ('Успешно реализована', 'Отменена')
+                """)
+                successful = await conn.fetchval("""
+                    SELECT COUNT(*) FROM requests 
+                    WHERE status = 'Успешно реализована'
+                """)
+                cancel_reasons = await conn.fetch("""
+                    SELECT cancel_reason as reason, COUNT(*) as count
+                    FROM requests
+                    WHERE status = 'Отменена' AND cancel_reason IS NOT NULL AND cancel_reason != ''
+                    GROUP BY cancel_reason ORDER BY count DESC LIMIT 5
+                """)
+                avg_time = await conn.fetchval("""
+                    SELECT AVG(EXTRACT(EPOCH FROM (updated_at - created_at))) / 3600
+                    FROM requests 
+                    WHERE status = 'Успешно реализована' AND updated_at IS NOT NULL
+                """)
+                avg_response = await conn.fetchval("""
+                    SELECT AVG(EXTRACT(EPOCH FROM (b.min_bid_time - r.created_at))) / 60
+                    FROM requests r
+                    JOIN (
+                        SELECT request_id, MIN(created_at) as min_bid_time
+                        FROM bids GROUP BY request_id
+                    ) b ON r.id = b.request_id
+                    WHERE r.created_at IS NOT NULL
+                """)
+
             success_rate = round((successful / total_closed * 100), 1) if total_closed else 0.0
-
-            # 4. Cancellation Reasons
-            cancel_reasons = await conn.fetch(f"""
-                SELECT cancel_reason as reason, COUNT(*) as count
-                FROM requests
-                WHERE status = 'Отменена' AND cancel_reason IS NOT NULL AND cancel_reason != ''
-                {"AND created_at >= NOW() - INTERVAL '" + str(days) + " days'" if days > 0 else ""}
-                GROUP BY cancel_reason
-                ORDER BY count DESC
-                LIMIT 5
-            """)
-
-            # 5. Average closing time (hours)
-            avg_time = await conn.fetchval(f"""
-                SELECT AVG(EXTRACT(EPOCH FROM (updated_at - created_at))) / 3600
-                FROM requests 
-                WHERE status = 'Успешно реализована' AND updated_at IS NOT NULL
-                {"AND created_at >= NOW() - INTERVAL '" + str(days) + " days'" if days > 0 else ""}
-            """)
-
-            # 6. Average time to first bid (minutes)
-            avg_response = await conn.fetchval(f"""
-                SELECT AVG(EXTRACT(EPOCH FROM (b.min_bid_time - r.created_at))) / 60
-                FROM requests r
-                JOIN (
-                    SELECT request_id, MIN(created_at) as min_bid_time
-                    FROM bids GROUP BY request_id
-                ) b ON r.id = b.request_id
-                WHERE r.created_at IS NOT NULL
-                {"AND r.created_at >= NOW() - INTERVAL '" + str(days) + " days'" if days > 0 else ""}
-            """)
-
             return {
                 "managers": [dict(r) for r in manager_stats],
                 "regions": [dict(r) for r in region_stats],
@@ -967,33 +962,8 @@ class Database:
                 "avg_response_minutes": round(float(avg_response or 0), 1)
             }
 
-    async def log_activity(self, request_id, user_id, user_name, action, details=None):
-        async with self._pool.acquire() as conn:
-            await conn.execute("""
-                INSERT INTO activity_log (request_id, user_id, user_name, action, details)
-                VALUES ($1, $2, $3, $4, $5)
-            """, request_id, user_id, user_name, action, json.dumps(details) if details else None)
-
-    async def get_recent_logs(self, limit=15):
-        async with self._pool.acquire() as conn:
-            rows = await conn.fetch("""
-                SELECT l.*, r.cargo_name 
-                FROM activity_log l
-                LEFT JOIN requests r ON l.request_id = r.id
-                ORDER BY l.created_at DESC LIMIT $1
-            """, limit)
-            return [dict(r) for r in rows]
-
-    async def get_user_bids(self, user_id):
-        async with self._pool.acquire() as conn:
-            rows = await conn.fetch("""
-                SELECT b.*, r.route_from, r.route_to, r.status as request_status
-                FROM bids b
-                JOIN requests r ON b.request_id = r.id
-                WHERE b.user_id = $1
-                ORDER BY b.created_at DESC
-            """, user_id)
-            return [dict(r) for r in rows]
+    # NOTE: Duplicate log_activity / get_recent_logs / get_user_bids removed.
+    # Canonical definitions are above (lines ~842-679).
 
     async def rotate_user_key(self, user_id: int = None, old_key: str = None, new_key: str = None):
         """Generate or set a fresh login key for a user. Returns the plaintext.

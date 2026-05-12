@@ -18,6 +18,11 @@ services:
       - "127.0.0.1:5432:5432"
     networks:
       - agl_net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   bot:
     build: .

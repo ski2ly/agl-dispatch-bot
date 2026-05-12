@@ -819,15 +819,21 @@ async def api_upload(request):
         file_path = os.path.join(upload_dir, unique_name)
 
         size = 0
-        with open(file_path, 'wb') as f:
-            while True:
-                chunk = await field.read_chunk()
-                if not chunk:
-                    break
-                size += len(chunk)
-                f.write(chunk)
-                if size > 20 * 1024 * 1024: # 20MB limit
-                    return web.json_response({"error": "File too large (max 20MB)"}, status=413)
+        try:
+            with open(file_path, 'wb') as f:
+                while True:
+                    chunk = await field.read_chunk()
+                    if not chunk:
+                        break
+                    size += len(chunk)
+                    f.write(chunk)
+                    if size > 20 * 1024 * 1024: # 20MB limit
+                        raise ValueError("File too large")
+        except ValueError:
+            # Clean up the oversized file
+            try: os.remove(file_path)
+            except OSError: pass
+            return web.json_response({"error": "File too large (max 20MB)"}, status=413)
 
         file_type = field.headers.get('Content-Type', 'application/octet-stream')
         # Store in DB without request_id for now
@@ -887,12 +893,19 @@ async def api_upload_tariff(request):
         file_path = os.path.join(upload_dir, unique_name)
         
         size = 0
-        with open(file_path, 'wb') as f:
-            while True:
-                chunk = await field_file.read_chunk()
-                if not chunk: break
-                size += len(chunk)
-                f.write(chunk)
+        try:
+            with open(file_path, 'wb') as f:
+                while True:
+                    chunk = await field_file.read_chunk()
+                    if not chunk: break
+                    size += len(chunk)
+                    f.write(chunk)
+                    if size > 50 * 1024 * 1024:  # 50MB limit for tariffs
+                        raise ValueError("File too large")
+        except ValueError:
+            try: os.remove(file_path)
+            except OSError: pass
+            return safe_json_response({"error": "File too large (max 50MB)"})
         
         file_type = field_file.headers.get('Content-Type', 'application/octet-stream')
         await db.add_tariff(title, filename, f"/uploads/{unique_name}", file_type, size, profile["name"])
@@ -908,7 +921,12 @@ async def api_delete_tariff(request):
     
     data = await request.json()
     tariff_id = data.get("id")
-    await db.delete_tariff(int(tariff_id))
+    if not tariff_id:
+        return safe_json_response({"error": "Missing tariff id"}, status=400)
+    try:
+        await db.delete_tariff(int(tariff_id))
+    except (TypeError, ValueError):
+        return safe_json_response({"error": "Invalid tariff id"}, status=400)
     return safe_json_response({"ok": True})
 
 async def api_user_bid(request):

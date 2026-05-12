@@ -146,7 +146,7 @@ async def broadcast_confirm_callback(update: Update, context: ContextTypes.DEFAU
     # Get recipients
     if target == "all":
         all_users = await db.list_users()
-        recipients = [u["telegram_id"] for u in all_users]
+        recipients = [u["telegram_id"] for u in all_users if u.get("telegram_id")]
     else:
         recipients = [target]
 

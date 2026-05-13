@@ -791,7 +791,23 @@ class Database:
             "discussion_id": os.getenv("DISCUSSION_GROUP_ID"),
             "reminder_interval": 120 # minutes
         }
+        # Ensure we have the latest regions even if the key already exists
+        current_settings = await self.get_settings()
+        current_regions = current_settings.get("regions", [])
+        region_names = [r["name"] if isinstance(r, dict) else str(r) for r in current_regions]
+        
+        needs_update = False
+        for r in defaults["regions"]:
+            if r["name"] not in region_names:
+                needs_update = True
+                break
+        
+        if needs_update:
+            logger.info("Updating regions list to include new directions (America, UAE, etc.)")
+            await self.update_setting("regions", defaults["regions"])
+
         for k, v in defaults.items():
+            if k == "regions": continue
             async with self._pool.acquire() as conn:
                 exists = await conn.fetchval("SELECT 1 FROM settings WHERE key = $1", k)
                 if not exists:

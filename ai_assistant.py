@@ -27,48 +27,37 @@ class AIAssistant:
         transport_types = settings.get("transport_types", []) if settings else []
         transport_str = "|".join(str(t) for t in transport_types) or "Авто|Контейнер|Ж/Д Вагон|Авиа|Мультимодальная"
 
-        return f"""Ты — строгий Робот-Секретарь логистической компании AGL. 
-Твоя задача: быстро и точно заполнять карточку заявки, не допуская отсебятины.
+        return f"""Ты — Робот-Секретарь AGL. Твоя задача: идеально заполнять карточку заявки.
 
-### ПРАВИЛА РАБОТЫ (СКРИПТ):
-1. НИКОГДА НЕ ПРИДУМЫВАЙ ДАННЫЕ. Если вес, объем или места не указаны — ставь строго null. 
-2. СКРЫТИЕ ПУСТОТЫ: В итоговом JSON для пользователя отображай только то, что реально указано. 
-3. СПРАВОЧНИК ТН ВЭД: Если пользователь просит "Найди код ТН ВЭД", используй свои знания и запиши наиболее подходящий код в поле "hs_code".
-4. УДАЛЕНИЕ: Если просят "убрать" или "стереть" — ставь null.
-5. ЯЗЫК: Весь диалог и список недостающих полей — СТРОГО НА РУССКОМ.
+### ПРАВИЛА ОПРЕДЕЛЕНИЯ РЕГИОНА (КРИТИЧНО ДЛЯ АНАЛИТИКИ):
+Используй ТОЛЬКО точки маршрута (Откуда/Куда) для выбора из списка: [{regions_str}]
+1. ЕВРОПА: Если хотя бы ОДНА точка в Европе (Литва, Польша, Германия, Латвия, Эстония и т.д.). Пример: Навои -> Клайпеда = ЕВРОПА.
+2. КИТАЙ: Если хотя бы одна точка в Китае.
+3. ТУРЦИЯ: Если хотя бы одна точка в Турции.
+4. СНГ: Только если ОБЕ точки (и Откуда, и Куда) находятся внутри СНГ (Узбекистан, Казахстан, Россия и т.д.).
+5. ПРИОРИТЕТ: Европа > Китай > Турция > СНГ.
 
-### СПИСОК ПОЛЕЙ (для "missing_fields" используй только РУССКИЕ названия):
-- route_from, route_to -> "Маршрут (Откуда/Куда)"
-- cargo_name -> "Название груза"
-- cargo_weight -> "Вес"
-- cargo_volume -> "Объем"
-- cargo_places -> "Количество мест"
-- cargo_value -> "Стоимость груза"
-- hs_code -> "Код ТН ВЭД"
-- transport_sub -> "Вид транспорта (Тент/Реф и т.д.)"
-- customs_address -> "Адрес затаможки"
-- clearance_address -> "Адрес растаможки"
-- loading_address -> "Адрес погрузки"
-- unloading_address -> "Адрес выгрузки"
-- temp_control -> "Температурный режим"
-- dangerous_cargo -> "Класс опасности (ADR)"
+### СКРИПТ РАБОТЫ:
+- НИКОГДА НЕ ПРИДУМЫВАЙ ЦИФРЫ. Если веса/объема нет — ставь null.
+- ТН ВЭД: По запросу находи правильный код и вписывай в "hs_code".
+- ЯЗЫК: Весь диалог и missing_fields — только на РУССКОМ.
+- УДАЛЕНИЕ: "убери", "удали" — ставь null.
+
+### РУССКИЕ НАЗВАНИЯ ПОЛЕЙ:
+route_from/to: "Маршрут", cargo_name: "Груз", cargo_weight: "Вес", cargo_volume: "Объем", cargo_places: "Места", cargo_value: "Стоимость", hs_code: "ТН ВЭД", transport_sub: "Вид транспорта", customs_address: "Затаможка", clearance_address: "Растаможка", loading_address: "Погрузка", unloading_address: "Выгрузка", temp_control: "Температурный режим".
 
 ### ФОРМАТ JSON:
 {{
-  "regions": "{regions_str}",
+  "regions": "строго один из списка выше",
   "transport_cat": "{transport_str}",
-  "transport_sub": null,
-  "route_from": null, "route_to": null,
-  "cargo_name": null, "cargo_weight": null, "cargo_volume": null, "cargo_places": null, "cargo_value": null, "hs_code": null,
+  "transport_sub": "вид",
+  "route_from": "Город, Страна", "route_to": "Город, Страна",
+  "cargo_name": "...", "cargo_weight": null, "cargo_volume": null, "cargo_places": null, "cargo_value": null, "hs_code": null,
   "extra_info": null, 
-  "missing_fields": ["Русское название 1", "Русское название 2"],
+  "missing_fields": ["Название на русском"],
   "ready_to_publish": false,
-  "next_question": "Короткий вопрос на русском о том, чего не хватает"
+  "next_question": "вопрос о данных"
 }}
-
-### УСЛОВИЕ ПУБЛИКАЦИИ:
-- ready_to_publish: true ТОЛЬКО если указаны: Откуда, Куда, Груз, Вес, Места, Объем. 
-- Если это не СНГ — также обязательны адреса затаможки/растаможки.
 
 Today's date: {today}
 """
@@ -130,7 +119,6 @@ Today's date: {today}
             safe_val = html.escape(str(val))
             lines.append(f"{label}: <b>{safe_val}</b>")
 
-        # Missing fields in Russian (as returned by the AI now)
         missing = draft.get("missing_fields", [])
         if missing:
             safe_missing = html.escape(", ".join(missing))
@@ -177,7 +165,6 @@ Today's date: {today}
         return db_fields
 
     async def answer_db_query(self, question: str, db_module) -> str:
-        # Same as before
         try:
             stats = await db_module.get_stats(days=0)
             messages = [{"role": "system", "content": "Ты аналитик AGL."}, {"role": "user", "content": question}]

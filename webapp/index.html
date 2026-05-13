@@ -1163,7 +1163,32 @@
             }
             if (selectedDirection !== 'СНГ') {
                 if(!document.getElementById('customs_address').value.trim() || !document.getElementById('clearance_address').value.trim()) {
-                    tg.showAlert("⚠️ Для направлений вне СНГ обязательны адреса затаможки и растаможки!");
+                    tg.showAlert("⚠️ Для направлений вне СНГ обязательные поля: Затаможка и Растаможка!");
+                    return;
+                }
+            }
+            
+            // Transport-specific mandatory fields
+            if (selectedMethod === 'Контейнер') {
+                if (!document.getElementById('container_type_cn')?.value.trim()) {
+                    tg.showAlert("⚠️ Для контейнера обязателен Тип контейнера!");
+                    return;
+                }
+            } else if (selectedMethod === 'Авто') {
+                if (!document.getElementById('transport_sub')?.value.trim()) {
+                    tg.showAlert("⚠️ Для автоперевозки обязателен Вид авто!");
+                    return;
+                }
+            } else if (selectedMethod === 'Мультимодальная') {
+                if (!document.getElementById('ports_list')?.value.trim()) {
+                    tg.showAlert("⚠️ Для мультимодальной перевозки обязательны Порты!");
+                    return;
+                }
+            }
+
+            if (selectedDirection === 'Китай') {
+                if (!document.getElementById('border_crossing_cn')?.value.trim()) {
+                    tg.showAlert("⚠️ Для Китая обязателен Погранпереход!");
                     return;
                 }
             }

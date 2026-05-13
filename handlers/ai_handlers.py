@@ -231,14 +231,34 @@ async def confirm_ai_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         # ── Validate required fields before publishing (matching MiniApp requirements) ──
         required = ["route_from", "route_to", "cargo_name", "cargo_value", "cargo_weight", "cargo_places", "cargo_volume", "hs_code"]
-        missing = [f for f in required if not parsed.get(f) or str(parsed[f]).strip() in ("", "-", "None")]
+        missing = []
+        for f in required:
+            val = str(parsed.get(f, "")).strip()
+            # Allow "-" for cargo_value if manager says it's unknown
+            if f == "cargo_value" and val in ("-", "неизвестно", "unknown", "пока неизвестна"):
+                continue
+            if not val or val.lower() in ("", "none", "null"):
+                missing.append(f)
         
-        is_sng = parsed.get("regions") in ("СНГ", "CIS")
-        if not is_sng:
+        # Region/Transport specific requirements
+        t_cat = parsed.get("transport_cat")
+        reg = parsed.get("regions")
+        
+        if reg not in ("СНГ", "CIS"):
             if not parsed.get("customs_address") or str(parsed.get("customs_address", "")).strip() in ("", "-", "None"):
                 missing.append("customs_address (Затаможка)")
             if not parsed.get("clearance_address") or str(parsed.get("clearance_address", "")).strip() in ("", "-", "None"):
                 missing.append("clearance_address (Растаможка)")
+        
+        if t_cat == "Контейнер" and not parsed.get("container_type_cn"):
+            missing.append("container_type_cn (Тип контейнера)")
+        elif t_cat == "Авто" and not parsed.get("transport_sub"):
+            missing.append("transport_sub (Вид авто)")
+        elif t_cat == "Мультимодальная" and not parsed.get("ports_list"):
+            missing.append("ports_list (Порты)")
+            
+        if reg == "Китай" and not parsed.get("border_crossing_cn"):
+            missing.append("border_crossing_cn (Погранпереход)")
         
         user_obj = await db.get_user(user_id)
         is_admin = user_obj and user_obj.get("role") in ["admin", "superuser"]

@@ -21,19 +21,26 @@ class AIAssistant:
     def _get_system_prompt(self, settings=None):
         today = datetime.now(TZ).strftime("%d.%m.%Y %H:%M")
         regions_list = settings.get("regions", []) if settings else []
-        regions_str = "|".join([r["name"] if isinstance(r, dict) else str(r) for r in regions_list]) or "СНГ|Европа|Китай|Турция|Индия/ЮВА|Другое"
+        if regions_list:
+            regions_str = "|".join([r["name"] if isinstance(r, dict) else str(r) for r in regions_list])
+        else:
+            regions_str = "СНГ|Европа|Китай|Турция|Индия/ЮВА|Америка|ОАЭ|Другое"
+
         transport_types = settings.get("transport_types", []) if settings else []
         transport_str = "|".join(str(t) for t in transport_types) or "Авто|Контейнер|Ж/Д Вагон|Авиа|Мультимодальная"
 
         return f"""Ты — Робот-Секретарь AGL. Твоя задача: идеально заполнять карточку заявки.
 
 ### ПРАВИЛА ОПРЕДЕЛЕНИЯ РЕГИОНА:
-Используй ТОЛЬКО точки А и Б (Откуда/Куда) для выбора из списка: [{regions_str}]
-1. ЕВРОПА: Если точка А или Б в Европе.
-2. КИТАЙ: Если точка А или Б в Китае.
-3. ТУРЦИЯ: Если точка А или Б в Турции.
-4. СНГ: Только если ОБЕ точки внутри СНГ.
-5. ТРАНЗИТ: Если упоминается транзит (например, "через Турцию"), запиши это в `transit_info`, но НЕ меняй основной регион (если маршрут Литва-Узбекистан, регион остается ЕВРОПА).
+Выбери ОДНО направление строго из списка: [{regions_str}]
+- ЕВРОПА: Любая страна ЕС (Литва, Польша, Германия...).
+- КИТАЙ: Любой город Китая.
+- ТУРЦИЯ: Турция (как точка А или Б).
+- ИНДИЯ/ЮВА: Индия, Вьетнам, Таиланд, Малайзия, Индонезия.
+- АМЕРИКА: США, Канада, Бразилия, Мексика.
+- ОАЭ: Дубай, Абу-Даби, Шарджа, Джебель-Али.
+- СНГ: Только если ОБЕ точки внутри СНГ (Узбекистан, РФ, Казахстан...).
+- ТРАНЗИТ: Если упоминается транзит (например, "через Турцию" или "через ОАЭ"), запиши это в `transit_info`, но НЕ меняй основной регион.
 
 ### СКРИПТ РАБОТЫ:
 - НИКОГДА НЕ ПРИДУМЫВАЙ ЦИФРЫ. Нет данных — ставь null.
@@ -41,18 +48,14 @@ class AIAssistant:
 - ЯЗЫК: Весь диалог и missing_fields — на РУССКОМ.
 - УДАЛЕНИЕ: "убери", "удали" — ставь null.
 
-### РУССКИЕ НАЗВАНИЯ ПОЛЕЙ:
-route_from/to: "Маршрут", cargo_name: "Груз", cargo_weight: "Вес", cargo_volume: "Объем", cargo_places: "Места", hs_code: "ТН ВЭД", transport_sub: "Вид транспорта", customs_address: "Затаможка", clearance_address: "Растаможка", transit_info: "Транзит".
-
 ### ФОРМАТ JSON:
 {{
-  "regions": "один из списка выше",
+  "regions": "строго один из списка выше",
   "transport_cat": "{transport_str}",
   "transport_sub": "вид",
   "route_from": "Город, Страна", "route_to": "Город, Страна",
   "cargo_name": "...", "cargo_weight": null, "cargo_volume": null, "cargo_places": null, "cargo_value": null, "hs_code": null,
-  "transit_info": "страна транзита или детали",
-  "extra_info": null, 
+  "transit_info": null, "extra_info": null, 
   "missing_fields": ["Название на русском"],
   "ready_to_publish": false,
   "next_question": "вопрос о данных"
@@ -106,7 +109,6 @@ Today's date: {today}
                 continue
             safe_val = html.escape(str(val))
             lines.append(f"{label}: <b>{safe_val}</b>")
-
         missing = draft.get("missing_fields", [])
         if missing:
             safe_missing = html.escape(", ".join(missing))

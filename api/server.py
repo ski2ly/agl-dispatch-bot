@@ -1226,13 +1226,16 @@ async def api_delete_request(request):
             return web.json_response({"error": "Request not found"}, status=404)
         
         # 2. Check permission: superuser, admin, or creator
-        if profile["role"] not in ["admin", "superuser"] and str(req.get("creator_id")) != str(profile["telegram_id"]):
-            return web.json_response({"error": "Forbidden: you are not the creator of this request"}, status=403)
+        is_super = profile["role"] in ["admin", "superuser"]
+        is_owner = str(req.get("creator_id")) == str(profile["telegram_id"])
+        
+        if not (is_super or is_owner):
+            return safe_json_response({"error": "Forbidden: you are not the creator of this request"}, status=403)
 
         # 3. Delete from DB and get Telegram IDs
         result = await db.delete_request(int(req_id))
         if not result:
-            return web.json_response({"error": "Failed to delete from DB"}, status=500)
+            return safe_json_response({"error": "Failed to delete from DB"}, status=500)
         
         # 4. Delete from Telegram Channel
         channel_id = settings.get("channel_id") or os.getenv("CHANNEL_ID")
@@ -1250,7 +1253,7 @@ async def api_delete_request(request):
             except Exception as e:
                 logger.warning(f"Could not delete discussion message: {e}")
 
-        return web.json_response({"success": True})
+        return safe_json_response({"success": True})
     except Exception as e:
         logger.error(f"api_delete_request error: {e}")
         return web.json_response({"error": str(e)}, status=500)
@@ -1275,13 +1278,16 @@ async def api_delete_bid(request):
             return web.json_response({"error": "Bid not found"}, status=404)
 
         # 2. Check permission: superuser, admin, or creator
-        if profile["role"] not in ["admin", "superuser"] and str(db_bid.get("user_id")) != str(profile["telegram_id"]):
-            return web.json_response({"error": "Forbidden: you are not the owner of this bid"}, status=403)
+        is_super = profile["role"] in ["admin", "superuser"]
+        is_owner = str(db_bid.get("user_id")) == str(profile["telegram_id"])
+        
+        if not (is_super or is_owner):
+            return safe_json_response({"error": "Forbidden: you are not the owner of this bid"}, status=403)
 
         # 3. Delete from DB
         result = await db.delete_bid(int(bid_id))
         if not result:
-            return web.json_response({"error": "Failed to delete from DB"}, status=500)
+            return safe_json_response({"error": "Failed to delete from DB"}, status=500)
         
         # 4. Delete from Telegram Group if tracked
         disc_id = settings.get("discussion_id") or os.getenv("DISCUSSION_GROUP_ID")
@@ -1291,7 +1297,7 @@ async def api_delete_bid(request):
             except Exception as e:
                 logger.warning(f"Could not delete bid message: {e}")
 
-        return web.json_response({"success": True})
+        return safe_json_response({"success": True})
     except Exception as e:
         logger.error(f"api_delete_bid error: {e}")
         return web.json_response({"error": str(e)}, status=500)

@@ -39,6 +39,7 @@ def build_card(req: dict) -> str:
         title += " - СРОЧНАЯ 🔥"
 
     t_cat = str(req.get("transport_cat", ""))
+    t_sub = v("transport_sub")
     reg = req.get("regions", "Другое")
 
     lines = [
@@ -46,10 +47,13 @@ def build_card(req: dict) -> str:
         "",
         f"Направление: {reg}",
         f"Тип перевозки: {t_cat}",
-        f"Источник: {v('source', 'Не указан')}",
-        "",
-        f"{v('route_from', '?')} ➔ {v('route_to', '?')}",
     ]
+    if t_sub:
+        lines.append(f"Вид: {t_sub}")
+    
+    lines.append(f"Источник: {v('source', 'Не указан')}")
+    lines.append("")
+    lines.append(f"{v('route_from', '?')} ➔ {v('route_to', '?')}")
 
     # Optional address lines — only show if filled
     for key, label in [("loading_address", "Погрузка"), ("customs_address", "Затаможка"), ("clearance_address", "Растаможка"), ("unloading_address", "Выгрузка")]:

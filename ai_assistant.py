@@ -23,34 +23,23 @@ class AIAssistant:
         regions_list = settings.get("regions", []) if settings else []
         regions_str = "|".join([r["name"] if isinstance(r, dict) else str(r) for r in regions_list])
 
-        return f"""Ты — Эксперт-Логист AGL. Твоя задача: идеально извлечь данные.
+        return f"""Ты — Эксперт-Логист AGL. Твоя задача: извлечь ВСЕ детали.
 
-### ГЕОГРАФИЯ (СТРОГО):
-- ИНДИЯ/ЮВА: Индия, Филиппины (Philippines), Вьетнам, Малайзия, Таиланд, Индонезия.
-- КИТАЙ: Только материковый Китай. ПРИОРИТЕТ: Если есть Китай — Китай.
-- ЕВРОПА: ЕС.
-- ОАЭ: Эмираты.
-
-### ПРАВИЛА ВЕСА И ОБЪЕМА:
-- В cargo_weight, cargo_volume ПИШИ ТОЛЬКО ЧИСЛА.
-- Если в тексте "20 тонн" -> пиши "20000".
-- Если "50 кубов" -> пиши "50".
-- Убирай любые слова (кг, тонны, м3, фут).
-
-### ДОПОЛНИТЕЛЬНО (extra_info):
-- Обязательно пиши сюда специфику погрузки: слип-шиты, ручная перегрузка, паллеты, навалом. Это ВАЖНО.
+### ПРАВИЛА (КРИТИЧНО):
+1. ГЕОГРАФИЯ: Филиппины, Вьетнам, Малайзия, Таиланд, Индонезия -> Индия/ЮВА.
+2. ДОПОЛНИТЕЛЬНО (extra_info): Обязательно пиши сюда ВСЁ: упаковка, способы погрузки (слип-шиты, ручная перевалка), специфику груза (в железных баночках). НЕ ТЕРЯЙ ЭТУ ИНФОРМАЦИЮ.
+3. ЦИФРЫ: В вес/объем пиши ТОЛЬКО ЧИСЛА. 20 тонн -> 20000.
+4. МЫСЛИ: Если есть инфо о погрузке — она ДОЛЖНА быть в `extra_info`.
 
 ### ФОРМАТ JSON:
 {{
   "regions": "Индия/ЮВА",
+  "extra_info": "Грузят мягкими слип-шитами, поэтому перегрузка ручная будет. Ананасы в железных баночках.",
   "transport_cat": "Контейнер",
-  "transport_sub": "20DC",
-  "route_from": "General Santos, Филиппины", "route_to": "Ташкент, Узбекистан",
-  "cargo_name": "Консервированные ананасы", "cargo_weight": "20000", "hs_code": "2008207900",
-  "extra_info": "Погрузка слип-шитами, перегрузка ручная.", 
+  "route_from": "...", "route_to": "...",
+  "cargo_name": "...", "cargo_weight": "20000",
   "missing_fields": ["Стоимость"],
-  "ready_to_publish": false,
-  "next_question": "Уточните стоимость груза и валюту?"
+  "next_question": "..."
 }}
 
 Today's date: {today}
@@ -83,6 +72,7 @@ Today's date: {today}
 
     def build_preview(self, draft: dict) -> str:
         import html
+        import re
         lines = []
         reg = draft.get("regions", "Другое")
         t_cat = draft.get("transport_cat", "Авто")
@@ -116,8 +106,6 @@ Today's date: {today}
         lines.append("")
         if draft.get("cargo_weight"):
             w = str(draft.get("cargo_weight"))
-            # CLEANUP: Remove any text from weight if it was leaked by AI
-            import re
             nums = re.findall(r'\d+', w)
             if nums:
                 val_num = int(nums[0])
@@ -129,7 +117,6 @@ Today's date: {today}
             lines.append(f"Мест: <b>{html.escape(str(draft.get('cargo_places')))}</b>")
         if draft.get("cargo_volume"):
             vol = str(draft.get("cargo_volume"))
-            import re
             nums = re.findall(r'\d+', vol)
             if nums:
                 val_num = int(nums[0])
@@ -155,8 +142,10 @@ Today's date: {today}
             lines.append("\nСпецифика:")
             lines.extend(spec_fields)
             
-        if draft.get("extra_info"):
-            lines.append(f"\nДополнительно:\n<b>{html.escape(str(draft.get('extra_info')))}</b>")
+        # Ensure Extra Info is VISIBLE and has a separator
+        extra = draft.get("extra_info")
+        if extra and str(extra).strip() not in ("-", "", "None", "null"):
+            lines.append(f"\nДополнительно:\n<b>{html.escape(str(extra))}</b>")
             
         missing = draft.get("missing_fields", [])
         if missing:

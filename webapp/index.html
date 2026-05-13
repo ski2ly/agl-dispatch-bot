@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="ru">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -9,26 +10,119 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800&display=swap');
+
         :root {
-            --corp-deep: #004341; --corp-emerald: #1B8056; --corp-light-emerald: #1B9E61; --corp-lime: #86BF6B; --corp-cream: #E3EDC4;
-            --bg: #ffffff; --secondary-bg: #f5f7f5; --text-main: #004341; --text-hint: rgba(0, 67, 65, 0.6); --input-bg: #ffffff; --card-shadow: 0 10px 25px -5px rgba(0, 67, 65, 0.1);
+            --corp-deep: #004341;
+            --corp-emerald: #1B8056;
+            --corp-light-emerald: #1B9E61;
+            --corp-lime: #86BF6B;
+            --corp-cream: #E3EDC4;
+            --bg: #ffffff;
+            --secondary-bg: #f5f7f5;
+            --text-main: #004341;
+            --text-hint: rgba(0, 67, 65, 0.6);
+            --input-bg: #ffffff;
+            --card-shadow: 0 10px 25px -5px rgba(0, 67, 65, 0.1);
         }
+
         [data-theme="dark"] {
-            --bg: #002a29; --secondary-bg: #003635; --text-main: #E3EDC4; --text-hint: rgba(227, 237, 196, 0.6); --input-bg: #004341; --card-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+            --bg: #002a29;
+            --secondary-bg: #003635;
+            --text-main: #E3EDC4;
+            --text-hint: rgba(227, 237, 196, 0.6);
+            --input-bg: #004341;
+            --card-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
         }
-        body { background-color: var(--bg); color: var(--text-main); font-family: 'Outfit', sans-serif; transition: all 0.3s ease; -webkit-tap-highlight-color: transparent; }
-        .glass-card { background: var(--input-bg); border: 1px solid rgba(27, 128, 86, 0.1); box-shadow: var(--card-shadow); border-radius: 1.5rem; }
-        .tg-input { background: var(--input-bg); color: var(--text-main); border: 1.5px solid rgba(27, 128, 86, 0.1); border-radius: 1rem; transition: all 0.2s ease; }
-        .tg-input:focus { border-color: var(--corp-lime); box-shadow: 0 0 0 3px rgba(134, 191, 107, 0.15); outline: none; }
-        .btn-primary { background: linear-gradient(135deg, var(--corp-emerald), var(--corp-deep)); color: #ffffff; font-weight: 700; border-radius: 1rem; }
-        .tab-active { color: var(--corp-emerald); font-weight: 800; border-bottom: 3px solid var(--corp-emerald); }
-        .choice-active { background: var(--corp-emerald) !important; color: white !important; border-color: var(--corp-lime); }
-        .step-container { display: none; } .step-container.active { display: block; }
-        .bottom-nav { background: var(--bg); border-top: 1px solid rgba(27, 128, 86, 0.1); backdrop-filter: blur(10px); }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        .animate-fade { animation: fadeIn 0.4s ease forwards; }
-        .admin-tab { display: none; } .admin-tab.active { display: block; }
-        .no-scrollbar::-webkit-scrollbar { display: none; }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text-main);
+            font-family: 'Outfit', sans-serif;
+            transition: all 0.3s ease;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .glass-card {
+            background: var(--input-bg);
+            border: 1px solid rgba(27, 128, 86, 0.1);
+            box-shadow: var(--card-shadow);
+            border-radius: 1.5rem;
+        }
+
+        .tg-input {
+            background: var(--input-bg);
+            color: var(--text-main);
+            border: 1.5px solid rgba(27, 128, 86, 0.1);
+            border-radius: 1rem;
+            transition: all 0.2s ease;
+        }
+
+        .tg-input:focus {
+            border-color: var(--corp-lime);
+            box-shadow: 0 0 0 3px rgba(134, 191, 107, 0.15);
+            outline: none;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--corp-emerald), var(--corp-deep));
+            color: #ffffff;
+            font-weight: 700;
+            border-radius: 1rem;
+        }
+
+        .tab-active {
+            color: var(--corp-emerald);
+            font-weight: 800;
+            border-bottom: 3px solid var(--corp-emerald);
+        }
+
+        .choice-active {
+            background: var(--corp-emerald) !important;
+            color: white !important;
+            border-color: var(--corp-lime);
+        }
+
+        .step-container {
+            display: none;
+        }
+
+        .step-container.active {
+            display: block;
+        }
+
+        .bottom-nav {
+            background: var(--bg);
+            border-top: 1px solid rgba(27, 128, 86, 0.1);
+            backdrop-filter: blur(10px);
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .animate-fade {
+            animation: fadeIn 0.4s ease forwards;
+        }
+
+        .admin-tab {
+            display: none;
+        }
+
+        .admin-tab.active {
+            display: block;
+        }
+
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
 
         /* Admin Roller Styling */
         .admin-roller {
@@ -43,64 +137,125 @@
             padding: 4px 24px;
             margin: 0 -24px;
         }
-        .admin-roller::-webkit-scrollbar { display: none; }
+
+        .admin-roller::-webkit-scrollbar {
+            display: none;
+        }
+
         .admin-tab-btn {
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             white-space: nowrap;
         }
+
         .admin-tab-btn.active {
             background: var(--corp-cream) !important;
             color: var(--corp-deep) !important;
             opacity: 1 !important;
             transform: scale(1.05);
         }
-        .bc-selected { background: var(--corp-cream) !important; color: var(--corp-deep) !important; border-color: var(--corp-lime) !important; }
-        .bc-selected .bc-check-icon { opacity: 1 !important; color: var(--corp-emerald); }
-        .bc-selected .bc-check-icon::before { content: '\2705'; }
-        .bc-selected .bc-check-icon { content: ''; }
+
+        .bc-selected {
+            background: var(--corp-cream) !important;
+            color: var(--corp-deep) !important;
+            border-color: var(--corp-lime) !important;
+        }
+
+        .bc-selected .bc-check-icon {
+            opacity: 1 !important;
+            color: var(--corp-emerald);
+        }
+
+        .bc-selected .bc-check-icon::before {
+            content: '\2705';
+        }
+
+        .bc-selected .bc-check-icon {
+            content: '';
+        }
 
         /* Custom Input Modal */
         .custom-input-overlay {
-            position: fixed; inset: 0; z-index: 200;
-            background: rgba(0,0,0,0.5); backdrop-filter: blur(6px);
-            display: flex; align-items: center; justify-content: center;
-            opacity: 0; pointer-events: none;
+            position: fixed;
+            inset: 0;
+            z-index: 200;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(6px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
             transition: opacity 0.25s ease;
         }
-        .custom-input-overlay.visible { opacity: 1; pointer-events: auto; }
+
+        .custom-input-overlay.visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
         .custom-input-card {
-            width: 88%; max-width: 360px;
-            background: var(--bg); border-radius: 2rem;
-            padding: 2rem; box-shadow: 0 25px 60px rgba(0,0,0,0.3);
+            width: 88%;
+            max-width: 360px;
+            background: var(--bg);
+            border-radius: 2rem;
+            padding: 2rem;
+            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.3);
             transform: translateY(20px) scale(0.95);
             transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
+
         .custom-input-overlay.visible .custom-input-card {
             transform: translateY(0) scale(1);
         }
+
         .custom-input-card input {
-            width: 100%; padding: 1rem; margin: 1rem 0;
-            border: 2px solid rgba(27, 128, 86, 0.2); border-radius: 1rem;
-            background: var(--input-bg); color: var(--text-main);
-            font-family: 'Outfit', sans-serif; font-size: 14px; font-weight: 600;
-            outline: none; transition: border-color 0.2s;
+            width: 100%;
+            padding: 1rem;
+            margin: 1rem 0;
+            border: 2px solid rgba(27, 128, 86, 0.2);
+            border-radius: 1rem;
+            background: var(--input-bg);
+            color: var(--text-main);
+            font-family: 'Outfit', sans-serif;
+            font-size: 14px;
+            font-weight: 600;
+            outline: none;
+            transition: border-color 0.2s;
         }
+
         .custom-input-card input:focus {
             border-color: var(--corp-lime);
             box-shadow: 0 0 0 4px rgba(134, 191, 107, 0.15);
         }
-        .custom-input-actions { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
+
+        .custom-input-actions {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+        }
+
         .custom-input-actions button {
-            flex: 1; padding: 0.9rem; border: none; border-radius: 1rem;
-            font-family: 'Outfit', sans-serif; font-weight: 700;
-            font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em;
-            cursor: pointer; transition: all 0.15s ease;
+            flex: 1;
+            padding: 0.9rem;
+            border: none;
+            border-radius: 1rem;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 700;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            cursor: pointer;
+            transition: all 0.15s ease;
         }
+
         .custom-input-actions .ci-cancel {
-            background: var(--secondary-bg); color: var(--text-hint);
+            background: var(--secondary-bg);
+            color: var(--text-hint);
         }
+
         .custom-input-actions .ci-confirm {
-            background: linear-gradient(135deg, var(--corp-emerald), var(--corp-deep)); color: #fff;
+            background: linear-gradient(135deg, var(--corp-emerald), var(--corp-deep));
+            color: #fff;
         }
 
         /* Fix select dropdown on mobile: ensure proper tap target */
@@ -120,14 +275,20 @@
         }
     </style>
 </head>
+
 <body class="antialiased min-h-screen pb-24">
     <!-- LOGIN -->
     <div id="login-screen" class="fixed inset-0 z-[100] bg-[var(--bg)] flex items-center justify-center hidden">
         <div class="w-full max-w-xs p-8 text-center space-y-8">
             <img src="/logo/arrow_default.png" class="w-24 h-24 mx-auto object-contain">
-            <div><h1 class="text-3xl font-extrabold tracking-tight">AGL Premium</h1><p class="text-xs text-[var(--text-hint)] mt-2">Введите ключ доступа</p></div>
-            <input type="password" id="login-key-input" class="w-full p-4 tg-input text-center font-bold tracking-[0.5em]">
-            <button onclick="attemptLogin()" id="login-btn" class="w-full py-5 btn-primary uppercase tracking-widest text-xs">Войти</button>
+            <div>
+                <h1 class="text-3xl font-extrabold tracking-tight">AGL Premium</h1>
+                <p class="text-xs text-[var(--text-hint)] mt-2">Введите ключ доступа</p>
+            </div>
+            <input type="password" id="login-key-input"
+                class="w-full p-4 tg-input text-center font-bold tracking-[0.5em]">
+            <button onclick="attemptLogin()" id="login-btn"
+                class="w-full py-5 btn-primary uppercase tracking-widest text-xs">Войти</button>
         </div>
     </div>
 
@@ -136,11 +297,17 @@
         <header class="px-6 pt-6 pb-4 flex justify-between items-center sticky top-0 bg-[var(--bg)] z-50">
             <div class="flex items-center space-x-3">
                 <img src="/logo/arrow_default.png" class="w-10 h-10 object-contain">
-                <div><h2 class="text-xl font-extrabold leading-none">AGL</h2><p class="text-[8px] font-bold text-[var(--corp-lime)] tracking-widest uppercase">Platform</p></div>
+                <div>
+                    <h2 class="text-xl font-extrabold leading-none">AGL</h2>
+                    <p class="text-[8px] font-bold text-[var(--corp-lime)] tracking-widest uppercase">Platform</p>
+                </div>
             </div>
             <div class="flex items-center space-x-2">
-                <button onclick="openTariffsModal()" class="px-3 py-1 bg-[var(--corp-cream)] text-[var(--corp-deep)] rounded-full text-[10px] font-bold uppercase tracking-tighter shadow-sm">📑 Тарифы</button>
-                <div id="user-profile-badge" class="px-3 py-1 bg-[var(--secondary-bg)] rounded-full border border-[var(--corp-lime)]/20 text-[10px] font-bold uppercase tracking-tighter">
+                <button onclick="openTariffsModal()"
+                    class="px-3 py-1 bg-[var(--corp-cream)] text-[var(--corp-deep)] rounded-full text-[10px] font-bold uppercase tracking-tighter shadow-sm">📑
+                    Тарифы</button>
+                <div id="user-profile-badge"
+                    class="px-3 py-1 bg-[var(--secondary-bg)] rounded-full border border-[var(--corp-lime)]/20 text-[10px] font-bold uppercase tracking-tighter">
                     <span id="user-name-display">...</span>
                 </div>
             </div>
@@ -157,29 +324,42 @@
             <div id="step-2" class="step-container space-y-8 animate-fade">
                 <h1 class="text-3xl font-extrabold">Способ доставки</h1>
                 <div class="grid grid-cols-2 gap-3">
-                    <button onclick="selectMethod('Авто')" id="met-road" class="p-5 tg-input font-bold text-xs">АВТО</button>
-                    <button onclick="selectMethod('Контейнер')" id="met-cont" class="p-5 tg-input font-bold text-xs">КОНТЕЙНЕР</button>
-                    <button onclick="selectMethod('Ж/Д Вагон')" id="met-rail" class="p-5 tg-input font-bold text-xs">ВАГОН</button>
-                    <button onclick="selectMethod('Авиа')" id="met-air" class="p-5 tg-input font-bold text-xs">АВИА</button>
-                    <button onclick="selectMethod('Мультимодальная')" id="met-multi" class="p-5 tg-input font-bold text-xs">МУЛЬТИ</button>
+                    <button onclick="selectMethod('Авто')" id="met-road"
+                        class="p-5 tg-input font-bold text-xs">АВТО</button>
+                    <button onclick="selectMethod('Контейнер')" id="met-cont"
+                        class="p-5 tg-input font-bold text-xs">КОНТЕЙНЕР</button>
+                    <button onclick="selectMethod('Ж/Д Вагон')" id="met-rail"
+                        class="p-5 tg-input font-bold text-xs">ВАГОН</button>
+                    <button onclick="selectMethod('Авиа')" id="met-air"
+                        class="p-5 tg-input font-bold text-xs">АВИА</button>
+                    <button onclick="selectMethod('Мультимодальная')" id="met-multi"
+                        class="p-5 tg-input font-bold text-xs">МУЛЬТИ</button>
                 </div>
-                <button onclick="goToStep1()" class="w-full py-4 text-[var(--corp-emerald)] font-bold text-xs uppercase opacity-60">← Назад</button>
+                <button onclick="goToStep1()"
+                    class="w-full py-4 text-[var(--corp-emerald)] font-bold text-xs uppercase opacity-60">←
+                    Назад</button>
             </div>
 
             <div id="step-3" class="step-container space-y-8 animate-fade pb-12">
                 <div class="flex items-center justify-between">
-                    <button onclick="goToStep2()" id="btn-back-step3" class="text-[var(--corp-emerald)] font-bold text-sm">← Способ</button>
-                    <div class="px-4 py-1.5 bg-[var(--corp-cream)] text-[var(--corp-deep)] rounded-full text-[10px] font-extrabold uppercase tracking-tighter" id="summary-badge">---</div>
+                    <button onclick="goToStep2()" id="btn-back-step3"
+                        class="text-[var(--corp-emerald)] font-bold text-sm">← Способ</button>
+                    <div class="px-4 py-1.5 bg-[var(--corp-cream)] text-[var(--corp-deep)] rounded-full text-[10px] font-extrabold uppercase tracking-tighter"
+                        id="summary-badge">---</div>
                 </div>
                 <form id="requestForm" class="space-y-8">
-                    <div id="edit-only-fields" class="hidden space-y-4 p-6 bg-[var(--secondary-bg)] rounded-[2rem] border border-[var(--corp-lime)]/30">
+                    <div id="edit-only-fields"
+                        class="hidden space-y-4 p-6 bg-[var(--secondary-bg)] rounded-[2rem] border border-[var(--corp-lime)]/30">
                         <div class="space-y-2">
                             <label class="block text-[10px] font-bold uppercase opacity-40">Статус заявки</label>
-                            <select id="status-select" class="w-full p-4 tg-input text-sm font-bold" onchange="toggleStatusDetails()"></select>
+                            <select id="status-select" class="w-full p-4 tg-input text-sm font-bold"
+                                onchange="toggleStatusDetails()"></select>
                         </div>
                         <div id="feedback-block" class="space-y-2 hidden">
-                            <label class="block text-[10px] font-bold uppercase opacity-40">Фидбэк по заявке (Опрос)</label>
-                            <select id="feedback_select" class="w-full p-4 tg-input text-sm font-bold" onchange="handleOtherInput(this)">
+                            <label class="block text-[10px] font-bold uppercase opacity-40">Фидбэк по заявке
+                                (Опрос)</label>
+                            <select id="feedback_select" class="w-full p-4 tg-input text-sm font-bold"
+                                onchange="handleOtherInput(this)">
                                 <option value="">Оставить фидбэк...</option>
                                 <option value="Подтвердили">Подтвердили</option>
                                 <option value="Клиент не заинтересован">Клиент не заинтересован</option>
@@ -196,26 +376,39 @@
                             <label class="block text-[10px] font-bold uppercase opacity-40">Причина отмены</label>
                             <select id="cancel_reason" class="w-full p-4 tg-input text-sm bg-red-50/50"></select>
                         </div>
-                        <button type="button" onclick="pingLogistics()" id="btn-ping-logistics" class="w-full py-4 mt-2 bg-blue-900 text-white rounded-2xl font-bold text-xs uppercase shadow border border-blue-400">🔔 Напомнить в канал</button>
-                        
+                        <button type="button" onclick="pingLogistics()" id="btn-ping-logistics"
+                            class="w-full py-4 mt-2 bg-blue-900 text-white rounded-2xl font-bold text-xs uppercase shadow border border-blue-400">🔔
+                            Напомнить в канал</button>
+
                         <!-- BIDS LIST INSIDE FORM -->
                         <div class="pt-4 border-t border-[var(--corp-lime)]/10">
-                            <label class="block text-[10px] font-bold uppercase opacity-40 mb-3">Ставки от логистов</label>
+                            <label class="block text-[10px] font-bold uppercase opacity-40 mb-3">Ставки от
+                                логистов</label>
                             <div id="request-bids-list" class="space-y-3"></div>
                         </div>
 
                         <!-- COMMENTS/HISTORY -->
                         <div class="pt-6 border-t border-[var(--corp-lime)]/10">
-                            <label class="block text-[10px] font-bold uppercase opacity-40 mb-3">История обсуждения</label>
+                            <label class="block text-[10px] font-bold uppercase opacity-40 mb-3">История
+                                обсуждения</label>
                             <div id="request-comments-list" class="space-y-3"></div>
                         </div>
 
-                        <button type="button" onclick="mainButtonClicked()" class="w-full py-5 bg-[var(--corp-emerald)] text-white text-xs font-bold uppercase rounded-2xl shadow-xl mt-6">СОХРАНИТЬ ИЗМЕНЕНИЯ</button>
+                        <button type="button" onclick="mainButtonClicked()"
+                            class="w-full py-5 bg-[var(--corp-emerald)] text-white text-xs font-bold uppercase rounded-2xl shadow-xl mt-6">СОХРАНИТЬ
+                            ИЗМЕНЕНИЯ</button>
                     </div>
                     <section class="space-y-4">
-                        <div class="grid grid-cols-2 gap-4"><input type="text" id="route_from" placeholder="Откуда *" class="w-full p-4 tg-input text-sm"><input type="text" id="route_to" placeholder="Куда *" class="w-full p-4 tg-input text-sm"></div>
-                        <div class="grid grid-cols-2 gap-4"><input type="text" id="loading_address" placeholder="Адрес погрузки" class="w-full p-4 tg-input text-xs"><input type="text" id="customs_address" placeholder="Затаможка" class="w-full p-4 tg-input text-xs"></div>
-                        <div class="grid grid-cols-2 gap-4"><input type="text" id="clearance_address" placeholder="Растаможка" class="w-full p-4 tg-input text-xs"><input type="text" id="unloading_address" placeholder="Адрес выгрузки" class="w-full p-4 tg-input text-xs"></div>
+                        <div class="grid grid-cols-2 gap-4"><input type="text" id="route_from" placeholder="Откуда *"
+                                class="w-full p-4 tg-input text-sm"><input type="text" id="route_to"
+                                placeholder="Куда *" class="w-full p-4 tg-input text-sm"></div>
+                        <div class="grid grid-cols-2 gap-4"><input type="text" id="loading_address"
+                                placeholder="Адрес погрузки" class="w-full p-4 tg-input text-xs"><input type="text"
+                                id="customs_address" placeholder="Затаможка" class="w-full p-4 tg-input text-xs"></div>
+                        <div class="grid grid-cols-2 gap-4"><input type="text" id="clearance_address"
+                                placeholder="Растаможка" class="w-full p-4 tg-input text-xs"><input type="text"
+                                id="unloading_address" placeholder="Адрес выгрузки" class="w-full p-4 tg-input text-xs">
+                        </div>
                         <div class="space-y-2">
                             <label class="block text-[10px] font-bold uppercase opacity-40">Источник заявки</label>
                             <select id="source" class="w-full p-4 tg-input text-sm font-bold">
@@ -223,40 +416,55 @@
                             </select>
                         </div>
                     </section>
-                    <div id="dynamic-fields" class="space-y-6 bg-[var(--secondary-bg)] p-6 rounded-[2rem] border border-[var(--corp-lime)]/10"></div>
+                    <div id="dynamic-fields"
+                        class="space-y-6 bg-[var(--secondary-bg)] p-6 rounded-[2rem] border border-[var(--corp-lime)]/10">
+                    </div>
                     <section class="space-y-5">
                         <input type="text" id="cargo_name" placeholder="Груз *" class="w-full p-4 tg-input text-sm">
-                        <div class="grid grid-cols-2 gap-4">
-                            <div class="flex gap-1">
-                                <input type="text" id="cargo_value" placeholder="Стоимость *" class="w-2/3 p-4 tg-input text-sm">
-                                <select id="cargo_currency" class="w-1/3 p-4 tg-input text-xs font-bold" onchange="handleOtherInput(this)">
+                        <div class="space-y-4">
+                            <label class="block text-[10px] font-bold uppercase opacity-40">Стоимость и ТН ВЭД</label>
+                            <div class="grid grid-cols-3 gap-2">
+                                <input type="text" id="cargo_value" placeholder="Стоимость *"
+                                    class="col-span-2 p-4 tg-input text-sm font-bold">
+                                <select id="cargo_currency"
+                                    class="col-span-1 p-4 tg-input text-sm font-bold bg-[var(--secondary-bg)]"
+                                    onchange="handleOtherInput(this)">
                                     <option value="USD">USD</option>
                                     <option value="EUR">EUR</option>
                                     <option value="RUB">RUB</option>
                                     <option value="CNY">CNY</option>
-                                    <option value="Другое">Другое...</option>
+                                    <option value="UZS">UZS</option>
+                                    <option value="KZT">KZT</option>
+                                    <option value="Другое">...</option>
                                 </select>
                             </div>
-                            <input type="text" id="hs_code" placeholder="ТН ВЭД *" class="w-full p-4 tg-input text-sm">
+                            <input type="text" id="hs_code" placeholder="Код ТН ВЭД (10 знаков) *"
+                                class="w-full p-4 tg-input text-sm">
                         </div>
                         <div class="grid grid-cols-2 gap-4">
-                            <input type="text" id="cargo_weight" placeholder="Вес (кг) *" class="w-full p-4 tg-input text-sm">
-                            <input type="text" id="cargo_places" placeholder="Кол-во мест *" class="w-full p-4 tg-input text-sm">
+                            <input type="text" id="cargo_weight" placeholder="Вес (кг) *"
+                                class="w-full p-4 tg-input text-sm">
+                            <input type="text" id="cargo_places" placeholder="Кол-во мест *"
+                                class="w-full p-4 tg-input text-sm">
                         </div>
-                        <input type="text" id="cargo_volume" placeholder="Объем (м³) *" class="w-full p-4 tg-input text-sm">
+                        <input type="text" id="cargo_volume" placeholder="Объем (м³) *"
+                            class="w-full p-4 tg-input text-sm">
                         <div class="grid grid-cols-2 gap-4">
-                             <input type="text" id="packaging" placeholder="Упаковка" class="w-full p-4 tg-input text-sm">
-                             <select id="dangerous_cargo" class="w-full p-4 tg-input text-sm" onchange="handleDangerousCargo(this)">
-                                 <option value="Нет">Груз: Обычный</option>
-                                 <option value="Да">🔥 ОПАСНЫЙ (ADR)</option>
-                                 <option value="Другое">Другое...</option>
-                             </select>
+                            <input type="text" id="packaging" placeholder="Упаковка"
+                                class="w-full p-4 tg-input text-sm">
+                            <select id="dangerous_cargo" class="w-full p-4 tg-input text-sm"
+                                onchange="handleDangerousCargo(this)">
+                                <option value="Нет">Груз: Обычный</option>
+                                <option value="Да">🔥 ОПАСНЫЙ (ADR)</option>
+                                <option value="Другое">Другое...</option>
+                            </select>
                         </div>
 
                         <!-- Stackable, Oversized, Temperature -->
                         <div class="grid grid-cols-2 gap-4">
                             <div class="space-y-1">
-                                <label class="block text-[8px] font-bold uppercase opacity-40 ml-2">Штабелируемость</label>
+                                <label
+                                    class="block text-[8px] font-bold uppercase opacity-40 ml-2">Штабелируемость</label>
                                 <select id="stackable" class="w-full p-4 tg-input text-sm font-bold">
                                     <option value="">Не указано</option>
                                     <option value="Да">Да</option>
@@ -265,70 +473,91 @@
                             </div>
                             <div class="space-y-1">
                                 <label class="block text-[8px] font-bold uppercase opacity-40 ml-2">Габариты</label>
-                                <select id="cargo_oversized" class="w-full p-4 tg-input text-sm font-bold" onchange="toggleOversized(this)">
+                                <select id="cargo_oversized" class="w-full p-4 tg-input text-sm font-bold"
+                                    onchange="toggleOversized(this)">
                                     <option value="Нет">Обычные</option>
                                     <option value="Да">⚠️ НЕГАБАРИТ</option>
                                 </select>
                             </div>
                         </div>
                         <div id="oversized-container" class="hidden animate-fade">
-                            <input type="text" id="cargo_dimensions" placeholder="Размеры (ДхШхВ, м)..." class="w-full p-4 tg-input text-sm">
+                            <input type="text" id="cargo_dimensions" placeholder="Размеры (ДхШхВ, м)..."
+                                class="w-full p-4 tg-input text-sm">
                         </div>
-                        
+
                         <div class="space-y-3">
-                            <div class="flex items-center space-x-3 p-4 bg-[var(--secondary-bg)] rounded-2xl border border-[var(--corp-lime)]/10">
-                                <input type="checkbox" id="temp_control" class="w-5 h-5 rounded accent-[var(--corp-emerald)]" onchange="toggleTemp(this)">
-                                <label for="temp_control" class="text-xs font-bold uppercase opacity-60">Температурный режим</label>
+                            <div
+                                class="flex items-center space-x-3 p-4 bg-[var(--secondary-bg)] rounded-2xl border border-[var(--corp-lime)]/10">
+                                <input type="checkbox" id="temp_control"
+                                    class="w-5 h-5 rounded accent-[var(--corp-emerald)]" onchange="toggleTemp(this)">
+                                <label for="temp_control" class="text-xs font-bold uppercase opacity-60">Температурный
+                                    режим</label>
                             </div>
                             <div id="temp-container" class="hidden animate-fade">
-                                <input type="text" id="temp_range" placeholder="Требуемый режим (напр. +2°...+8°C)..." class="w-full p-4 tg-input text-sm">
+                                <input type="text" id="temp_range" placeholder="Требуемый режим (напр. +2°...+8°C)..."
+                                    class="w-full p-4 tg-input text-sm">
                             </div>
                         </div>
 
                         <div id="adr-class-container" class="space-y-2 hidden animate-fade">
-                             <label class="block text-[10px] font-bold uppercase opacity-40">Класс опасности (ADR)</label>
-                             <select id="adr_class" class="w-full p-4 tg-input text-sm font-bold">
-                                 <option value="">-- Выберите класс --</option>
-                                 <option value="Класс 1">Класс 1 — Взрывчатые вещества</option>
-                                 <option value="Класс 2">Класс 2 — Газы</option>
-                                 <option value="Класс 3">Класс 3 — Легковоспламеняющиеся жидкости</option>
-                                 <option value="Класс 4">Класс 4 — Легковоспламеняющиеся твёрдые вещества</option>
-                                 <option value="Класс 5">Класс 5 — Окисляющие вещества</option>
-                                 <option value="Класс 6">Класс 6 — Токсичные вещества</option>
-                                 <option value="Класс 7">Класс 7 — Радиоактивные материалы</option>
-                                 <option value="Класс 8">Класс 8 — Коррозионные вещества</option>
-                                 <option value="Класс 9">Класс 9 — Прочие опасные вещества</option>
-                             </select>
+                            <label class="block text-[10px] font-bold uppercase opacity-40">Класс опасности
+                                (ADR)</label>
+                            <select id="adr_class" class="w-full p-4 tg-input text-sm font-bold">
+                                <option value="">-- Выберите класс --</option>
+                                <option value="Класс 1">Класс 1 — Взрывчатые вещества</option>
+                                <option value="Класс 2">Класс 2 — Газы</option>
+                                <option value="Класс 3">Класс 3 — Легковоспламеняющиеся жидкости</option>
+                                <option value="Класс 4">Класс 4 — Легковоспламеняющиеся твёрдые вещества</option>
+                                <option value="Класс 5">Класс 5 — Окисляющие вещества</option>
+                                <option value="Класс 6">Класс 6 — Токсичные вещества</option>
+                                <option value="Класс 7">Класс 7 — Радиоактивные материалы</option>
+                                <option value="Класс 8">Класс 8 — Коррозионные вещества</option>
+                                <option value="Класс 9">Класс 9 — Прочие опасные вещества</option>
+                            </select>
                         </div>
-                        <select id="urgency_type" class="w-full p-4 tg-input text-sm" onchange="handleOtherInput(this)"><option value="Стандарт">Срочность: Стандарт</option><option value="Срочно">🔥 СРОЧНО</option><option value="Другое">Другое...</option></select>
+                        <select id="urgency_type" class="w-full p-4 tg-input text-sm" onchange="handleOtherInput(this)">
+                            <option value="Стандарт">Срочность: Стандарт</option>
+                            <option value="Срочно">🔥 СРОЧНО</option>
+                            <option value="Другое">Другое...</option>
+                        </select>
                     </section>
                     <section class="space-y-5">
-                        <input type="text" id="client_company" placeholder="Компания клиента" class="w-full p-4 tg-input text-sm">
+                        <input type="text" id="client_company" placeholder="Компания клиента"
+                            class="w-full p-4 tg-input text-sm">
                         <div class="grid grid-cols-2 gap-4">
                             <div id="manager-input-container">
                                 <label class="block text-[8px] font-bold uppercase opacity-40 ml-2">Менеджер</label>
-                                <input type="text" id="responsible" class="w-full p-4 tg-input text-xs bg-[var(--secondary-bg)] opacity-60" readonly>
+                                <input type="text" id="responsible"
+                                    class="w-full p-4 tg-input text-xs bg-[var(--secondary-bg)] opacity-60" readonly>
                             </div>
                             <div id="manager-select-container" class="hidden">
-                                <label class="block text-[8px] font-bold uppercase opacity-40 ml-2">Менеджер (Admin)</label>
-                                <select id="responsible_select" class="w-full p-4 tg-input text-xs font-bold" onchange="document.getElementById('responsible').value = this.value">
+                                <label class="block text-[8px] font-bold uppercase opacity-40 ml-2">Менеджер
+                                    (Admin)</label>
+                                <select id="responsible_select" class="w-full p-4 tg-input text-xs font-bold"
+                                    onchange="document.getElementById('responsible').value = this.value">
                                     <option value="">-- Выберите менеджера --</option>
                                 </select>
                             </div>
                             <div class="space-y-1">
                                 <label class="block text-[8px] font-bold uppercase opacity-40 ml-2">Таргет $</label>
-                                <input type="text" id="target" placeholder="Целевая ставка" class="w-full p-4 tg-input text-sm">
+                                <input type="text" id="target" placeholder="Целевая ставка"
+                                    class="w-full p-4 tg-input text-sm">
                             </div>
-                        </div>                        
+                        </div>
                         <!-- ATTACHMENTS SECTION -->
                         <div class="space-y-3">
-                            <label class="block text-[10px] font-bold uppercase opacity-40">Вложения (фото, документы)</label>
+                            <label class="block text-[10px] font-bold uppercase opacity-40">Вложения (фото,
+                                документы)</label>
                             <div id="attachments-list" class="flex flex-wrap gap-2"></div>
-                            <button type="button" onclick="document.getElementById('file-upload-input').click()" class="w-full py-3 bg-[var(--secondary-bg)] border-2 border-dashed border-[var(--corp-lime)]/30 rounded-2xl text-[10px] font-bold uppercase opacity-60 hover:opacity-100 transition-all">+ Добавить файл</button>
-                            <input type="file" id="file-upload-input" class="hidden" multiple onchange="handleFileUpload(event)">
+                            <button type="button" onclick="document.getElementById('file-upload-input').click()"
+                                class="w-full py-3 bg-[var(--secondary-bg)] border-2 border-dashed border-[var(--corp-lime)]/30 rounded-2xl text-[10px] font-bold uppercase opacity-60 hover:opacity-100 transition-all">+
+                                Добавить файл</button>
+                            <input type="file" id="file-upload-input" class="hidden" multiple
+                                onchange="handleFileUpload(event)">
                         </div>
 
-                        <textarea id="message_text" placeholder="Комментарии..." class="w-full p-4 tg-input text-sm" rows="3"></textarea>
+                        <textarea id="message_text" placeholder="Комментарии..." class="w-full p-4 tg-input text-sm"
+                            rows="3"></textarea>
                     </section>
                 </form>
             </div>
@@ -337,8 +566,10 @@
         <main id="view-list" class="view-tab hidden px-6 pt-4 animate-fade space-y-4">
             <h1 class="text-3xl font-extrabold tracking-tight">Заявки</h1>
             <div class="flex space-x-2">
-                <input type="text" id="search-input" placeholder="Поиск..." class="flex-1 p-4 tg-input text-sm" oninput="debounceListSearch()">
-                <button onclick="toggleMyRequests()" id="my-req-toggle" class="px-4 py-2 bg-[var(--secondary-bg)] opacity-40 rounded-xl text-[10px] font-bold uppercase">МОИ</button>
+                <input type="text" id="search-input" placeholder="Поиск..." class="flex-1 p-4 tg-input text-sm"
+                    oninput="debounceListSearch()">
+                <button onclick="toggleMyRequests()" id="my-req-toggle"
+                    class="px-4 py-2 bg-[var(--secondary-bg)] opacity-40 rounded-xl text-[10px] font-bold uppercase">МОИ</button>
             </div>
             <div class="grid grid-cols-2 gap-2">
                 <select id="filter-status" class="p-3 tg-input text-[10px] font-bold" onchange="loadRequests()">
@@ -356,7 +587,8 @@
                     <option value="Индия/ЮВА">Индия/ЮВА</option>
                     <option value="Турция">Турция</option>
                 </select>
-                <select id="filter-transport" class="p-3 tg-input text-[10px] font-bold col-span-2" onchange="loadRequests()">
+                <select id="filter-transport" class="p-3 tg-input text-[10px] font-bold col-span-2"
+                    onchange="loadRequests()">
                     <option value="">Весь транспорт</option>
                     <option value="Авто">Авто</option>
                     <option value="Контейнер">Контейнер</option>
@@ -369,10 +601,12 @@
         </main>
 
         <main id="view-bids" class="view-tab hidden px-6 pt-4 animate-fade space-y-4">
-             <h1 class="text-3xl font-extrabold tracking-tight">Ставки</h1>
-             <div class="flex p-1 bg-[var(--secondary-bg)] rounded-2xl">
-                <button onclick="switchBidView('tenders')" id="bv-tenders" class="flex-1 py-3 text-[10px] font-extrabold rounded-xl">ТЕНДЕРЫ</button>
-                <button onclick="switchBidView('my')" id="bv-my" class="flex-1 py-3 text-[10px] font-extrabold rounded-xl opacity-40">МОИ СТАВКИ</button>
+            <h1 class="text-3xl font-extrabold tracking-tight">Ставки</h1>
+            <div class="flex p-1 bg-[var(--secondary-bg)] rounded-2xl">
+                <button onclick="switchBidView('tenders')" id="bv-tenders"
+                    class="flex-1 py-3 text-[10px] font-extrabold rounded-xl">ТЕНДЕРЫ</button>
+                <button onclick="switchBidView('my')" id="bv-my"
+                    class="flex-1 py-3 text-[10px] font-extrabold rounded-xl opacity-40">МОИ СТАВКИ</button>
             </div>
             <div id="tender-filters" class="grid grid-cols-2 gap-2">
                 <select id="tf-region" class="p-3 tg-input text-[10px] font-bold" onchange="switchBidView('tenders')">
@@ -381,7 +615,8 @@
                     <option value="Китай">Китай</option>
                     <option value="СНГ">СНГ</option>
                 </select>
-                <select id="tf-transport" class="p-3 tg-input text-[10px] font-bold" onchange="switchBidView('tenders')">
+                <select id="tf-transport" class="p-3 tg-input text-[10px] font-bold"
+                    onchange="switchBidView('tenders')">
                     <option value="">Весь транспорт</option>
                     <option value="Авто">Авто</option>
                     <option value="Контейнер">Контейнер</option>
@@ -397,78 +632,125 @@
             <div class="px-6 pt-4 pb-6 space-y-2 border-b border-[var(--corp-lime)]/10">
                 <h1 class="text-3xl font-extrabold tracking-tight">Управление</h1>
                 <div class="admin-roller py-2" id="admin-tabs-roller">
-                    <button onclick="switchAdminTab('users')" id="at-users" class="admin-tab-btn px-5 py-2.5 bg-[var(--secondary-bg)] opacity-40 rounded-xl text-[10px] font-bold uppercase active">Сотрудники</button>
-                    <button onclick="switchAdminTab('dict')" id="at-dict" class="admin-tab-btn px-5 py-2.5 bg-[var(--secondary-bg)] opacity-40 rounded-xl text-[10px] font-bold uppercase">Списки</button>
-                    <button onclick="switchAdminTab('stats')" id="at-stats" class="admin-tab-btn px-5 py-2.5 bg-[var(--secondary-bg)] opacity-40 rounded-xl text-[10px] font-bold uppercase">Аналитика</button>
-                    <button onclick="switchAdminTab('settings')" id="at-settings" class="admin-tab-btn px-5 py-2.5 bg-[var(--secondary-bg)] opacity-40 rounded-xl text-[10px] font-bold uppercase">Настройки</button>
-                    <button onclick="switchAdminTab('tariffs')" id="at-tariffs" class="admin-tab-btn px-5 py-2.5 bg-[var(--secondary-bg)] opacity-40 rounded-xl text-[10px] font-bold uppercase">Тарифы</button>
-                    <button onclick="switchAdminTab('broadcast')" id="at-broadcast" class="admin-tab-btn px-5 py-2.5 bg-[var(--secondary-bg)] opacity-40 rounded-xl text-[10px] font-bold uppercase">Уведомления</button>
+                    <button onclick="switchAdminTab('users')" id="at-users"
+                        class="admin-tab-btn px-5 py-2.5 bg-[var(--secondary-bg)] opacity-40 rounded-xl text-[10px] font-bold uppercase active">Сотрудники</button>
+                    <button onclick="switchAdminTab('dict')" id="at-dict"
+                        class="admin-tab-btn px-5 py-2.5 bg-[var(--secondary-bg)] opacity-40 rounded-xl text-[10px] font-bold uppercase">Списки</button>
+                    <button onclick="switchAdminTab('stats')" id="at-stats"
+                        class="admin-tab-btn px-5 py-2.5 bg-[var(--secondary-bg)] opacity-40 rounded-xl text-[10px] font-bold uppercase">Аналитика</button>
+                    <button onclick="switchAdminTab('settings')" id="at-settings"
+                        class="admin-tab-btn px-5 py-2.5 bg-[var(--secondary-bg)] opacity-40 rounded-xl text-[10px] font-bold uppercase">Настройки</button>
+                    <button onclick="switchAdminTab('tariffs')" id="at-tariffs"
+                        class="admin-tab-btn px-5 py-2.5 bg-[var(--secondary-bg)] opacity-40 rounded-xl text-[10px] font-bold uppercase">Тарифы</button>
+                    <button onclick="switchAdminTab('broadcast')" id="at-broadcast"
+                        class="admin-tab-btn px-5 py-2.5 bg-[var(--secondary-bg)] opacity-40 rounded-xl text-[10px] font-bold uppercase">Уведомления</button>
                 </div>
             </div>
             <!-- USERS -->
             <div id="admin-users" class="admin-tab active p-6 space-y-6">
                 <div class="flex space-x-2">
-                    <input type="text" id="user-search" placeholder="Поиск по имени..." class="flex-1 p-4 tg-input text-xs" oninput="renderUsersList()">
+                    <input type="text" id="user-search" placeholder="Поиск по имени..."
+                        class="flex-1 p-4 tg-input text-xs" oninput="renderUsersList()">
                 </div>
                 <div class="flex p-1 bg-[var(--secondary-bg)] rounded-2xl">
-                    <button onclick="filterUsers('all')" id="uf-all" class="flex-1 py-3 text-[9px] font-extrabold rounded-xl bg-[var(--corp-cream)] text-[var(--corp-deep)]">ВСЕ</button>
-                    <button onclick="filterUsers('admin')" id="uf-admin" class="flex-1 py-3 text-[9px] font-extrabold rounded-xl opacity-40">АДМИНЫ</button>
-                    <button onclick="filterUsers('manager')" id="uf-manager" class="flex-1 py-3 text-[9px] font-extrabold rounded-xl opacity-40">МЕНЕДЖЕРЫ</button>
+                    <button onclick="filterUsers('all')" id="uf-all"
+                        class="flex-1 py-3 text-[9px] font-extrabold rounded-xl bg-[var(--corp-cream)] text-[var(--corp-deep)]">ВСЕ</button>
+                    <button onclick="filterUsers('admin')" id="uf-admin"
+                        class="flex-1 py-3 text-[9px] font-extrabold rounded-xl opacity-40">АДМИНЫ</button>
+                    <button onclick="filterUsers('manager')" id="uf-manager"
+                        class="flex-1 py-3 text-[9px] font-extrabold rounded-xl opacity-40">МЕНЕДЖЕРЫ</button>
                 </div>
-                
+
                 <div id="user-editor-form" class="glass-card p-5 space-y-4 hidden animate-fade">
                     <div class="text-[10px] font-extrabold uppercase opacity-40">Редактор сотрудника</div>
                     <input type="hidden" id="edit-user-id">
-                    <input type="text" id="edit-user-name" placeholder="Имя Фамилия" class="w-full p-4 tg-input text-xs">
+                    <input type="text" id="edit-user-name" placeholder="Имя Фамилия"
+                        class="w-full p-4 tg-input text-xs">
                     <select id="edit-user-role" class="w-full p-4 tg-input text-xs font-bold">
                         <option value="manager">Менеджер (Manager)</option>
                         <option value="admin">Админ (Admin)</option>
                     </select>
                     <div id="edit-user-rotate-row" class="space-y-2">
                         <div class="flex space-x-2">
-                            <input type="text" id="edit-user-manual-key" placeholder="Пароль / Ключ доступа" class="flex-1 p-3 tg-input text-xs">
-                            <button type="button" onclick="generateRandomKey()" class="px-4 py-3 bg-[var(--corp-cream)] text-[var(--corp-deep)] text-[10px] font-bold rounded-xl uppercase">СГЕНЕРИРОВАТЬ</button>
-                            <button type="button" id="rotate-btn-real" onclick="rotateUserKey()" class="px-4 py-3 bg-[var(--corp-emerald)] text-white text-[10px] font-bold rounded-xl uppercase hidden">ОБНОВИТЬ</button>
+                            <input type="text" id="edit-user-manual-key" placeholder="Пароль / Ключ доступа"
+                                class="flex-1 p-3 tg-input text-xs">
+                            <button type="button" onclick="generateRandomKey()"
+                                class="px-4 py-3 bg-[var(--corp-cream)] text-[var(--corp-deep)] text-[10px] font-bold rounded-xl uppercase">СГЕНЕРИРОВАТЬ</button>
+                            <button type="button" id="rotate-btn-real" onclick="rotateUserKey()"
+                                class="px-4 py-3 bg-[var(--corp-emerald)] text-white text-[10px] font-bold rounded-xl uppercase hidden">ОБНОВИТЬ</button>
                         </div>
                     </div>
                     <div class="flex space-x-2 pt-2">
-                        <button onclick="saveUser()" class="flex-1 py-4 btn-primary text-[10px] uppercase shadow-md">Сохранить</button>
-                        <button onclick="hideUserEditor()" class="px-6 py-4 bg-gray-100 text-gray-500 text-[10px] uppercase font-bold rounded-2xl">Отмена</button>
+                        <button onclick="saveUser()"
+                            class="flex-1 py-4 btn-primary text-[10px] uppercase shadow-md">Сохранить</button>
+                        <button onclick="hideUserEditor()"
+                            class="px-6 py-4 bg-gray-100 text-gray-500 text-[10px] uppercase font-bold rounded-2xl">Отмена</button>
                     </div>
                 </div>
 
-                <button id="add-user-btn" onclick="showUserEditor()" class="w-full py-4 btn-primary text-[10px] uppercase shadow-md">+ Добавить сотрудника</button>
+                <button id="add-user-btn" onclick="showUserEditor()"
+                    class="w-full py-4 btn-primary text-[10px] uppercase shadow-md">+ Добавить сотрудника</button>
                 <div id="users-list-full" class="space-y-4 pb-12"></div>
             </div>
             <!-- DICT (Interactive List Editor) -->
             <div id="admin-dict" class="admin-tab p-6 space-y-6">
                 <div id="dict-selector-view" class="space-y-3">
-                    <button onclick="openDictEditor('incoterms')" class="w-full p-5 glass-card flex justify-between items-center font-bold text-xs uppercase">Инкотермс <span>➔</span></button>
-                    <button onclick="openDictEditor('ports')" class="w-full p-5 glass-card flex justify-between items-center font-bold text-xs uppercase">Порты <span>➔</span></button>
-                    <button onclick="openDictEditor('border_crossings')" class="w-full p-5 glass-card flex justify-between items-center font-bold text-xs uppercase">Погранпереходы <span>➔</span></button>
-                    <button onclick="openDictEditor('transport_subtypes')" class="w-full p-5 glass-card flex justify-between items-center font-bold text-xs uppercase">Подтипы транспорта <span>➔</span></button>
-                    <button onclick="openDictEditor('transport_types')" class="w-full p-5 glass-card flex justify-between items-center font-bold text-xs uppercase">🚛 Типы перевозки <span>➔</span></button>
-                    <button onclick="openDictEditor('regions')" class="w-full p-5 glass-card flex justify-between items-center font-bold text-xs uppercase">🌍 Регионы <span>➔</span></button>
-                    <button onclick="openDictEditor('currencies')" class="w-full p-5 glass-card flex justify-between items-center font-bold text-xs uppercase">💰 Валюты <span>➔</span></button>
-                    <button onclick="openDictEditor('sources')" class="w-full p-5 glass-card flex justify-between items-center font-bold text-xs uppercase">📣 Источники <span>➔</span></button>
-                    <button onclick="openDictEditor('cancel_reasons')" class="w-full p-5 glass-card flex justify-between items-center font-bold text-xs uppercase">❌ Причины отмены <span>➔</span></button>
+                    <button onclick="openDictEditor('incoterms')"
+                        class="w-full p-5 glass-card flex justify-between items-center font-bold text-xs uppercase">Инкотермс
+                        <span>➔</span></button>
+                    <button onclick="openDictEditor('ports')"
+                        class="w-full p-5 glass-card flex justify-between items-center font-bold text-xs uppercase">Порты
+                        <span>➔</span></button>
+                    <button onclick="openDictEditor('border_crossings')"
+                        class="w-full p-5 glass-card flex justify-between items-center font-bold text-xs uppercase">Погранпереходы
+                        <span>➔</span></button>
+                    <button onclick="openDictEditor('transport_subtypes')"
+                        class="w-full p-5 glass-card flex justify-between items-center font-bold text-xs uppercase">Подтипы
+                        транспорта <span>➔</span></button>
+                    <button onclick="openDictEditor('transport_types')"
+                        class="w-full p-5 glass-card flex justify-between items-center font-bold text-xs uppercase">🚛
+                        Типы перевозки <span>➔</span></button>
+                    <button onclick="openDictEditor('regions')"
+                        class="w-full p-5 glass-card flex justify-between items-center font-bold text-xs uppercase">🌍
+                        Регионы <span>➔</span></button>
+                    <button onclick="openDictEditor('currencies')"
+                        class="w-full p-5 glass-card flex justify-between items-center font-bold text-xs uppercase">💰
+                        Валюты <span>➔</span></button>
+                    <button onclick="openDictEditor('sources')"
+                        class="w-full p-5 glass-card flex justify-between items-center font-bold text-xs uppercase">📣
+                        Источники <span>➔</span></button>
+                    <button onclick="openDictEditor('cancel_reasons')"
+                        class="w-full p-5 glass-card flex justify-between items-center font-bold text-xs uppercase">❌
+                        Причины отмены <span>➔</span></button>
                 </div>
                 <div id="dict-editor-view" class="hidden space-y-4">
-                    <button onclick="closeDictEditor()" class="text-[10px] font-bold uppercase text-[var(--corp-emerald)]">← Назад</button>
-                    <div class="flex space-x-2"><input type="text" id="new-dict-item" placeholder="Новый..." class="flex-1 p-3 tg-input text-xs"><button onclick="addDictItem()" class="px-4 py-3 btn-primary text-[10px] font-bold">ДОБАВИТЬ</button></div>
+                    <button onclick="closeDictEditor()"
+                        class="text-[10px] font-bold uppercase text-[var(--corp-emerald)]">← Назад</button>
+                    <div class="flex space-x-2"><input type="text" id="new-dict-item" placeholder="Новый..."
+                            class="flex-1 p-3 tg-input text-xs"><button onclick="addDictItem()"
+                            class="px-4 py-3 btn-primary text-[10px] font-bold">ДОБАВИТЬ</button></div>
                     <div id="dict-items-list" class="space-y-2 max-h-[50vh] overflow-y-auto no-scrollbar"></div>
-                    <button onclick="saveDictChanges()" class="w-full py-4 btn-primary text-xs uppercase">Сохранить</button>
+                    <button onclick="saveDictChanges()"
+                        class="w-full py-4 btn-primary text-xs uppercase">Сохранить</button>
                 </div>
             </div>
             <!-- STATS (Excel Export) -->
             <div id="admin-stats" class="admin-tab p-6 space-y-6">
                 <div class="flex p-1 bg-[var(--secondary-bg)] rounded-2xl mb-2">
-                    <button onclick="changeStatsRange(7)" id="sf-7" class="flex-1 py-2 text-[8px] font-extrabold rounded-xl opacity-40">НЕДЕЛЯ</button>
-                    <button onclick="changeStatsRange(30)" id="sf-30" class="flex-1 py-2 text-[8px] font-extrabold rounded-xl bg-[var(--corp-cream)] text-[var(--corp-deep)]">МЕСЯЦ</button>
-                    <button onclick="changeStatsRange(0)" id="sf-0" class="flex-1 py-2 text-[8px] font-extrabold rounded-xl opacity-40">ВСЁ ВРЕМЯ</button>
+                    <button onclick="changeStatsRange(7)" id="sf-7"
+                        class="flex-1 py-2 text-[8px] font-extrabold rounded-xl opacity-40">НЕДЕЛЯ</button>
+                    <button onclick="changeStatsRange(30)" id="sf-30"
+                        class="flex-1 py-2 text-[8px] font-extrabold rounded-xl bg-[var(--corp-cream)] text-[var(--corp-deep)]">МЕСЯЦ</button>
+                    <button onclick="changeStatsRange(0)" id="sf-0"
+                        class="flex-1 py-2 text-[8px] font-extrabold rounded-xl opacity-40">ВСЁ ВРЕМЯ</button>
                 </div>
-                <button onclick="exportXLSX()" class="w-full py-4 bg-[var(--corp-emerald)] text-white rounded-xl text-[10px] font-extrabold uppercase">Выгрузить EXCEL 📊</button>
-                <div class="glass-card p-6 text-center"><div class="text-[10px] font-bold opacity-40 uppercase">Среднее время закрытия</div><div class="text-4xl font-extrabold text-[var(--corp-emerald)]" id="stat-avg-time">0 ч</div></div>
+                <button onclick="exportXLSX()"
+                    class="w-full py-4 bg-[var(--corp-emerald)] text-white rounded-xl text-[10px] font-extrabold uppercase">Выгрузить
+                    EXCEL 📊</button>
+                <div class="glass-card p-6 text-center">
+                    <div class="text-[10px] font-bold opacity-40 uppercase">Среднее время закрытия</div>
+                    <div class="text-4xl font-extrabold text-[var(--corp-emerald)]" id="stat-avg-time">0 ч</div>
+                </div>
                 <canvas id="managerChart"></canvas>
                 <canvas id="regionChart"></canvas>
             </div>
@@ -476,7 +758,8 @@
             <div id="admin-settings" class="admin-tab p-6 space-y-6">
                 <div class="space-y-2">
                     <label class="block text-[10px] font-bold uppercase opacity-40">AI Дополнительный промпт</label>
-                    <textarea id="set-ai-prompt" class="w-full p-4 tg-input text-xs" rows="4" placeholder="Дополнительные инструкции для AI ассистента..."></textarea>
+                    <textarea id="set-ai-prompt" class="w-full p-4 tg-input text-xs" rows="4"
+                        placeholder="Дополнительные инструкции для AI ассистента..."></textarea>
                 </div>
                 <div class="space-y-2">
                     <label class="block text-[10px] font-bold uppercase opacity-40">AI Строгость</label>
@@ -489,27 +772,35 @@
                 <div class="grid grid-cols-2 gap-4">
                     <div class="space-y-2">
                         <label class="block text-[10px] font-bold uppercase opacity-40">Channel ID</label>
-                        <input type="text" id="set-channel-id" placeholder="Channel ID" class="w-full p-4 tg-input text-xs">
+                        <input type="text" id="set-channel-id" placeholder="Channel ID"
+                            class="w-full p-4 tg-input text-xs">
                     </div>
                     <div class="space-y-2">
                         <label class="block text-[10px] font-bold uppercase opacity-40">Discussion ID</label>
-                        <input type="text" id="set-discussion-id" placeholder="Discussion Group ID" class="w-full p-4 tg-input text-xs">
+                        <input type="text" id="set-discussion-id" placeholder="Discussion Group ID"
+                            class="w-full p-4 tg-input text-xs">
                     </div>
                 </div>
                 <div class="space-y-2">
                     <label class="block text-[10px] font-bold uppercase opacity-40">Интервал напоминаний (мин)</label>
-                    <input type="number" id="set-reminder-interval" placeholder="120" class="w-full p-4 tg-input text-xs">
+                    <input type="number" id="set-reminder-interval" placeholder="120"
+                        class="w-full p-4 tg-input text-xs">
                 </div>
-                <button onclick="saveSettings()" class="w-full py-4 btn-primary text-xs uppercase">Сохранить настройки</button>
+                <button onclick="saveSettings()" class="w-full py-4 btn-primary text-xs uppercase">Сохранить
+                    настройки</button>
             </div>
             <!-- TARIFFS MGMT -->
             <div id="admin-tariffs" class="admin-tab p-6 space-y-6">
                 <div class="glass-card p-6 space-y-4">
                     <div class="text-[10px] font-extrabold uppercase opacity-40">Загрузить новый тариф</div>
-                    <input type="text" id="tariff-upload-title" placeholder="Название (напр. Авиа Май 2026)" class="w-full p-4 tg-input text-xs">
-                    <button onclick="document.getElementById('tariff-file-input').click()" class="w-full py-4 bg-[var(--secondary-bg)] border-2 border-dashed border-[var(--corp-lime)]/30 rounded-2xl text-[10px] font-bold uppercase">+ Выбрать файл (XLSX, DOCX)</button>
+                    <input type="text" id="tariff-upload-title" placeholder="Название (напр. Авиа Май 2026)"
+                        class="w-full p-4 tg-input text-xs">
+                    <button onclick="document.getElementById('tariff-file-input').click()"
+                        class="w-full py-4 bg-[var(--secondary-bg)] border-2 border-dashed border-[var(--corp-lime)]/30 rounded-2xl text-[10px] font-bold uppercase">+
+                        Выбрать файл (XLSX, DOCX)</button>
                     <input type="file" id="tariff-file-input" class="hidden" onchange="handleTariffUpload(event)">
-                    <div id="tariff-upload-status" class="text-[9px] text-center font-bold text-[var(--corp-emerald)]"></div>
+                    <div id="tariff-upload-status" class="text-[9px] text-center font-bold text-[var(--corp-emerald)]">
+                    </div>
                 </div>
                 <div class="space-y-3">
                     <div class="text-[10px] font-extrabold uppercase opacity-40">Актуальные тарифы</div>
@@ -526,58 +817,102 @@
                 <div class="space-y-3">
                     <label class="block text-[10px] font-bold uppercase opacity-40">Получатели</label>
                     <div class="grid grid-cols-2 gap-2">
-                        <button onclick="setBroadcastTarget('all')" id="bt-all" class="py-3 bg-[var(--corp-cream)] text-[var(--corp-deep)] rounded-xl text-[10px] font-bold border border-[var(--corp-lime)]">ВСЕ</button>
-                        <button onclick="setBroadcastTarget('single')" id="bt-single" class="py-3 bg-[var(--secondary-bg)] opacity-40 rounded-xl text-[10px] font-bold">КОНКРЕТНЫЙ СОТРУДНИК</button>
+                        <button onclick="setBroadcastTarget('all')" id="bt-all"
+                            class="py-3 bg-[var(--corp-cream)] text-[var(--corp-deep)] rounded-xl text-[10px] font-bold border border-[var(--corp-lime)]">ВСЕ</button>
+                        <button onclick="setBroadcastTarget('single')" id="bt-single"
+                            class="py-3 bg-[var(--secondary-bg)] opacity-40 rounded-xl text-[10px] font-bold">КОНКРЕТНЫЙ
+                            СОТРУДНИК</button>
                     </div>
-                    <select id="bc-user-select" class="w-full p-4 tg-input text-xs hidden" onchange="setBroadcastTarget('single')">
+                    <select id="bc-user-select" class="w-full p-4 tg-input text-xs hidden"
+                        onchange="setBroadcastTarget('single')">
                         <option value="">-- Конкретный сотрудник --</option>
                     </select>
                     <div id="bc-users-multi" class="space-y-2 hidden">
                         <div class="flex justify-between items-center mb-1">
                             <label class="block text-[10px] font-bold uppercase opacity-40">Выберите получателей</label>
-                            <button onclick="toggleAllBCUsers()" class="text-[9px] font-bold text-[var(--corp-emerald)] uppercase">Все / Никого</button>
+                            <button onclick="toggleAllBCUsers()"
+                                class="text-[9px] font-bold text-[var(--corp-emerald)] uppercase">Все / Никого</button>
                         </div>
-                        <div id="bc-users-list-checks" class="grid grid-cols-1 gap-2 max-h-[40vh] overflow-y-auto no-scrollbar pr-1"></div>
+                        <div id="bc-users-list-checks"
+                            class="grid grid-cols-1 gap-2 max-h-[40vh] overflow-y-auto no-scrollbar pr-1"></div>
                     </div>
                 </div>
                 <div class="space-y-3">
                     <label class="block text-[10px] font-bold uppercase opacity-40">Текст сообщения</label>
-                    <textarea id="bc-text" rows="5" placeholder="Введите текст... (префикс 'Уважаемые коллеги' добавится автоматически)" class="w-full p-4 tg-input text-xs"></textarea>
+                    <textarea id="bc-text" rows="5"
+                        placeholder="Введите текст... (префикс 'Уважаемые коллеги' добавится автоматически)"
+                        class="w-full p-4 tg-input text-xs"></textarea>
                 </div>
                 <div class="space-y-3">
                     <label class="block text-[10px] font-bold uppercase opacity-40">Файл (ID из Telegram)</label>
-                    <input type="text" id="bc-file-id" placeholder="File ID (необязательно)..." class="w-full p-4 tg-input text-xs">
-                    <p class="text-[8px] opacity-40 italic">Для рассылки файлов через веб-панель используйте File ID из бота.</p>
+                    <input type="text" id="bc-file-id" placeholder="File ID (необязательно)..."
+                        class="w-full p-4 tg-input text-xs">
+                    <p class="text-[8px] opacity-40 italic">Для рассылки файлов через веб-панель используйте File ID из
+                        бота.</p>
                 </div>
-                <button onclick="sendBroadcast()" class="w-full py-5 btn-primary text-xs font-bold uppercase shadow-lg">Запустить рассылку 🚀</button>
+                <button onclick="sendBroadcast()"
+                    class="w-full py-5 btn-primary text-xs font-bold uppercase shadow-lg">Запустить рассылку 🚀</button>
             </div>
         </main>
 
         <nav class="bottom-nav fixed bottom-0 left-0 right-0 px-6 py-4 flex justify-between items-center z-50">
-            <button onclick="switchTab('form')" id="tab-form" class="flex flex-col items-center space-y-1 tab-active transition-all"><span class="text-xl">📝</span><span class="text-[8px] font-extrabold uppercase">Форма</span></button>
-            <button onclick="switchTab('list')" id="tab-list" class="flex flex-col items-center space-y-1 opacity-40 transition-all"><span class="text-xl">🗂️</span><span class="text-[8px] font-extrabold uppercase">База</span></button>
-            <button onclick="switchTab('bids')" id="tab-bids" class="flex flex-col items-center space-y-1 opacity-40 transition-all"><span class="text-xl">🤝</span><span class="text-[8px] font-extrabold uppercase">Ставки</span></button>
-            <button onclick="switchTab('users')" id="tab-users" class="hidden flex flex-col items-center space-y-1 opacity-40 transition-all"><span class="text-xl">⚙️</span><span class="text-[8px] font-extrabold uppercase">Упр.</span></button>
+            <button onclick="switchTab('form')" id="tab-form"
+                class="flex flex-col items-center space-y-1 tab-active transition-all"><span
+                    class="text-xl">📝</span><span class="text-[8px] font-extrabold uppercase">Форма</span></button>
+            <button onclick="switchTab('list')" id="tab-list"
+                class="flex flex-col items-center space-y-1 opacity-40 transition-all"><span
+                    class="text-xl">🗂️</span><span class="text-[8px] font-extrabold uppercase">База</span></button>
+            <button onclick="switchTab('bids')" id="tab-bids"
+                class="flex flex-col items-center space-y-1 opacity-40 transition-all"><span
+                    class="text-xl">🤝</span><span class="text-[8px] font-extrabold uppercase">Ставки</span></button>
+            <button onclick="switchTab('users')" id="tab-users"
+                class="hidden flex flex-col items-center space-y-1 opacity-40 transition-all"><span
+                    class="text-xl">⚙️</span><span class="text-[8px] font-extrabold uppercase">Упр.</span></button>
         </nav>
     </div>
 
     <!-- BID MODAL -->
-    <div id="bid-modal" class="fixed inset-0 z-[110] bg-black/60 flex items-center justify-center hidden backdrop-blur-sm">
+    <div id="bid-modal"
+        class="fixed inset-0 z-[110] bg-black/60 flex items-center justify-center hidden backdrop-blur-sm">
         <div class="w-[90%] glass-card p-8 space-y-6 animate-fade">
-            <div class="flex justify-between items-center"><h2 class="text-xl font-extrabold uppercase">Сделать ставку</h2><button onclick="closeBidModal()" class="text-2xl">×</button></div>
-            <div class="space-y-4">
-                <div class="grid grid-cols-2 gap-4"><input type="text" id="bid-amount" placeholder="Сумма *" class="w-full p-4 tg-input text-sm font-bold"><select id="bid-currency" class="w-full p-4 tg-input text-sm"><option value="USD">USD</option><option value="EUR">EUR</option><option value="CNY">CNY</option><option value="RUB">RUB</option></select></div>
-                <div class="grid grid-cols-2 gap-4"><input type="text" id="bid-validity" placeholder="Валидность" class="w-full p-4 tg-input text-sm"><select id="bid-loading-hours" class="w-full p-4 tg-input text-sm"><option value="12ч">12ч погр/выгр</option><option value="24ч" selected>24ч погр/выгр</option><option value="48ч">48ч погр/выгр</option></select></div>
-                <select id="bid-payment" class="w-full p-4 tg-input text-sm"><option value="Безнал с НДС">Безнал с НДС</option><option value="Безнал без НДС">Безнал без НДС</option><option value="Наличные">Наличные / Перевод</option></select>
-                <textarea id="bid-demurrage" placeholder="Условия простоя..." class="w-full p-4 tg-input text-xs" rows="2"></textarea>
-                <textarea id="bid-comment" placeholder="Комментарий..." class="w-full p-4 tg-input text-xs" rows="2"></textarea>
+            <div class="flex justify-between items-center">
+                <h2 class="text-xl font-extrabold uppercase">Сделать ставку</h2><button onclick="closeBidModal()"
+                    class="text-2xl">×</button>
             </div>
-            <button onclick="confirmBid()" class="w-full py-5 btn-primary text-xs uppercase shadow-2xl">Подтвердить ставку</button>
+            <div class="space-y-4">
+                <div class="grid grid-cols-2 gap-4"><input type="text" id="bid-amount" placeholder="Сумма *"
+                        class="w-full p-4 tg-input text-sm font-bold"><select id="bid-currency"
+                        class="w-full p-4 tg-input text-sm">
+                        <option value="USD">USD</option>
+                        <option value="EUR">EUR</option>
+                        <option value="CNY">CNY</option>
+                        <option value="RUB">RUB</option>
+                    </select></div>
+                <div class="grid grid-cols-2 gap-4"><input type="text" id="bid-validity" placeholder="Валидность"
+                        class="w-full p-4 tg-input text-sm"><select id="bid-loading-hours"
+                        class="w-full p-4 tg-input text-sm">
+                        <option value="12ч">12ч погр/выгр</option>
+                        <option value="24ч" selected>24ч погр/выгр</option>
+                        <option value="48ч">48ч погр/выгр</option>
+                    </select></div>
+                <select id="bid-payment" class="w-full p-4 tg-input text-sm">
+                    <option value="Безнал с НДС">Безнал с НДС</option>
+                    <option value="Безнал без НДС">Безнал без НДС</option>
+                    <option value="Наличные">Наличные / Перевод</option>
+                </select>
+                <textarea id="bid-demurrage" placeholder="Условия простоя..." class="w-full p-4 tg-input text-xs"
+                    rows="2"></textarea>
+                <textarea id="bid-comment" placeholder="Комментарий..." class="w-full p-4 tg-input text-xs"
+                    rows="2"></textarea>
+            </div>
+            <button onclick="confirmBid()" class="w-full py-5 btn-primary text-xs uppercase shadow-2xl">Подтвердить
+                ставку</button>
         </div>
     </div>
-    
+
     <!-- BID HISTORY MODAL -->
-    <div id="history-modal" class="fixed inset-0 z-[120] bg-black/60 flex items-center justify-center hidden backdrop-blur-sm">
+    <div id="history-modal"
+        class="fixed inset-0 z-[120] bg-black/60 flex items-center justify-center hidden backdrop-blur-sm">
         <div class="w-[95%] max-h-[85vh] glass-card p-8 space-y-6 animate-fade flex flex-col">
             <div class="flex justify-between items-center flex-shrink-0">
                 <h2 class="text-xl font-extrabold uppercase">История ставок</h2>
@@ -590,28 +925,36 @@
     </div>
 
     <!-- PREVIEW MODAL -->
-    <div id="preview-modal" class="fixed inset-0 z-[130] bg-black/60 flex items-center justify-center hidden backdrop-blur-md">
-        <div class="w-[95%] max-h-[90vh] bg-[var(--bg)] rounded-[2.5rem] p-6 space-y-5 overflow-y-auto no-scrollbar shadow-2xl border border-[var(--corp-lime)]/20">
+    <div id="preview-modal"
+        class="fixed inset-0 z-[130] bg-black/60 flex items-center justify-center hidden backdrop-blur-md">
+        <div
+            class="w-[95%] max-h-[90vh] bg-[var(--bg)] rounded-[2.5rem] p-6 space-y-5 overflow-y-auto no-scrollbar shadow-2xl border border-[var(--corp-lime)]/20">
             <div class="text-center space-y-1">
                 <h2 class="text-lg font-extrabold uppercase tracking-tighter">Проверьте данные</h2>
                 <p class="text-[9px] opacity-40 uppercase font-bold">Так заявка будет выглядеть в канале</p>
             </div>
-            <div id="preview-content" class="bg-[var(--secondary-bg)] p-5 rounded-3xl text-xs space-y-3 font-medium border border-[var(--corp-lime)]/5 leading-relaxed">
+            <div id="preview-content"
+                class="bg-[var(--secondary-bg)] p-5 rounded-3xl text-xs space-y-3 font-medium border border-[var(--corp-lime)]/5 leading-relaxed">
                 <!-- Populated by generatePreview() -->
             </div>
             <div class="grid grid-cols-2 gap-3">
-                <button onclick="closePreview()" class="py-4 bg-white/5 rounded-2xl text-[10px] font-bold uppercase">← Исправить</button>
-                <button onclick="finalSubmitRequest()" class="py-4 btn-primary rounded-2xl text-[10px] font-bold uppercase shadow-lg">Отправить 🚀</button>
+                <button onclick="closePreview()" class="py-4 bg-white/5 rounded-2xl text-[10px] font-bold uppercase">←
+                    Исправить</button>
+                <button onclick="finalSubmitRequest()"
+                    class="py-4 btn-primary rounded-2xl text-[10px] font-bold uppercase shadow-lg">Отправить 🚀</button>
             </div>
         </div>
     </div>
 
     <!-- TARIFFS MODAL -->
-    <div id="tariffs-modal" class="fixed inset-0 z-[120] bg-black/60 flex items-end justify-center hidden backdrop-blur-sm">
-        <div class="w-full max-h-[85vh] bg-[var(--bg)] rounded-t-[3rem] p-8 space-y-6 animate-fade overflow-y-auto no-scrollbar shadow-2xl">
+    <div id="tariffs-modal"
+        class="fixed inset-0 z-[120] bg-black/60 flex items-end justify-center hidden backdrop-blur-sm">
+        <div
+            class="w-full max-h-[85vh] bg-[var(--bg)] rounded-t-[3rem] p-8 space-y-6 animate-fade overflow-y-auto no-scrollbar shadow-2xl">
             <div class="flex justify-between items-center mb-2">
                 <h2 class="text-2xl font-extrabold uppercase">Тарифы и Сетки</h2>
-                <button onclick="closeTariffsModal()" class="w-10 h-10 bg-[var(--secondary-bg)] rounded-full flex items-center justify-center text-xl">×</button>
+                <button onclick="closeTariffsModal()"
+                    class="w-10 h-10 bg-[var(--secondary-bg)] rounded-full flex items-center justify-center text-xl">×</button>
             </div>
             <div id="tariffs-list-container" class="space-y-3 pb-8">
                 <!-- Dynamic: populated by loadTariffsList() -->
@@ -622,7 +965,9 @@
     <!-- CUSTOM INPUT MODAL (replaces browser prompt) -->
     <div id="custom-input-overlay" class="custom-input-overlay">
         <div class="custom-input-card">
-            <div id="ci-title" style="font-weight:800;font-size:14px;text-transform:uppercase;letter-spacing:0.03em;opacity:0.7;">Введите значение</div>
+            <div id="ci-title"
+                style="font-weight:800;font-size:14px;text-transform:uppercase;letter-spacing:0.03em;opacity:0.7;">
+                Введите значение</div>
             <input type="text" id="ci-input" placeholder="Ваше значение..." autocomplete="off">
             <div class="custom-input-actions">
                 <button class="ci-cancel" onclick="closeCustomInput(false)">Отмена</button>
@@ -685,9 +1030,9 @@
             if (!v) return '';
             try {
                 const d = new Date(v);
-                if (isNaN(d)) return String(v).substring(0,16);
-                return d.toLocaleDateString('ru-RU',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
-            } catch(e) { return ''; }
+                if (isNaN(d)) return String(v).substring(0, 16);
+                return d.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+            } catch (e) { return ''; }
         }
         let cachedRegions = null;
         let cachedCurrencies = null;
@@ -709,11 +1054,11 @@
                         document.getElementById('tab-users').classList.remove('hidden');
                     }
                     // Load settings (regions, currencies, cancel_reasons)
-                    fetch(`/api/settings?initData=${encodeURIComponent(tg.initData)}`).then(r=>r.json()).then(res=>{
+                    fetch(`/api/settings?initData=${encodeURIComponent(tg.initData)}`).then(r => r.json()).then(res => {
                         const s = res.settings || {};
-                        cachedRegions = s.regions || [{name:'СНГ',emoji:'🗺️'},{name:'Европа',emoji:'🇪🇺'},{name:'Китай',emoji:'🇨🇳'},{name:'Другое',emoji:'🌐'}];
-                        cachedCurrencies = s.currencies || ['USD','EUR','RUB','CNY','UZS','KZT'];
-                        cachedCancelReasons = s.cancel_reasons || ['Ставка не прошла','Груз отменился','Выбрали другого экспедитора','Не устроили сроки'];
+                        cachedRegions = s.regions || [{ name: 'СНГ', emoji: '🗺️' }, { name: 'Европа', emoji: '🇪🇺' }, { name: 'Китай', emoji: '🇨🇳' }, { name: 'Другое', emoji: '🌐' }];
+                        cachedCurrencies = s.currencies || ['USD', 'EUR', 'RUB', 'CNY', 'UZS', 'KZT'];
+                        cachedCancelReasons = s.cancel_reasons || ['Ставка не прошла', 'Груз отменился', 'Выбрали другого экспедитора', 'Не устроили сроки'];
                         buildRegionButtons();
                         buildRegionFilters();
                         buildCurrencyOptions();
@@ -722,51 +1067,51 @@
                 } else document.getElementById('login-screen').classList.remove('hidden');
             });
         }
-        function buildRegionButtons(){
+        function buildRegionButtons() {
             const c = document.getElementById('region-buttons-grid');
-            if(!c || !cachedRegions) return;
+            if (!c || !cachedRegions) return;
             clear(c);
             cachedRegions.forEach(r => {
                 const name = typeof r === 'object' ? r.name : r;
-                const emoji = typeof r === 'object' ? (r.emoji||'🌍') : '🌍';
-                const btn = el('div',{class:'glass-card p-6 flex flex-col items-center space-y-3 cursor-pointer', onclick:()=>selectDirection(name)},
-                    el('span',{class:'text-3xl',text:emoji}),
-                    el('span',{class:'font-bold text-xs uppercase tracking-widest',text:name})
+                const emoji = typeof r === 'object' ? (r.emoji || '🌍') : '🌍';
+                const btn = el('div', { class: 'glass-card p-6 flex flex-col items-center space-y-3 cursor-pointer', onclick: () => selectDirection(name) },
+                    el('span', { class: 'text-3xl', text: emoji }),
+                    el('span', { class: 'font-bold text-xs uppercase tracking-widest', text: name })
                 );
                 c.appendChild(btn);
             });
         }
-        function buildRegionFilters(){
-            if(!cachedRegions) return;
-            ['filter-region','tf-region'].forEach(id=>{
-                const sel = document.getElementById(id); if(!sel) return;
+        function buildRegionFilters() {
+            if (!cachedRegions) return;
+            ['filter-region', 'tf-region'].forEach(id => {
+                const sel = document.getElementById(id); if (!sel) return;
                 const val = sel.value;
-                while(sel.options.length>1) sel.remove(1);
-                cachedRegions.forEach(r=>{
+                while (sel.options.length > 1) sel.remove(1);
+                cachedRegions.forEach(r => {
                     const name = typeof r === 'object' ? r.name : r;
-                    sel.appendChild(el('option',{value:name,text:name}));
+                    sel.appendChild(el('option', { value: name, text: name }));
                 });
                 sel.value = val;
             });
         }
-        function buildCurrencyOptions(){
-            if(!cachedCurrencies) return;
-            const sel = document.getElementById('bid-currency'); if(!sel) return;
+        function buildCurrencyOptions() {
+            if (!cachedCurrencies) return;
+            const sel = document.getElementById('bid-currency'); if (!sel) return;
             clear(sel);
-            cachedCurrencies.forEach(c=>sel.appendChild(el('option',{value:c,text:c})));
+            cachedCurrencies.forEach(c => sel.appendChild(el('option', { value: c, text: c })));
         }
 
         function attemptLogin() {
             const key = document.getElementById('login-key-input').value;
-            fetch('/api/login_with_key', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ initData: tg.initData, login_key: key }) })
-            .then(r => r.json()).then(res => { if(res.ok) { tg.showAlert(`Добро пожаловать, ${res.name}!`); checkProfile(); } else tg.showAlert("Неверный ключ"); });
+            fetch('/api/login_with_key', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ initData: tg.initData, login_key: key }) })
+                .then(r => r.json()).then(res => { if (res.ok) { tg.showAlert(`Добро пожаловать, ${res.name}!`); checkProfile(); } else tg.showAlert("Неверный ключ"); });
         }
 
         function switchTab(t) {
             currentTab = t; document.querySelectorAll('nav button').forEach(b => { b.classList.add('opacity-40'); b.classList.remove('tab-active'); });
             document.getElementById('tab-' + t).classList.remove('opacity-40'); document.getElementById('tab-' + t).classList.add('tab-active');
             document.querySelectorAll('.view-tab').forEach(v => v.classList.add('hidden')); document.getElementById('view-' + t).classList.remove('hidden');
-            if(t === 'users') switchAdminTab(currentAdminTab); if(t === 'bids') switchBidView('tenders'); updateMainButton();
+            if (t === 'users') switchAdminTab(currentAdminTab); if (t === 'bids') switchBidView('tenders'); updateMainButton();
         }
 
         function switchBidView(view) {
@@ -774,7 +1119,7 @@
             document.getElementById('bv-my').classList.toggle('opacity-40', view !== 'my');
             document.getElementById('tender-filters').classList.toggle('hidden', view !== 'tenders');
             const cont = document.getElementById('bids-container'); cont.innerHTML = '<div class="p-10 text-center opacity-40 text-xs">Загрузка...</div>';
-            
+
             let endpoint = view === 'tenders' ? '/api/requests?status=Открыта' : '/api/my_bids';
             if (view === 'tenders') {
                 const reg = document.getElementById('tf-region').value;
@@ -784,85 +1129,85 @@
             }
             const sep = endpoint.includes('?') ? '&' : '?';
             fetch(`${endpoint}${sep}initData=${encodeURIComponent(tg.initData)}`)
-            .then(r => r.json())
-            .then(data => {
-                clear(cont);
-                const items = data.requests || data.bids || [];
-                if (items.length === 0) {
-                    cont.appendChild(el('div', { class: 'p-10 text-center opacity-40 text-xs', text: 'Пока ничего нет' }));
-                    return;
-                }
-                items.forEach(r => {
-                    const idText = fmtId(r.request_id || r.id);
-                    const from = r.route_from || r.request_route_from || '...';
-                    const to = r.route_to || r.request_route_to || '...';
-                    const route = from + ' → ' + to;
-                    
-                    const header = el('div', { class: 'flex justify-between items-start' },
-                        el('div', null,
-                            el('div', { class: 'text-[9px] font-extrabold text-[var(--corp-emerald)]', text: idText }),
-                            el('div', { class: 'font-bold text-sm', text: route })
-                        ),
-                        el('div', { class: 'text-[8px] font-bold opacity-40 uppercase', text: r.transport_cat || '' })
-                    );
-                    let actionEl;
-                    if (view === 'tenders') {
-                        actionEl = el('div', { class: 'flex space-x-2' },
-                            el('button', {
-                                class: 'flex-1 py-4 btn-primary text-[10px] font-bold',
-                                onclick: () => openBidModal(r.id),
-                                text: 'СДЕЛАТЬ СТАВКУ'
-                            }),
-                            el('button', {
-                                class: 'px-4 py-4 bg-[var(--secondary-bg)] text-[var(--text-color)] text-[10px] font-bold rounded-xl border border-[var(--border-color)]',
-                                onclick: () => openBidHistory(r.id),
-                                text: 'ИСТОРИЯ'
-                            })
-                        );
-                    } else {
-                        actionEl = el('div', { class: 'flex justify-between items-center w-full space-x-2' },
-                            el('div', { class: 'flex-1 p-3 bg-[var(--secondary-bg)] rounded-xl text-xs font-bold text-[var(--corp-emerald)]', text: 'Ваша ставка: ' + (r.amount || '0') + ' ' + (r.currency || '') }),
-                            el('button', { class: 'px-4 py-3 bg-[var(--corp-cream)] text-[var(--corp-deep)] text-[10px] font-bold rounded-xl uppercase', onclick: () => openBidModal(r.request_id), text: 'ИЗМЕНИТЬ' })
-                        );
+                .then(r => r.json())
+                .then(data => {
+                    clear(cont);
+                    const items = data.requests || data.bids || [];
+                    if (items.length === 0) {
+                        cont.appendChild(el('div', { class: 'p-10 text-center opacity-40 text-xs', text: 'Пока ничего нет' }));
+                        return;
                     }
-                    cont.appendChild(el('div', { class: 'glass-card p-6 space-y-4 animate-fade' }, header, actionEl));
+                    items.forEach(r => {
+                        const idText = fmtId(r.request_id || r.id);
+                        const from = r.route_from || r.request_route_from || '...';
+                        const to = r.route_to || r.request_route_to || '...';
+                        const route = from + ' → ' + to;
+
+                        const header = el('div', { class: 'flex justify-between items-start' },
+                            el('div', null,
+                                el('div', { class: 'text-[9px] font-extrabold text-[var(--corp-emerald)]', text: idText }),
+                                el('div', { class: 'font-bold text-sm', text: route })
+                            ),
+                            el('div', { class: 'text-[8px] font-bold opacity-40 uppercase', text: r.transport_cat || '' })
+                        );
+                        let actionEl;
+                        if (view === 'tenders') {
+                            actionEl = el('div', { class: 'flex space-x-2' },
+                                el('button', {
+                                    class: 'flex-1 py-4 btn-primary text-[10px] font-bold',
+                                    onclick: () => openBidModal(r.id),
+                                    text: 'СДЕЛАТЬ СТАВКУ'
+                                }),
+                                el('button', {
+                                    class: 'px-4 py-4 bg-[var(--secondary-bg)] text-[var(--text-color)] text-[10px] font-bold rounded-xl border border-[var(--border-color)]',
+                                    onclick: () => openBidHistory(r.id),
+                                    text: 'ИСТОРИЯ'
+                                })
+                            );
+                        } else {
+                            actionEl = el('div', { class: 'flex justify-between items-center w-full space-x-2' },
+                                el('div', { class: 'flex-1 p-3 bg-[var(--secondary-bg)] rounded-xl text-xs font-bold text-[var(--corp-emerald)]', text: 'Ваша ставка: ' + (r.amount || '0') + ' ' + (r.currency || '') }),
+                                el('button', { class: 'px-4 py-3 bg-[var(--corp-cream)] text-[var(--corp-deep)] text-[10px] font-bold rounded-xl uppercase', onclick: () => openBidModal(r.request_id), text: 'ИЗМЕНИТЬ' })
+                            );
+                        }
+                        cont.appendChild(el('div', { class: 'glass-card p-6 space-y-4 animate-fade' }, header, actionEl));
+                    });
                 });
-            });
         }
 
         function openBidHistory(reqId) {
             const cont = document.getElementById('history-content');
             cont.innerHTML = '<div class="p-10 text-center opacity-40 text-xs">Загрузка...</div>';
             document.getElementById('history-modal').classList.remove('hidden');
-            
+
             fetch(`/api/request_bids?id=${reqId}&initData=${encodeURIComponent(tg.initData)}`)
-            .then(r => r.json()).then(data => {
-                clear(cont);
-                const bids = data.bids || [];
-                if (bids.length === 0) {
-                    cont.appendChild(el('div', { class: 'p-10 text-center opacity-40 text-xs', text: 'Ставок пока нет' }));
-                    return;
-                }
-                bids.forEach(b => {
-                    const card = el('div', { class: 'glass-card p-5 space-y-3' },
-                        el('div', { class: 'flex justify-between items-start' },
-                            el('div', null,
-                                el('div', { class: 'text-[10px] font-bold text-[var(--corp-emerald)] uppercase', text: b.manager_name }),
-                                el('div', { class: 'text-[8px] opacity-40', text: format_datetime(b.updated_at || b.created_at) })
+                .then(r => r.json()).then(data => {
+                    clear(cont);
+                    const bids = data.bids || [];
+                    if (bids.length === 0) {
+                        cont.appendChild(el('div', { class: 'p-10 text-center opacity-40 text-xs', text: 'Ставок пока нет' }));
+                        return;
+                    }
+                    bids.forEach(b => {
+                        const card = el('div', { class: 'glass-card p-5 space-y-3' },
+                            el('div', { class: 'flex justify-between items-start' },
+                                el('div', null,
+                                    el('div', { class: 'text-[10px] font-bold text-[var(--corp-emerald)] uppercase', text: b.manager_name }),
+                                    el('div', { class: 'text-[8px] opacity-40', text: format_datetime(b.updated_at || b.created_at) })
+                                ),
+                                el('div', { class: 'text-sm font-extrabold text-[var(--corp-emerald)]', text: `${b.amount} ${b.currency}` })
                             ),
-                            el('div', { class: 'text-sm font-extrabold text-[var(--corp-emerald)]', text: `${b.amount} ${b.currency}` })
-                        ),
-                        el('div', { class: 'grid grid-cols-2 gap-2 text-[9px] font-medium' },
-                            b.validity ? el('div', { text: `📅 Валидность: ${b.validity}` }) : null,
-                            b.loading_hours ? el('div', { text: `⏰ ПРР: ${b.loading_hours}` }) : null,
-                            b.payment_terms ? el('div', { class: 'col-span-2', text: `💳 Оплата: ${b.payment_terms}` }) : null
-                        ),
-                        b.demurrage ? el('div', { class: 'p-3 bg-[var(--secondary-bg)] rounded-xl text-[9px] italic', text: `Простой: ${b.demurrage}` }) : null,
-                        b.comment ? el('div', { class: 'p-3 bg-[var(--corp-cream)]/30 rounded-xl text-[9px]', text: b.comment }) : null
-                    );
-                    cont.appendChild(card);
+                            el('div', { class: 'grid grid-cols-2 gap-2 text-[9px] font-medium' },
+                                b.validity ? el('div', { text: `📅 Валидность: ${b.validity}` }) : null,
+                                b.loading_hours ? el('div', { text: `⏰ ПРР: ${b.loading_hours}` }) : null,
+                                b.payment_terms ? el('div', { class: 'col-span-2', text: `💳 Оплата: ${b.payment_terms}` }) : null
+                            ),
+                            b.demurrage ? el('div', { class: 'p-3 bg-[var(--secondary-bg)] rounded-xl text-[9px] italic', text: `Простой: ${b.demurrage}` }) : null,
+                            b.comment ? el('div', { class: 'p-3 bg-[var(--corp-cream)]/30 rounded-xl text-[9px]', text: b.comment }) : null
+                        );
+                        cont.appendChild(card);
+                    });
                 });
-            });
         }
         function closeBidHistory() {
             document.getElementById('history-modal').classList.add('hidden');
@@ -870,25 +1215,25 @@
 
         function openBidModal(reqId) {
             activeBidReqId = reqId;
-            ['bid-amount','bid-validity','bid-demurrage','bid-comment'].forEach(id=>document.getElementById(id).value='');
+            ['bid-amount', 'bid-validity', 'bid-demurrage', 'bid-comment'].forEach(id => document.getElementById(id).value = '');
             document.getElementById('bid-currency').value = 'USD';
             document.getElementById('bid-loading-hours').value = '24ч';
             document.getElementById('bid-payment').value = 'Безнал с НДС';
-            
+
             fetch(`/api/user_bid?initData=${encodeURIComponent(tg.initData)}&id=${reqId}`)
-            .then(r => r.json()).then(res => {
-                if(res.bid) {
-                    const b = res.bid;
-                    document.getElementById('bid-amount').value = b.amount || '';
-                    document.getElementById('bid-currency').value = b.currency || 'USD';
-                    document.getElementById('bid-validity').value = b.validity || '';
-                    document.getElementById('bid-loading-hours').value = b.loading_hours || '24ч';
-                    document.getElementById('bid-payment').value = b.payment_terms || b.payment_method || 'Безнал с НДС';
-                    document.getElementById('bid-demurrage').value = b.demurrage || '';
-                    document.getElementById('bid-comment').value = b.comment || '';
-                }
-                document.getElementById('bid-modal').classList.remove('hidden');
-            });
+                .then(r => r.json()).then(res => {
+                    if (res.bid) {
+                        const b = res.bid;
+                        document.getElementById('bid-amount').value = b.amount || '';
+                        document.getElementById('bid-currency').value = b.currency || 'USD';
+                        document.getElementById('bid-validity').value = b.validity || '';
+                        document.getElementById('bid-loading-hours').value = b.loading_hours || '24ч';
+                        document.getElementById('bid-payment').value = b.payment_terms || b.payment_method || 'Безнал с НДС';
+                        document.getElementById('bid-demurrage').value = b.demurrage || '';
+                        document.getElementById('bid-comment').value = b.comment || '';
+                    }
+                    document.getElementById('bid-modal').classList.remove('hidden');
+                });
         }
         function closeBidModal() {
             activeBidReqId = null;
@@ -897,7 +1242,7 @@
         function confirmBid() {
             const amount = document.getElementById('bid-amount').value;
             if (!amount) { tg.showAlert("⚠️ Введите сумму"); return; }
-            
+
             tg.showConfirm(`Подтверждаете ставку ${amount} ${document.getElementById('bid-currency').value}?`, (ok) => {
                 if (!ok) return;
                 const payload = {
@@ -912,17 +1257,17 @@
                     comment: document.getElementById('bid-comment').value
                 };
                 tg.MainButton.showProgress();
-                fetch('/api/bid', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) })
-                .then(r => r.json()).then(res => {
-                    tg.MainButton.hideProgress();
-                    if(res.ok) {
-                        tg.showAlert("✅ Ставка принята");
-                        closeBidModal();
-                        switchBidView('tenders');
-                    } else {
-                        tg.showAlert("❌ Ошибка: " + res.error);
-                    }
-                });
+                fetch('/api/bid', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+                    .then(r => r.json()).then(res => {
+                        tg.MainButton.hideProgress();
+                        if (res.ok) {
+                            tg.showAlert("✅ Ставка принята");
+                            closeBidModal();
+                            switchBidView('tenders');
+                        } else {
+                            tg.showAlert("❌ Ошибка: " + res.error);
+                        }
+                    });
             });
         }
 
@@ -930,15 +1275,15 @@
             currentAdminTab = t;
             const roller = document.getElementById('admin-tabs-roller');
             const targetBtn = document.getElementById('at-' + t);
-            
+
             document.querySelectorAll('.admin-tab-btn').forEach(b => {
                 b.classList.add('opacity-40');
                 b.classList.remove('active', 'bg-[var(--corp-cream)]', 'text-[var(--corp-deep)]');
             });
-            
+
             targetBtn.classList.remove('opacity-40');
             targetBtn.classList.add('active');
-            
+
             if (roller && targetBtn) {
                 const scrollLeft = targetBtn.offsetLeft - (roller.clientWidth / 2) + (targetBtn.clientWidth / 2);
                 roller.scrollTo({ left: scrollLeft, behavior: 'smooth' });
@@ -946,11 +1291,11 @@
 
             document.querySelectorAll('.admin-tab').forEach(tab => tab.classList.remove('active'));
             document.getElementById('admin-' + t).classList.add('active');
-            
-            if(t === 'users') loadUsersList(); 
-            if(t === 'settings') loadSettings(); 
-            if(t === 'stats') loadStats();
-            if(t === 'tariffs') loadTariffsList('admin');
+
+            if (t === 'users') loadUsersList();
+            if (t === 'settings') loadSettings();
+            if (t === 'stats') loadStats();
+            if (t === 'tariffs') loadTariffsList('admin');
             if (t === 'broadcast') {
                 if (allUsers.length === 0) loadUsersList(() => populateBroadcastUsers());
                 else populateBroadcastUsers();
@@ -959,7 +1304,7 @@
 
         function populateBroadcastUsers() {
             const list = document.getElementById('bc-users-list-checks');
-            if(!list) return;
+            if (!list) return;
             list.innerHTML = '';
             allUsers.forEach(u => {
                 const btn = document.createElement('button');
@@ -999,7 +1344,7 @@
 
             if (!text) { tg.showAlert("⚠️ Введите текст сообщения"); return; }
             if (selectedUids !== 'all' && selectedUids.length === 0) { tg.showAlert("⚠️ Выберите получателей"); return; }
-            
+
             tg.showConfirm(`Подтверждаете рассылку для ${selectedUids === 'all' ? 'всех пользователей' : selectedUids.length + ' чел.'}?`, (confirmed) => {
                 if (!confirmed) return;
                 tg.MainButton.showProgress();
@@ -1036,32 +1381,32 @@
                 );
                 list.appendChild(el('div',
                     { class: 'flex justify-between items-center p-4 bg-[var(--secondary-bg)] rounded-xl border border-[var(--corp-lime)]/10' },
-                    el('span', { class: 'text-xs font-bold', text: typeof item === 'object' ? (item.emoji||'') + ' ' + item.name : String(item) }),
+                    el('span', { class: 'text-xs font-bold', text: typeof item === 'object' ? (item.emoji || '') + ' ' + item.name : String(item) }),
                     controls
                 ));
             });
         }
-        function moveDict(idx, dir) { let n = idx + dir; if(n<0||n>=currentDictItems.length) return; [currentDictItems[idx],currentDictItems[n]]=[currentDictItems[n],currentDictItems[idx]]; renderDictItems(); }
+        function moveDict(idx, dir) { let n = idx + dir; if (n < 0 || n >= currentDictItems.length) return;[currentDictItems[idx], currentDictItems[n]] = [currentDictItems[n], currentDictItems[idx]]; renderDictItems(); }
         function delDict(idx) {
             if (confirm(`Удалить "${typeof currentDictItems[idx] === 'object' ? currentDictItems[idx].name : currentDictItems[idx]}"?`)) {
-                currentDictItems.splice(idx,1); renderDictItems();
+                currentDictItems.splice(idx, 1); renderDictItems();
             }
         }
         function addDictItem() {
-            const inp = document.getElementById('new-dict-item'); const v = inp.value.trim(); if(!v) return;
+            const inp = document.getElementById('new-dict-item'); const v = inp.value.trim(); if (!v) return;
             const exists = currentDictItems.some(item => { const itemName = typeof item === 'object' ? item.name : String(item); return itemName.toLowerCase() === v.toLowerCase(); });
-            if(exists){ tg.showAlert('⚠️ Элемент уже существует'); return; }
-            if(currentDictName === 'regions') { currentDictItems.push({name: v, emoji: '🌍'}); } else { currentDictItems.push(v); }
-            inp.value=''; renderDictItems();
+            if (exists) { tg.showAlert('⚠️ Элемент уже существует'); return; }
+            if (currentDictName === 'regions') { currentDictItems.push({ name: v, emoji: '🌍' }); } else { currentDictItems.push(v); }
+            inp.value = ''; renderDictItems();
         }
         function saveDictChanges() {
-            fetch('/api/settings/update', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ initData: tg.initData, key: currentDictName, value: currentDictItems }) })
-            .then(() => {
-                tg.showAlert("Сохранено ✅");
-                if(currentDictName === 'regions') { cachedRegions = currentDictItems; buildRegionButtons(); buildRegionFilters(); }
-                if(currentDictName === 'currencies') { cachedCurrencies = currentDictItems; buildCurrencyOptions(); }
-                loadDictionaries();
-            });
+            fetch('/api/settings/update', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ initData: tg.initData, key: currentDictName, value: currentDictItems }) })
+                .then(() => {
+                    tg.showAlert("Сохранено ✅");
+                    if (currentDictName === 'regions') { cachedRegions = currentDictItems; buildRegionButtons(); buildRegionFilters(); }
+                    if (currentDictName === 'currencies') { cachedCurrencies = currentDictItems; buildCurrencyOptions(); }
+                    loadDictionaries();
+                });
         }
 
         function selectDirection(dir) {
@@ -1069,21 +1414,21 @@
             document.querySelectorAll('#region-buttons-grid .glass-card').forEach(c => {
                 c.classList.remove('choice-active');
                 const label = c.querySelector('span:last-child');
-                if(label && label.textContent === dir) c.classList.add('choice-active');
+                if (label && label.textContent === dir) c.classList.add('choice-active');
             });
             currentStep = 2;
             document.getElementById('step-1').classList.remove('active');
             document.getElementById('step-2').classList.add('active');
         }
-        function selectMethod(met) { selectedMethod = met; document.querySelectorAll('#step-2 button').forEach(b => b.classList.remove('choice-active')); const idMap = { 'Авто': 'met-road', 'Контейнер': 'met-cont', 'Ж/Д Вагон': 'met-rail', 'Авиа': 'met-air', 'Мультимодальная': 'met-multi' }; if(idMap[met]) document.getElementById(idMap[met]).classList.add('choice-active'); currentStep = 3; document.getElementById('step-2').classList.remove('active'); document.getElementById('step-3').classList.add('active'); document.getElementById('summary-badge').textContent = `${selectedDirection} | ${selectedMethod}`; setupFields(); updateMainButton(); }
+        function selectMethod(met) { selectedMethod = met; document.querySelectorAll('#step-2 button').forEach(b => b.classList.remove('choice-active')); const idMap = { 'Авто': 'met-road', 'Контейнер': 'met-cont', 'Ж/Д Вагон': 'met-rail', 'Авиа': 'met-air', 'Мультимодальная': 'met-multi' }; if (idMap[met]) document.getElementById(idMap[met]).classList.add('choice-active'); currentStep = 3; document.getElementById('step-2').classList.remove('active'); document.getElementById('step-3').classList.add('active'); document.getElementById('summary-badge').textContent = `${selectedDirection} | ${selectedMethod}`; setupFields(); updateMainButton(); }
         function goToStep1() { currentStep = 1; document.getElementById('step-2').classList.remove('active'); document.getElementById('step-1').classList.add('active'); }
         function goToStep2() { if (editModeId) { resetForm(); switchTab('list'); return; } currentStep = 2; document.getElementById('step-3').classList.remove('active'); document.getElementById('step-2').classList.add('active'); tg.MainButton.hide(); }
 
         function setupFields(cb) {
-            const container = document.getElementById('dynamic-fields'); 
+            const container = document.getElementById('dynamic-fields');
             container.innerHTML = '';
             let html = '';
-            if(selectedDirection === 'Европа') {
+            if (selectedDirection === 'Европа') {
                 html += `<div class="space-y-4 pt-4 border-t border-[var(--corp-lime)]/10"><label class="block text-[10px] font-bold uppercase opacity-40">Европа: Специфика</label>`;
                 html += `<select id="delivery_terms_eu" class="w-full p-4 tg-input text-sm font-bold"><option value="">Инкотермс...</option></select>`;
                 if (selectedMethod === 'Авто') {
@@ -1093,7 +1438,7 @@
                     html += `<select id="route_type" class="w-full p-4 tg-input text-sm" onchange="handleOtherInput(this)"><option value="через РФ + КЗ">Маршрут: через РФ + КЗ</option><option value="через Турцию–Иран">Маршрут: через Турцию–Иран</option><option value="ТРАСЕКА (Поти)">Маршрут: ТРАСЕКА (Поти)</option><option value="Другое">Другое...</option></select>`;
                 }
                 html += `</div>`;
-            } else if(selectedDirection === 'Китай') {
+            } else if (selectedDirection === 'Китай') {
                 html += `<div class="space-y-4 pt-4 border-t border-[var(--corp-lime)]/10"><label class="block text-[10px] font-bold uppercase opacity-40">Китай: Специфика</label>`;
                 html += `<div class="grid grid-cols-2 gap-4"><select id="export_decl" class="w-full p-4 tg-input text-xs" onchange="handleOtherInput(this)"><option value="Не нужна">Экспортная: Нет</option><option value="Нужна">Экспортная: Да</option><option value="Другое">Другое...</option></select><select id="origin_cert" class="w-full p-4 tg-input text-xs" onchange="handleOtherInput(this)"><option value="Не нужен">Серт CO: Нет</option><option value="Нужен">Серт CO: Да</option><option value="Другое">Другое...</option></select></div>`;
                 if (selectedMethod === 'Авто') {
@@ -1103,13 +1448,13 @@
                     html += renderMultiSelect('route_type', 'Маршруты', ['через КЗ (Хоргос)', 'через КЗ (Достык)', 'Любой']);
                 }
                 html += `</div>`;
-            } else if(selectedDirection === 'СНГ') {
+            } else if (selectedDirection === 'СНГ') {
                 html += `<div class="space-y-4 pt-4 border-t border-[var(--corp-lime)]/10"><label class="block text-[10px] font-bold uppercase opacity-40">СНГ: Специфика</label>`;
                 if (selectedMethod === 'Авто') {
                     html += `<select id="route_type" class="w-full p-4 tg-input text-sm" onchange="handleOtherInput(this)"><option value="Прямой">Маршрут: Прямой</option><option value="Глонас-пломба">Маршрут: Глонас-пломба</option><option value="Другое">Другое...</option></select>`;
                 }
                 html += `<div class="grid grid-cols-2 gap-4"><input type="number" id="days_loading" placeholder="Дней на погр. (ПРР+Там)" class="w-full p-4 tg-input text-xs"><input type="number" id="days_unloading" placeholder="Дней на выгр. (ПРР+Там)" class="w-full p-4 tg-input text-xs"></div></div>`;
-            } else if(selectedDirection === 'Турция') {
+            } else if (selectedDirection === 'Турция') {
                 html += `<div class="space-y-4 pt-4 border-t border-[var(--corp-lime)]/10"><label class="block text-[10px] font-bold uppercase opacity-40">Турция: Специфика</label>`;
                 if (selectedMethod === 'Авто') {
                     html += `<select id="route_type" class="w-full p-4 tg-input text-sm" onchange="handleOtherInput(this)"><option value="Прямой">Маршрут: Прямой</option><option value="через Иран">Маршрут: через Иран</option><option value="через Грузию">Маршрут: через Грузию</option><option value="Другое">Другое...</option></select>`;
@@ -1124,22 +1469,22 @@
                 html += `</div>`;
             }
 
-            if(selectedMethod === 'Авиа') {
+            if (selectedMethod === 'Авиа') {
                 html += `<div class="space-y-4 pt-4 border-t border-[var(--corp-lime)]/10"><label class="block text-[10px] font-bold uppercase opacity-40">Авиа: Детали</label>`;
                 html += `<div class="grid grid-cols-2 gap-4"><select id="flight_type" class="w-full p-4 tg-input text-xs" onchange="handleOtherInput(this)"><option value="Прямой">Рейс: Прямой</option><option value="Транзитный">Рейс: Транзит</option><option value="Другое">Другое...</option></select><select id="stackable" class="w-full p-4 tg-input text-xs" onchange="handleOtherInput(this)"><option value="Штабелируемый">Штаб: Да</option><option value="НЕ штабелируемый">Штаб: Нет</option><option value="Другое">Другое...</option></select></div></div>`;
-            } else if(selectedMethod === 'Мультимодальная' || selectedMethod === 'Море' || selectedMethod === 'Контейнер') {
-                 if (selectedMethod !== 'Контейнер') {
+            } else if (selectedMethod === 'Мультимодальная' || selectedMethod === 'Море' || selectedMethod === 'Контейнер') {
+                if (selectedMethod !== 'Контейнер') {
                     html += `<div class="space-y-4 pt-4 border-t border-[var(--corp-lime)]/10"><label class="block text-[10px] font-bold uppercase opacity-40">Порты и Перевалка</label>`;
                     if (selectedDirection === 'Европа') html += renderMultiSelect('ports_list', 'Порты / Перевалка', ['Поти → авто/ж/д', 'Констанца → ...', 'Любой']);
                     else if (selectedDirection === 'Индия/ЮВА') html += renderMultiSelect('ports_list', 'Порты', ['Поти (Грузия)', 'Иран (Бандар-Аббас)', 'Пакистан (Карачи)', 'Владивосток', 'Любой']);
                     else html += `<select id="ports_list" class="w-full p-4 tg-input text-sm font-bold"><option value="">Выберите порт...</option></select>`;
                     html += `</div>`;
-                 }
-                 if (selectedMethod === 'Контейнер' || selectedMethod === 'Мультимодальная') {
+                }
+                if (selectedMethod === 'Контейнер' || selectedMethod === 'Мультимодальная') {
                     html += `<div class="space-y-4 pt-4 border-t border-[var(--corp-lime)]/10">`;
                     html += `<select id="container_owner" class="w-full p-4 tg-input text-sm" onchange="handleOtherInput(this)"><option value="SOC">Собственность: SOC</option><option value="COC">Собственность: COC</option><option value="Другое">Другое...</option></select>`;
                     html += `</div>`;
-                 }
+                }
             }
 
             let subTypes = [];
@@ -1176,20 +1521,20 @@
         tg.MainButton.onClick(() => mainButtonClicked());
         function mainButtonClicked() {
             const reqAll = ['route_from', 'route_to', 'cargo_name', 'cargo_value', 'hs_code', 'cargo_weight', 'cargo_places', 'cargo_volume'];
-            for(let id of reqAll) {
+            for (let id of reqAll) {
                 const el = document.getElementById(id);
-                if(el && !el.value.trim()) {
-                    tg.showAlert(`⚠️ Заполните обязательное поле: ${el.placeholder.replace('*','').trim()}`);
+                if (el && !el.value.trim()) {
+                    tg.showAlert(`⚠️ Заполните обязательное поле: ${el.placeholder.replace('*', '').trim()}`);
                     return;
                 }
             }
             if (selectedDirection !== 'СНГ') {
-                if(!document.getElementById('customs_address').value.trim() || !document.getElementById('clearance_address').value.trim()) {
+                if (!document.getElementById('customs_address').value.trim() || !document.getElementById('clearance_address').value.trim()) {
                     tg.showAlert("⚠️ Для направлений вне СНГ обязательные поля: Затаможка и Растаможка!");
                     return;
                 }
             }
-            
+
             // Transport-specific mandatory fields
             if (selectedMethod === 'Контейнер') {
                 if (!document.getElementById('container_type_cn')?.value.trim()) {
@@ -1214,42 +1559,42 @@
                     return;
                 }
             }
-            
-            const payload = { 
-                regions: selectedDirection, 
-                transport_cat: selectedMethod, 
-                route_from: document.getElementById('route_from').value, 
-                route_to: document.getElementById('route_to').value, 
-                loading_address: document.getElementById('loading_address').value, 
-                customs_address: document.getElementById('customs_address').value, 
-                clearance_address: document.getElementById('clearance_address').value, 
-                unloading_address: document.getElementById('unloading_address').value, 
-                cargo_name: document.getElementById('cargo_name').value, 
-                cargo_value: document.getElementById('cargo_value').value, 
-                hs_code: document.getElementById('hs_code').value, 
-                cargo_weight: document.getElementById('cargo_weight').value, 
-                cargo_places: document.getElementById('cargo_places').value, 
-                cargo_volume: document.getElementById('cargo_volume').value, 
-                packaging: document.getElementById('packaging').value, 
-                dangerous_cargo: document.getElementById('dangerous_cargo').value, 
-                adr_class: document.getElementById('adr_class').value, 
-                urgency_type: document.getElementById('urgency_type').value, 
-                client_company: document.getElementById('client_company').value, 
-                responsible: document.getElementById('responsible').value, 
-                target: document.getElementById('target').value, 
-                message_text: document.getElementById('message_text').value, 
-                source: document.getElementById('source').value, 
-                status: editModeId ? document.getElementById('status-select').value : 'Открыта', 
-                feedback: document.getElementById('feedback_select') ? document.getElementById('feedback_select').value : '', 
-                days_loading: document.getElementById('days_loading') ? document.getElementById('days_loading').value : '', 
+
+            const payload = {
+                regions: selectedDirection,
+                transport_cat: selectedMethod,
+                route_from: document.getElementById('route_from').value,
+                route_to: document.getElementById('route_to').value,
+                loading_address: document.getElementById('loading_address').value,
+                customs_address: document.getElementById('customs_address').value,
+                clearance_address: document.getElementById('clearance_address').value,
+                unloading_address: document.getElementById('unloading_address').value,
+                cargo_name: document.getElementById('cargo_name').value,
+                cargo_value: document.getElementById('cargo_value').value,
+                hs_code: document.getElementById('hs_code').value,
+                cargo_weight: document.getElementById('cargo_weight').value,
+                cargo_places: document.getElementById('cargo_places').value,
+                cargo_volume: document.getElementById('cargo_volume').value,
+                packaging: document.getElementById('packaging').value,
+                dangerous_cargo: document.getElementById('dangerous_cargo').value,
+                adr_class: document.getElementById('adr_class').value,
+                urgency_type: document.getElementById('urgency_type').value,
+                client_company: document.getElementById('client_company').value,
+                responsible: document.getElementById('responsible').value,
+                target: document.getElementById('target').value,
+                message_text: document.getElementById('message_text').value,
+                source: document.getElementById('source').value,
+                status: editModeId ? document.getElementById('status-select').value : 'Открыта',
+                feedback: document.getElementById('feedback_select') ? document.getElementById('feedback_select').value : '',
+                days_loading: document.getElementById('days_loading') ? document.getElementById('days_loading').value : '',
                 days_unloading: document.getElementById('days_unloading') ? document.getElementById('days_unloading').value : '',
                 cargo_oversized: document.getElementById('cargo_oversized').value,
                 cargo_dimensions: document.getElementById('cargo_dimensions').value,
                 temp_control: document.getElementById('temp_control').checked ? 'Да' : 'Нет',
                 temp_range: document.getElementById('temp_range').value
             };
-            ['cargo_currency','transport_sub','delivery_terms_eu','delivery_terms','route_type','transit_rf_allowed','export_decl','origin_cert','border_crossing_cn','road_type_cn','container_owner','container_type_cn','urgency_days','days_loading','days_unloading','glonass_seal','ports_list','flight_type','stackable'].forEach(id => { const el = document.getElementById(id); if(el) payload[id] = el.value; });
-            
+            ['cargo_currency', 'transport_sub', 'delivery_terms_eu', 'delivery_terms', 'route_type', 'transit_rf_allowed', 'export_decl', 'origin_cert', 'border_crossing_cn', 'road_type_cn', 'container_owner', 'container_type_cn', 'urgency_days', 'days_loading', 'days_unloading', 'glonass_seal', 'ports_list', 'flight_type', 'stackable'].forEach(id => { const el = document.getElementById(id); if (el) payload[id] = el.value; });
+
             if (editModeId) {
                 const crEl = document.getElementById('cancel_reason');
                 if (crEl && crEl.value) payload.cancel_reason = crEl.value;
@@ -1268,7 +1613,7 @@
             let h = `<div class="mb-2 pb-2 border-b border-white/5 flex justify-between items-center"><span class="opacity-40 uppercase text-[9px] font-bold">Направление</span><span class="font-extrabold text-[var(--corp-lime)]">${e(p.route_from)} ➤ ${e(p.route_to)}</span></div>`;
             h += `<div><b>Груз:</b> ${e(p.cargo_name)} (${e(p.cargo_weight)} кг / ${e(p.cargo_volume)} м³)</div>`;
             if (p.dangerous_cargo === 'Да') h += `<div class="text-red-400 font-bold">⚠️ ОПАСНЫЙ ГРУЗ: ${e(p.adr_class)}</div>`;
-            h += `<div><b>Транспорт:</b> ${e(p.transport_cat)} ${p.transport_sub ? '('+e(p.transport_sub)+')' : ''}</div>`;
+            h += `<div><b>Транспорт:</b> ${e(p.transport_cat)} ${p.transport_sub ? '(' + e(p.transport_sub) + ')' : ''}</div>`;
             h += `<div><b>Инкотермс:</b> ${e(p.delivery_terms || p.delivery_terms_eu || 'не указан')}</div>`;
             h += `<div><b>Стоимость:</b> ${e(p.cargo_value || 'НЕ УКАЗАНА')} ${e(p.cargo_currency || '')}</div>`;
             h += `<div class="mt-2 pt-2 border-t border-white/5 opacity-60 italic text-[10px]">${e(p.message_text || 'Без доп. информации')}</div>`;
@@ -1279,40 +1624,40 @@
         function finalSubmitRequest() {
             closePreview();
             tg.MainButton.showProgress();
-            fetch('/api/submit', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ initData: tg.initData, action: editModeId ? 'edit' : 'new', id: editModeId, attachment_ids: uploadedAttachmentIds, payload: lastSubmissionPayload }) }).then(r => r.json()).then(res => {
+            fetch('/api/submit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ initData: tg.initData, action: editModeId ? 'edit' : 'new', id: editModeId, attachment_ids: uploadedAttachmentIds, payload: lastSubmissionPayload }) }).then(r => r.json()).then(res => {
                 tg.MainButton.hideProgress();
-                if(res.ok) { tg.showAlert("✅ Готово"); resetForm(); switchTab('list'); }
+                if (res.ok) { tg.showAlert("✅ Готово"); resetForm(); switchTab('list'); }
                 else tg.showAlert("❌ Ошибка: " + res.error);
             });
         }
 
-        function resetForm() { 
-            editModeId = null; currentStep = 1; uploadedAttachmentIds = []; clear(document.getElementById('attachments-list')); document.getElementById('requestForm').reset(); 
-            document.querySelectorAll('.step-container').forEach(s => s.classList.remove('active')); 
-            document.getElementById('step-1').classList.add('active'); document.getElementById('edit-only-fields').classList.add('hidden'); 
-            document.getElementById('btn-back-step3').textContent = '← Способ'; 
+        function resetForm() {
+            editModeId = null; currentStep = 1; uploadedAttachmentIds = []; clear(document.getElementById('attachments-list')); document.getElementById('requestForm').reset();
+            document.querySelectorAll('.step-container').forEach(s => s.classList.remove('active'));
+            document.getElementById('step-1').classList.add('active'); document.getElementById('edit-only-fields').classList.add('hidden');
+            document.getElementById('btn-back-step3').textContent = '← Способ';
             document.getElementById('adr-class-container').classList.add('hidden');
             document.getElementById('oversized-container').classList.add('hidden');
             document.getElementById('temp-container').classList.add('hidden');
-            
+
             // Re-fill manager name after reset
             if (currentUser) {
                 document.getElementById('responsible').value = currentUser.name;
                 document.getElementById('responsible_select').value = currentUser.name;
             }
         }
-        function updateMainButton() { if(currentTab==='form' && currentStep===3) { tg.MainButton.setText(editModeId ? "СОХРАНИТЬ" : "ОТПРАВИТЬ"); tg.MainButton.show(); } else tg.MainButton.hide(); }
+        function updateMainButton() { if (currentTab === 'form' && currentStep === 3) { tg.MainButton.setText(editModeId ? "СОХРАНИТЬ" : "ОТПРАВИТЬ"); tg.MainButton.show(); } else tg.MainButton.hide(); }
 
         function pingLogistics() {
-            if(!editModeId) return;
+            if (!editModeId) return;
             tg.MainButton.showProgress();
             fetch('/api/ping_logistics', {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({initData: tg.initData, request_id: editModeId})
-            }).then(r=>r.json()).then(res=>{
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ initData: tg.initData, request_id: editModeId })
+            }).then(r => r.json()).then(res => {
                 tg.MainButton.hideProgress();
-                if(res.ok) tg.showAlert("✅ Напоминание отправлено в канал!");
+                if (res.ok) tg.showAlert("✅ Напоминание отправлено в канал!");
                 else tg.showAlert("❌ Ошибка: " + res.error);
             });
         }
@@ -1331,10 +1676,10 @@
             const status = document.getElementById('filter-status').value;
             const region = document.getElementById('filter-region').value;
             const transport = document.getElementById('filter-transport').value;
-            
+
             let url = myRequestsOnly ? `/api/my_requests?initData=${encodeURIComponent(tg.initData)}` : `/api/requests?initData=${encodeURIComponent(tg.initData)}`;
             url += `&search=${encodeURIComponent(s)}&status=${encodeURIComponent(status)}&region=${encodeURIComponent(region)}&transport=${encodeURIComponent(transport)}`;
-            
+
             fetch(url).then(r => r.json()).then(data => {
                 const cont = document.getElementById('requests-container');
                 clear(cont);
@@ -1361,76 +1706,76 @@
 
         function openRequestForEdit(id) {
             fetch(`/api/request_details?initData=${encodeURIComponent(tg.initData)}&id=${id}`).then(r => r.json()).then(res => {
-                const r = res.request; 
+                const r = res.request;
                 const canEdit = currentUser && (['admin', 'superuser'].includes(currentUser.role) || String(r.creator_id) === String(currentUser.telegram_id));
-                
+
                 if (!canEdit) {
                     tg.showAlert("⚠️ Вы можете открывать и редактировать только свои заявки.");
                     return;
                 }
 
-                editModeId = id; 
-                selectedDirection = r.regions; selectedMethod = r.transport_cat; 
-                switchTab('form'); currentStep = 3; 
-                document.querySelectorAll('.step-container').forEach(s => s.classList.remove('active')); 
-                document.getElementById('step-3').classList.add('active'); 
-                document.getElementById('summary-badge').textContent = `${r.regions} | ${r.transport_cat}`; 
-                
+                editModeId = id;
+                selectedDirection = r.regions; selectedMethod = r.transport_cat;
+                switchTab('form'); currentStep = 3;
+                document.querySelectorAll('.step-container').forEach(s => s.classList.remove('active'));
+                document.getElementById('step-3').classList.add('active');
+                document.getElementById('summary-badge').textContent = `${r.regions} | ${r.transport_cat}`;
+
                 document.getElementById('btn-back-step3').textContent = '← База';
                 setupFields(() => {
-                    const fieldIds = ['cargo_currency','cargo_name','cargo_value','hs_code','route_from','route_to','loading_address','customs_address','clearance_address','unloading_address','client_company','responsible','target','message_text','cargo_weight','cargo_places','cargo_volume','packaging','dangerous_cargo','adr_class','urgency_type','delivery_terms_eu','route_type','transit_rf_allowed','export_decl','origin_cert','border_crossing_cn','road_type_cn','container_owner','container_type_cn','urgency_days','days_loading','days_unloading','glonass_seal','ports_list','flight_type','stackable','source','cargo_oversized','cargo_dimensions','temp_range'];
-                    
-                    fieldIds.forEach(fid => { 
-                        const el = document.getElementById(fid); 
-                        if(el) {
-                            el.value = r[fid] || ''; 
+                    const fieldIds = ['cargo_currency', 'cargo_name', 'cargo_value', 'hs_code', 'route_from', 'route_to', 'loading_address', 'customs_address', 'clearance_address', 'unloading_address', 'client_company', 'responsible', 'target', 'message_text', 'cargo_weight', 'cargo_places', 'cargo_volume', 'packaging', 'dangerous_cargo', 'adr_class', 'urgency_type', 'delivery_terms_eu', 'route_type', 'transit_rf_allowed', 'export_decl', 'origin_cert', 'border_crossing_cn', 'road_type_cn', 'container_owner', 'container_type_cn', 'urgency_days', 'days_loading', 'days_unloading', 'glonass_seal', 'ports_list', 'flight_type', 'stackable', 'source', 'cargo_oversized', 'cargo_dimensions', 'temp_range'];
+
+                    fieldIds.forEach(fid => {
+                        const el = document.getElementById(fid);
+                        if (el) {
+                            el.value = r[fid] || '';
                             el.disabled = !canEdit;
                             if (el.type === 'hidden') syncMultiUI(fid);
                         }
                     });
-                    
+
                     // Sync manager select for admin/superuser
                     const mSelect = document.getElementById('responsible_select');
                     if (mSelect) {
                         mSelect.value = r['responsible'] || '';
                         mSelect.disabled = !canEdit;
                     }
-                    
+
                     // Handle dangerous cargo UI
-                    if(r.dangerous_cargo === 'Да') {
+                    if (r.dangerous_cargo === 'Да') {
                         document.getElementById('adr-class-container').classList.remove('hidden');
                     } else {
                         document.getElementById('adr-class-container').classList.add('hidden');
                     }
-                    
+
                     // Handle oversized UI
-                    if(r.cargo_oversized === 'Да') {
+                    if (r.cargo_oversized === 'Да') {
                         document.getElementById('oversized-container').classList.remove('hidden');
                     } else {
                         document.getElementById('oversized-container').classList.add('hidden');
                     }
-                    
+
                     // Handle temp UI
                     const tc = document.getElementById('temp_control');
-                    if(r.temp_control === 'Да') {
+                    if (r.temp_control === 'Да') {
                         tc.checked = true;
                         document.getElementById('temp-container').classList.remove('hidden');
                     } else {
                         tc.checked = false;
                         document.getElementById('temp-container').classList.add('hidden');
                     }
-                    
+
                     if (canEdit) {
-                        document.getElementById('edit-only-fields').classList.remove('hidden'); 
-                        const st = document.getElementById('status-select'); 
-                        st.innerHTML = '<option value="Открыта">Открыта</option><option value="В работе">В работе</option><option value="Успешно реализована">Успешно ✅</option><option value="Отменена">Отменена ❌</option>'; 
-                        st.value = r.status; 
+                        document.getElementById('edit-only-fields').classList.remove('hidden');
+                        const st = document.getElementById('status-select');
+                        st.innerHTML = '<option value="Открыта">Открыта</option><option value="В работе">В работе</option><option value="Успешно реализована">Успешно ✅</option><option value="Отменена">Отменена ❌</option>';
+                        st.value = r.status;
                         document.getElementById('feedback-block').classList.remove('hidden');
                     } else {
                         document.getElementById('edit-only-fields').classList.add('hidden');
                         document.getElementById('feedback-block').classList.add('hidden');
                     }
-                    
+
                     // Attachments
                     uploadedAttachmentIds = []; clear(document.getElementById('attachments-list'));
                     if (res.attachments) res.attachments.forEach(att => { uploadedAttachmentIds.push(att.id); addAttachmentToUI(att); });
@@ -1488,42 +1833,42 @@
         }
         function confirmBidAsWinner(bidId, manager, amount, curr) {
             tg.showConfirm(`Выбрать ставку ${amount} ${curr} от ${manager} как выигрышную?`, (confirmed) => {
-                if(!confirmed) return;
+                if (!confirmed) return;
                 tg.MainButton.showProgress();
                 fetch('/api/update_status', {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ initData: tg.initData, id: editModeId, status: 'Успешно реализована', winner: manager, reason: null })
                 }).then(r => r.json()).then(res => {
                     tg.MainButton.hideProgress();
-                    if(res.ok) { tg.showAlert("✅ Ставка подтверждена!"); openRequestForEdit(editModeId); }
+                    if (res.ok) { tg.showAlert("✅ Ставка подтверждена!"); openRequestForEdit(editModeId); }
                     else tg.showAlert("❌ Ошибка: " + res.error);
                 });
             });
         }
-        function toggleStatusDetails() { 
-            const s = document.getElementById('status-select').value; 
-            document.getElementById('winner-block').classList.toggle('hidden', s !== 'Успешно реализована'); 
-            document.getElementById('cancel-block').classList.toggle('hidden', s !== 'Отменена'); 
+        function toggleStatusDetails() {
+            const s = document.getElementById('status-select').value;
+            document.getElementById('winner-block').classList.toggle('hidden', s !== 'Успешно реализована');
+            document.getElementById('cancel-block').classList.toggle('hidden', s !== 'Отменена');
             // Populate winner-select from existing bids (#10)
             if (s === 'Успешно реализована') {
                 const ws = document.getElementById('winner-select');
                 if (!ws.innerHTML.trim() || ws.options.length <= 1) {
                     clear(ws);
-                    ws.appendChild(el('option',{value:'',text:'-- Выберите победителя --'}));
+                    ws.appendChild(el('option', { value: '', text: '-- Выберите победителя --' }));
                     // Bids are already rendered in #request-bids-list — extract manager names
                     if (editModeId) {
                         fetch(`/api/request_bids?initData=${encodeURIComponent(tg.initData)}&id=${editModeId}`)
-                        .then(r => r.json()).then(data => {
-                            const bids = data.bids || [];
-                            const seen = new Set();
-                            bids.forEach(b => {
-                                if (b.manager_name && !seen.has(b.manager_name)) {
-                                    seen.add(b.manager_name);
-                                    ws.appendChild(el('option',{value: b.manager_name, text: `${b.manager_name} — ${b.amount||''} ${b.currency||''}`}));
-                                }
+                            .then(r => r.json()).then(data => {
+                                const bids = data.bids || [];
+                                const seen = new Set();
+                                bids.forEach(b => {
+                                    if (b.manager_name && !seen.has(b.manager_name)) {
+                                        seen.add(b.manager_name);
+                                        ws.appendChild(el('option', { value: b.manager_name, text: `${b.manager_name} — ${b.amount || ''} ${b.currency || ''}` }));
+                                    }
+                                });
                             });
-                        });
                     }
                 }
             }
@@ -1531,10 +1876,10 @@
                 const cb = document.getElementById('cancel_reason');
                 if (!cb.innerHTML.trim() || cb.options.length <= 1) {
                     clear(cb);
-                    cb.appendChild(el('option',{value:'',text:'-- Выберите причину --'}));
-                    const reasons = cachedCancelReasons || ['Ставка не прошла','Груз отменился','Выбрали другого экспедитора','Не устроили сроки','Техническая ошибка'];
-                    reasons.forEach(r => cb.appendChild(el('option',{value:r,text:r})));
-                    cb.appendChild(el('option',{value:'Своя причина',text:'Своя причина...'}));
+                    cb.appendChild(el('option', { value: '', text: '-- Выберите причину --' }));
+                    const reasons = cachedCancelReasons || ['Ставка не прошла', 'Груз отменился', 'Выбрали другого экспедитора', 'Не устроили сроки', 'Техническая ошибка'];
+                    reasons.forEach(r => cb.appendChild(el('option', { value: r, text: r })));
+                    cb.appendChild(el('option', { value: 'Своя причина', text: 'Своя причина...' }));
                 }
             }
         }
@@ -1558,7 +1903,7 @@
         }
 
         function loadManagersForSelect() {
-            fetch(`/api/users?initData=${encodeURIComponent(tg.initData)}`).then(r=>r.json()).then(res=>{
+            fetch(`/api/users?initData=${encodeURIComponent(tg.initData)}`).then(r => r.json()).then(res => {
                 const sel = document.getElementById('responsible_select');
                 clear(sel);
                 sel.appendChild(el('option', { value: '' }, '-- Выберите менеджера --'));
@@ -1573,9 +1918,9 @@
 
         function filterUsers(f) {
             userFilter = f;
-            document.querySelectorAll('[id^="uf-"]').forEach(b => { b.classList.add('opacity-40'); b.classList.remove('bg-[var(--corp-cream)]','text-[var(--corp-deep)]'); });
+            document.querySelectorAll('[id^="uf-"]').forEach(b => { b.classList.add('opacity-40'); b.classList.remove('bg-[var(--corp-cream)]', 'text-[var(--corp-deep)]'); });
             document.getElementById('uf-' + f).classList.remove('opacity-40');
-            document.getElementById('uf-' + f).classList.add('bg-[var(--corp-cream)]','text-[var(--corp-deep)]');
+            document.getElementById('uf-' + f).classList.add('bg-[var(--corp-cream)]', 'text-[var(--corp-deep)]');
             renderUsersList();
         }
 
@@ -1604,17 +1949,19 @@
                         el('div', { class: 'font-bold text-sm', text: u.name || 'Сотрудник' }),
                         el('div', { class: 'text-[9px] opacity-40 uppercase font-extrabold tracking-widest', text: roleLine })
                     ),
-                    el('div', { class: 'text-[10px] font-mono opacity-60 bg-gray-100 px-2 py-1 rounded cursor-pointer active:bg-green-100 transition-colors', 
-                             onclick: (e) => { 
-                                 e.stopPropagation(); 
-                                 if (u.login_key) {
-                                     navigator.clipboard.writeText(u.login_key);
-                                     tg.showAlert(`Ключ скопирован: ${u.login_key}`);
-                                 } else {
-                                     tg.showAlert("Ключ не назначен");
-                                 }
-                             },
-                             text: keyDisplay })
+                    el('div', {
+                        class: 'text-[10px] font-mono opacity-60 bg-gray-100 px-2 py-1 rounded cursor-pointer active:bg-green-100 transition-colors',
+                        onclick: (e) => {
+                            e.stopPropagation();
+                            if (u.login_key) {
+                                navigator.clipboard.writeText(u.login_key);
+                                tg.showAlert(`Ключ скопирован: ${u.login_key}`);
+                            } else {
+                                tg.showAlert("Ключ не назначен");
+                            }
+                        },
+                        text: keyDisplay
+                    })
                 );
                 const actions = el('div', { class: 'flex space-x-2 border-t pt-3' },
                     el('button', {
@@ -1651,13 +1998,13 @@
             // Instant open, no delays
             document.getElementById('add-user-btn').classList.add('hidden');
             document.getElementById('user-editor-form').classList.remove('hidden');
-            
+
             document.getElementById('edit-user-id').value = u.id;
             document.getElementById('edit-user-name').value = u.name || '';
             document.getElementById('edit-user-role').value = u.role || 'manager';
             document.getElementById('edit-user-manual-key').value = '';
             document.getElementById('rotate-btn-real').classList.remove('hidden');
-            
+
             // Scroll to top of editor
             document.getElementById('user-editor-form').scrollIntoView({ behavior: 'smooth' });
         }
@@ -1665,7 +2012,7 @@
         function generateRandomKey() {
             const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
             let res = '';
-            for(let i=0; i<8; i++) res += chars.charAt(Math.floor(Math.random() * chars.length));
+            for (let i = 0; i < 8; i++) res += chars.charAt(Math.floor(Math.random() * chars.length));
             document.getElementById('edit-user-manual-key').value = res;
         }
 
@@ -1778,7 +2125,7 @@
                 const labelText = label ? (label.querySelector('label')?.textContent || '') : '';
                 const placeholder = selectEl.getAttribute('placeholder') || 'Введите значение...';
                 const title = labelText ? `${labelText.trim()}` : 'Своё значение';
-                
+
                 const customVal = await openCustomInput(title, placeholder);
                 if (customVal) {
                     // Remove any previous "Other" options to avoid clutter
@@ -1803,19 +2150,19 @@
             let html = `<div class="space-y-3">
                 <label class="block text-[10px] font-bold uppercase opacity-40">${label}</label>
                 <div id="${id}-container" class="grid grid-cols-1 gap-2">`;
-            
+
             options.forEach(opt => {
                 html += `<button type="button" onclick="toggleMulti('${id}', '${opt}')" data-id="${id}" data-val="${opt}" class="w-full p-4 bg-[var(--secondary-bg)] rounded-xl text-left text-xs flex justify-between items-center border border-[var(--corp-lime)]/10 transition-all duration-200 active:scale-[0.98]">
                     <span class="font-bold">${opt}</span>
                     <span class="checkbox-box text-sm opacity-40">☐</span>
                 </button>`;
             });
-            
+
             html += `<button type="button" onclick="toggleMulti('${id}', 'Другое')" data-id="${id}" data-val="Другое" class="w-full p-4 bg-[var(--secondary-bg)] rounded-xl text-left text-xs flex justify-between items-center border border-[var(--corp-lime)]/10 border-dashed opacity-60">
                     <span class="font-bold">Другое...</span>
                     <span class="checkbox-box text-sm opacity-40">☐</span>
                 </button>`;
-            
+
             html += `</div><input type="hidden" id="${id}" value=""></div>`;
             return html;
         }
@@ -1824,7 +2171,7 @@
             const container = document.getElementById(id + '-container');
             const input = document.getElementById(id);
             let current = input.value ? input.value.split(',').map(v => v.trim()) : [];
-            
+
             const btns = container.querySelectorAll(`button[data-id="${id}"]`);
 
             if (val === 'Любой' || val === 'Все') {
@@ -1832,8 +2179,8 @@
                 else current = [val];
             } else {
                 current = current.filter(v => v !== 'Любой' && v !== 'Все');
-                
-            if (val === 'Другое') {
+
+                if (val === 'Другое') {
                     openCustomInput('Своё значение', 'Введите свое значение...').then(otherVal => {
                         if (otherVal) {
                             current = current.filter(v => v !== 'Любой' && v !== 'Все');
@@ -1859,13 +2206,13 @@
             if (!container) return;
             const input = document.getElementById(id);
             const current = input.value ? input.value.split(',').map(v => v.trim()) : [];
-            
+
             const btns = container.querySelectorAll(`button[data-id="${id}"]`);
             btns.forEach(btn => {
                 const bVal = btn.getAttribute('data-val');
                 const box = btn.querySelector('.checkbox-box');
                 const isSelected = current.includes(bVal) || (bVal === 'Другое' && current.some(v => !['КЗ (Хоргос)', 'Кашгар (Иркештам)', 'Любой', 'Все', 'Поти → авто/ж/д', 'Констанца → ...', 'Поти (Грузия)', 'Иран (Бандар-Аббас)', 'Пакистан (Карачи)', 'Владивосток', 'через КЗ (Хоргос)', 'через КЗ (Достык)'].includes(v)));
-                
+
                 if (isSelected) {
                     btn.classList.add('bg-[var(--corp-cream)]', 'text-[var(--corp-deep)]', 'border-[var(--corp-lime)]');
                     btn.classList.remove('bg-[var(--secondary-bg)]', 'opacity-60');
@@ -1874,7 +2221,7 @@
                 } else {
                     btn.classList.remove('bg-[var(--corp-cream)]', 'text-[var(--corp-deep)]', 'border-[var(--corp-lime)]');
                     btn.classList.add('bg-[var(--secondary-bg)]');
-                    if(bVal === 'Другое') btn.classList.add('opacity-60');
+                    if (bVal === 'Другое') btn.classList.add('opacity-60');
                     box.textContent = '☐';
                     box.classList.add('opacity-40');
                 }
@@ -1883,46 +2230,46 @@
 
         function loadDictionaries(callback) {
             fetch(`/api/settings?initData=${encodeURIComponent(tg.initData)}`)
-            .then(r => r.json())
-            .then(res => {
-                const s = res.settings;
-                if (s) {
-                    const fillSelect = (id, items, placeholder = null) => {
-                        const sel = document.getElementById(id);
-                        if (!sel || !items) return;
-                        const itemsArr = Array.isArray(items) ? items : [];
-                        clear(sel);
-                        if (placeholder) {
-                            sel.appendChild(el('option', { value: '', text: placeholder }));
+                .then(r => r.json())
+                .then(res => {
+                    const s = res.settings;
+                    if (s) {
+                        const fillSelect = (id, items, placeholder = null) => {
+                            const sel = document.getElementById(id);
+                            if (!sel || !items) return;
+                            const itemsArr = Array.isArray(items) ? items : [];
+                            clear(sel);
+                            if (placeholder) {
+                                sel.appendChild(el('option', { value: '', text: placeholder }));
+                            }
+                            itemsArr.forEach(t => {
+                                sel.appendChild(el('option', { value: String(t), text: String(t) }));
+                            });
+                            sel.appendChild(el('option', { value: 'Другое', text: 'Другое...' }));
+                            sel.onchange = function () { handleOtherInput(this); };
+                        };
+
+                        fillSelect('delivery_terms_eu', s.incoterms, 'Инкотермс...');
+                        const bcc = document.getElementById('border_crossing_cn');
+                        if (bcc && bcc.options.length <= 1 && s.border_crossings && s.border_crossings.length > 0) {
+                            fillSelect('border_crossing_cn', s.border_crossings);
                         }
-                        itemsArr.forEach(t => {
-                            sel.appendChild(el('option', { value: String(t), text: String(t) }));
-                        });
-                        sel.appendChild(el('option', { value: 'Другое', text: 'Другое...' }));
-                        sel.onchange = function() { handleOtherInput(this); };
-                    };
+                        fillSelect('container_type_cn', s.transport_subtypes, 'Подтип транспорта...');
 
-                    fillSelect('delivery_terms_eu', s.incoterms, 'Инкотермс...');
-                    const bcc = document.getElementById('border_crossing_cn');
-                    if (bcc && bcc.options.length <= 1 && s.border_crossings && s.border_crossings.length > 0) {
-                        fillSelect('border_crossing_cn', s.border_crossings);
+                        // Only fill ports_list if it doesn't have options yet (avoids overwriting regional specific ports)
+                        const pl = document.getElementById('ports_list');
+                        if (pl && pl.options.length <= 1 && s.ports && s.ports.length > 0) {
+                            fillSelect('ports_list', s.ports);
+                        }
+                        fillSelect('source', s.sources, '-- Откуда узнали о нас? --');
                     }
-                    fillSelect('container_type_cn', s.transport_subtypes, 'Подтип транспорта...');
-
-                    // Only fill ports_list if it doesn't have options yet (avoids overwriting regional specific ports)
-                    const pl = document.getElementById('ports_list');
-                    if (pl && pl.options.length <= 1 && s.ports && s.ports.length > 0) {
-                        fillSelect('ports_list', s.ports);
-                    }
-                    fillSelect('source', s.sources, '-- Откуда узнали о нас? --');
-                }
-                if (callback) callback();
-            }).catch(err => {
-                console.error("loadDictionaries error:", err);
-                if (callback) callback();
-            });
+                    if (callback) callback();
+                }).catch(err => {
+                    console.error("loadDictionaries error:", err);
+                    if (callback) callback();
+                });
         }
-        function exportXLSX() { tg.MainButton.showProgress(); fetch('/api/export_xlsx', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ initData: tg.initData }) }).then(r => r.json()).then(res => { tg.MainButton.hideProgress(); if(res.ok) tg.showAlert("📊 Файл отправлен вам в ЛС!"); }); }
+        function exportXLSX() { tg.MainButton.showProgress(); fetch('/api/export_xlsx', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ initData: tg.initData }) }).then(r => r.json()).then(res => { tg.MainButton.hideProgress(); if (res.ok) tg.showAlert("📊 Файл отправлен вам в ЛС!"); }); }
         let currentStatsRange = 30;
         function changeStatsRange(days) {
             currentStatsRange = days;
@@ -1936,13 +2283,13 @@
             loadStats();
         }
         function loadStats() {
-            fetch(`/api/stats?initData=${encodeURIComponent(tg.initData)}&days=${currentStatsRange}`).then(r => r.json()).then(res => { 
-                const s = res.stats; 
-                document.getElementById('stat-avg-time').textContent = s.avg_closing_hours + " ч"; 
-                if(managerChartInstance) managerChartInstance.destroy(); 
-                managerChartInstance = new Chart(document.getElementById('managerChart'), { type: 'bar', data: { labels: s.managers.map(m => m.name), datasets: [{ label: 'Заявок', data: s.managers.map(m => m.count), backgroundColor: '#1B8056', borderRadius: 8 }] }, options: { scales: { y: { beginAtZero: true } }, plugins: { legend: { display: false } } } }); 
-                if(regionChartInstance) regionChartInstance.destroy(); 
-                regionChartInstance = new Chart(document.getElementById('regionChart'), { type: 'doughnut', data: { labels: s.regions.map(r => r.name), datasets: [{ data: s.regions.map(r => r.count), backgroundColor: ['#004341', '#1B8056', '#1B9E61', '#86BF6B', '#E3EDC4'] }] } }); 
+            fetch(`/api/stats?initData=${encodeURIComponent(tg.initData)}&days=${currentStatsRange}`).then(r => r.json()).then(res => {
+                const s = res.stats;
+                document.getElementById('stat-avg-time').textContent = s.avg_closing_hours + " ч";
+                if (managerChartInstance) managerChartInstance.destroy();
+                managerChartInstance = new Chart(document.getElementById('managerChart'), { type: 'bar', data: { labels: s.managers.map(m => m.name), datasets: [{ label: 'Заявок', data: s.managers.map(m => m.count), backgroundColor: '#1B8056', borderRadius: 8 }] }, options: { scales: { y: { beginAtZero: true } }, plugins: { legend: { display: false } } } });
+                if (regionChartInstance) regionChartInstance.destroy();
+                regionChartInstance = new Chart(document.getElementById('regionChart'), { type: 'doughnut', data: { labels: s.regions.map(r => r.name), datasets: [{ data: s.regions.map(r => r.count), backgroundColor: ['#004341', '#1B8056', '#1B9E61', '#86BF6B', '#E3EDC4'] }] } });
             });
         }
         function saveSettings() {
@@ -1953,8 +2300,8 @@
                 { key: 'discussion_id', value: document.getElementById('set-discussion-id').value },
                 { key: 'reminder_interval', value: parseInt(document.getElementById('set-reminder-interval').value) || 120 }
             ];
-            Promise.all(batch.map(item => fetch('/api/settings/update', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ initData: tg.initData, key: item.key, value: item.value }) })))
-            .then(() => tg.showAlert('✅ Настройки сохранены'));
+            Promise.all(batch.map(item => fetch('/api/settings/update', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ initData: tg.initData, key: item.key, value: item.value }) })))
+                .then(() => tg.showAlert('✅ Настройки сохранены'));
         }
         function doRotateKey(userId, newKey) {
             fetch('/api/user_rotate_key', {
@@ -1977,7 +2324,7 @@
             if (!userId) return;
             if (!newKey) {
                 tg.showConfirm("Сгенерировать новый случайный ключ доступа?", (confirmed) => {
-                    if(confirmed) doRotateKey(userId, '');
+                    if (confirmed) doRotateKey(userId, '');
                 });
                 return;
             }
@@ -1985,7 +2332,7 @@
         }
         function deleteUser(userId, name) {
             tg.showConfirm("Удалить сотрудника" + (name ? " «" + name + "»" : "") + "?", (confirmed) => {
-                if(!confirmed) return;
+                if (!confirmed) return;
                 fetch('/api/user_update', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -2015,11 +2362,11 @@
                 const loadingItem = el('div', { class: 'px-3 py-2 bg-[var(--corp-lime)]/10 rounded-lg text-[10px] animate-pulse', text: 'Загрузка...' });
                 document.getElementById('attachments-list').appendChild(loadingItem);
                 fetch(`/api/upload?initData=${encodeURIComponent(tg.initData)}`, { method: 'POST', body: formData })
-                .then(r => r.json()).then(res => {
-                    loadingItem.remove();
-                    if (res.ok) { uploadedAttachmentIds.push(res.attachment_id); addAttachmentToUI(res); }
-                    else tg.showAlert('Ошибка: ' + res.error);
-                });
+                    .then(r => r.json()).then(res => {
+                        loadingItem.remove();
+                        if (res.ok) { uploadedAttachmentIds.push(res.attachment_id); addAttachmentToUI(res); }
+                        else tg.showAlert('Ошибка: ' + res.error);
+                    });
             }
         }
         function addAttachmentToUI(att) {
@@ -2029,8 +2376,8 @@
             const url = att.file_path || att.url || '';
             const isImg = type.startsWith('image/');
             const item = el('div', { class: 'relative' },
-                isImg ? el('img', { src: url, class: 'w-16 h-16 object-cover rounded-xl border border-white/20 shadow-sm', onclick:()=>window.open(url) })
-                      : el('div', { class: 'w-16 h-16 flex items-center justify-center bg-[var(--secondary-bg)] rounded-xl border border-white/20 text-[8px] font-bold text-center p-1 break-all shadow-sm', onclick:()=>window.open(url), text: name }),
+                isImg ? el('img', { src: url, class: 'w-16 h-16 object-cover rounded-xl border border-white/20 shadow-sm', onclick: () => window.open(url) })
+                    : el('div', { class: 'w-16 h-16 flex items-center justify-center bg-[var(--secondary-bg)] rounded-xl border border-white/20 text-[8px] font-bold text-center p-1 break-all shadow-sm', onclick: () => window.open(url), text: name }),
                 el('button', { type: 'button', class: 'absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white rounded-full text-[10px] flex items-center justify-center shadow-md', onclick: (e) => { e.stopPropagation(); removeAttachment(att.attachment_id || att.id, item); }, text: '×' })
             );
             list.appendChild(item);
@@ -2046,57 +2393,57 @@
         }
         function loadTariffsList(context = 'user') {
             const cont = document.getElementById(context === 'user' ? 'tariffs-list-container' : 'admin-tariffs-list');
-            if(!cont) return;
+            if (!cont) return;
             cont.innerHTML = '<div class="text-center opacity-40 text-[10px] py-10">Загрузка...</div>';
-            
+
             fetch(`/api/tariffs?initData=${encodeURIComponent(tg.initData)}`)
-            .then(r => r.json())
-            .then(data => {
-                clear(cont);
-                const list = data.tariffs || [];
-                if(list.length === 0) {
-                    cont.appendChild(el('div', { class: 'text-center opacity-40 text-[10px] py-10', text: 'Файлов пока нет' }));
-                    return;
-                }
-                list.forEach(t => {
-                    const isXls = t.file_name.toLowerCase().endsWith('.xlsx') || t.file_name.toLowerCase().endsWith('.xls');
-                    const icon = isXls ? '📊' : '📄';
-                    const colorClass = isXls ? 'text-green-600' : 'text-blue-600';
-                    
-                    const item = el('div', { class: 'p-4 bg-[var(--secondary-bg)] rounded-2xl flex justify-between items-center animate-fade border border-[var(--corp-lime)]/5' },
-                        el('div', { class: 'flex items-center space-x-3' },
-                            el('span', { class: 'text-xl ' + colorClass, text: icon }),
-                            el('div', null,
-                                el('div', { class: 'text-[11px] font-bold leading-tight', text: t.title }),
-                                el('div', { class: 'text-[8px] opacity-40 mt-1', text: format_datetime(t.created_at) + ' • ' + (t.uploader_name || 'System') })
-                            )
-                        ),
-                        context === 'user' 
-                            ? el('button', { onclick: () => window.open(t.file_path), class: 'px-4 py-2 bg-[var(--corp-cream)] text-[var(--corp-deep)] text-[9px] font-extrabold rounded-xl uppercase shadow-sm', text: 'Открыть' })
-                            : el('button', { onclick: () => deleteTariff(t.id), class: 'text-red-500 font-bold px-3 py-2 bg-red-50 rounded-xl', text: 'Удалить' })
-                    );
-                    cont.appendChild(item);
+                .then(r => r.json())
+                .then(data => {
+                    clear(cont);
+                    const list = data.tariffs || [];
+                    if (list.length === 0) {
+                        cont.appendChild(el('div', { class: 'text-center opacity-40 text-[10px] py-10', text: 'Файлов пока нет' }));
+                        return;
+                    }
+                    list.forEach(t => {
+                        const isXls = t.file_name.toLowerCase().endsWith('.xlsx') || t.file_name.toLowerCase().endsWith('.xls');
+                        const icon = isXls ? '📊' : '📄';
+                        const colorClass = isXls ? 'text-green-600' : 'text-blue-600';
+
+                        const item = el('div', { class: 'p-4 bg-[var(--secondary-bg)] rounded-2xl flex justify-between items-center animate-fade border border-[var(--corp-lime)]/5' },
+                            el('div', { class: 'flex items-center space-x-3' },
+                                el('span', { class: 'text-xl ' + colorClass, text: icon }),
+                                el('div', null,
+                                    el('div', { class: 'text-[11px] font-bold leading-tight', text: t.title }),
+                                    el('div', { class: 'text-[8px] opacity-40 mt-1', text: format_datetime(t.created_at) + ' • ' + (t.uploader_name || 'System') })
+                                )
+                            ),
+                            context === 'user'
+                                ? el('button', { onclick: () => window.open(t.file_path), class: 'px-4 py-2 bg-[var(--corp-cream)] text-[var(--corp-deep)] text-[9px] font-extrabold rounded-xl uppercase shadow-sm', text: 'Открыть' })
+                                : el('button', { onclick: () => deleteTariff(t.id), class: 'text-red-500 font-bold px-3 py-2 bg-red-50 rounded-xl', text: 'Удалить' })
+                        );
+                        cont.appendChild(item);
+                    });
                 });
-            });
         }
         function handleTariffUpload(event) {
-            const file = event.target.files[0]; if(!file) return;
+            const file = event.target.files[0]; if (!file) return;
             const title = document.getElementById('tariff-upload-title').value.trim();
-            if(!title) { tg.showAlert("⚠️ Введите название для файла"); return; }
-            
+            if (!title) { tg.showAlert("⚠️ Введите название для файла"); return; }
+
             const formData = new FormData();
             formData.append('title', title);
             formData.append('file', file);
-            
+
             const status = document.getElementById('tariff-upload-status');
             status.textContent = "⌛ Загрузка на сервер...";
-            
+
             fetch(`/api/tariffs/upload?initData=${encodeURIComponent(tg.initData)}`, {
                 method: 'POST',
                 body: formData
             }).then(r => r.json()).then(res => {
                 status.textContent = "";
-                if(res.ok) {
+                if (res.ok) {
                     tg.showAlert("✅ Тариф успешно загружен");
                     document.getElementById('tariff-upload-title').value = '';
                     document.getElementById('tariff-file-input').value = '';
@@ -2108,13 +2455,13 @@
         }
         function deleteTariff(id) {
             tg.showConfirm("Удалить этот тариф из общего доступа?", (confirmed) => {
-                if(!confirmed) return;
+                if (!confirmed) return;
                 fetch('/api/tariffs/delete', {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ initData: tg.initData, id: id })
                 }).then(r => r.json()).then(res => {
-                    if(res.ok) loadTariffsList('admin');
+                    if (res.ok) loadTariffsList('admin');
                 });
             });
         }
@@ -2122,4 +2469,5 @@
         checkProfile();
     </script>
 </body>
+
 </html>

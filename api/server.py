@@ -610,19 +610,20 @@ async def api_submit(request):
             if fbk:
                 await db.add_comment(final_id, profile["id"], profile["name"], f"Фидбэк: {fbk}", type="feedback")
             
-            # Post UPDATE to channel if status or key fields changed
-            updated_req = await db.get_request(final_id)
+            # Update main card in channel
             settings = await db.get_settings()
             target_channel = settings.get("channel_id") or os.getenv("CHANNEL_ID")
             
-            if updated_req and target_channel:
+            if target_channel:
                 try:
-                    text = build_card(updated_req)
-                    if updated_req['status'] != 'Открыта':
-                        status_emoji = "✅" if "Успешно" in updated_req['status'] else "❌"
-                        text = f"{status_emoji} СТАТУС: {updated_req['status'].upper()}\n\n" + text
+                    # Fetch latest state (including potentially new responsible name)
+                    req_to_post = await db.get_request(final_id)
+                    text = build_card(req_to_post)
+                    if req_to_post['status'] != 'Открыта':
+                        status_emoji = "✅" if "Успешно" in req_to_post['status'] else "❌"
+                        text = f"{status_emoji} СТАТУС: {req_to_post['status'].upper()}\n\n" + text
                     
-                    msg_id = updated_req.get("channel_msg_id")
+                    msg_id = req_to_post.get("channel_msg_id")
                     if msg_id:
                         try:
                             await request.app["bot"].edit_message_text(
@@ -632,19 +633,21 @@ async def api_submit(request):
                                 parse_mode="HTML"
                             )
                         except Exception as e:
-                            logger.warning(f"Failed to edit msg {msg_id} on edit, posting new: {e}")
+                            logger.warning(f"Failed to edit msg {msg_id}, posting new: {e}")
                             new_msg = await request.app["bot"].send_message(chat_id=target_channel, text=text, parse_mode="HTML")
                             await db.update_request(final_id, {"channel_msg_id": new_msg.message_id})
+                            msg_id = new_msg.message_id
                     else:
                         new_msg = await request.app["bot"].send_message(chat_id=target_channel, text=text, parse_mode="HTML")
                         await db.update_request(final_id, {"channel_msg_id": new_msg.message_id})
-                        
-                    # Notify about update and schedule deletion (#53) - skip if superuser
+                        msg_id = new_msg.message_id
+
+                    # Notify about update - skip if superuser
                     if profile.get("role") != "superuser":
                         from utils.helpers import TZ, calculate_deletion_time
                         now = datetime.now(TZ)
                         delete_at = calculate_deletion_time(now, 2)
-                        update_notif = f"🔄 <b>Заявка #{updated_req['id']:04d} обновлена</b>"
+                        update_notif = f"🔄 <b>Заявка #{final_id:04d} обновлена</b>"
                         
                         # 1. Notify in channel
                         notif_msg = await request.app["bot"].send_message(chat_id=target_channel, text=update_notif, parse_mode="HTML")
@@ -653,13 +656,11 @@ async def api_submit(request):
                         # 2. Notify in discussion group if exists
                         discussion_id = settings.get("discussion_id") or os.getenv("DISCUSSION_GROUP_ID")
                         if discussion_id:
-                            # Use the actual channel_msg_id for the reply (important for thread)
-                            current_msg_id = updated_req.get("channel_msg_id") or msg_id
                             try:
                                 disc_msg = await request.app["bot"].send_message(
                                     chat_id=discussion_id, 
                                     text=update_notif, 
-                                    reply_to_message_id=int(current_msg_id) if current_msg_id else None,
+                                    reply_to_message_id=int(msg_id) if msg_id else None,
                                     parse_mode="HTML"
                                 )
                                 await db.add_scheduled_deletion(discussion_id, disc_msg.message_id, delete_at)

@@ -163,13 +163,13 @@ async def sync_bid_to_discussion(bot, discussion_id, channel_id, channel_msg_id,
     try:
         # Normalize IDs
         def to_int(val):
-            if not val: return None
+            if val is None: return None
             try:
-                if isinstance(val, str):
-                    val = val.strip()
-                return int(val)
+                s = str(val).strip()
+                if not s: return None
+                return int(s)
             except:
-                return val
+                return None
 
         target_chat = to_int(channel_id)
         target_discussion = to_int(discussion_id)
@@ -200,18 +200,35 @@ async def sync_bid_to_discussion(bot, discussion_id, channel_id, channel_msg_id,
         # 2. If we found the message in the group, reply to it
         if target_msg_id and target_disc_id:
             log.info(f"Found discussion msg {target_msg_id} in {target_disc_id}. Sending reply.")
+            
             try:
+                # First attempt: simple reply (works for most groups)
                 await bot.send_message(
                     chat_id=target_disc_id,
                     text=bid_card_text,
-                    reply_parameters=ReplyParameters(message_id=target_msg_id),
+                    reply_parameters=ReplyParameters(
+                        message_id=target_msg_id,
+                        allow_sending_without_reply=False
+                    ),
                     parse_mode="HTML"
                 )
                 return True
             except BadRequest as e:
-                log.error(f"Failed to send reply to discussion: {e}")
-                # If it's a forum issue, maybe we need message_thread_id? 
-                # But usually for comments it's not needed.
+                if "thread not found" in str(e).lower() or "topic" in str(e).lower():
+                    log.info("Regular reply failed, trying with message_thread_id (forum mode)")
+                    try:
+                        await bot.send_message(
+                            chat_id=target_disc_id,
+                            text=bid_card_text,
+                            reply_parameters=ReplyParameters(message_id=target_msg_id),
+                            message_thread_id=target_msg_id,
+                            parse_mode="HTML"
+                        )
+                        return True
+                    except Exception as e2:
+                        log.error(f"Forum reply also failed: {e2}")
+                else:
+                    log.error(f"Failed to send reply to discussion: {e}")
 
         # 3. Fallback: if we have a known discussion group ID, try sending there
         if target_discussion:

@@ -787,8 +787,20 @@ async def api_bid(request):
 
         settings = await db.get_settings()
         # Prefer per-request IDs if they exist (user mentioned they are fixed to the card)
-        discussion_id = req.get("discussion_group_id") or req.get("discussion_id") or settings.get("discussion_id") or os.getenv("DISCUSSION_GROUP_ID")
-        target_channel = req.get("channel_id") or req.get("chanel_id") or settings.get("channel_id") or os.getenv("CHANNEL_ID")
+        # Support various spellings including the user's typo 'disscusion_group_id'
+        discussion_id = (
+            req.get("discussion_group_id") or 
+            req.get("disscusion_group_id") or 
+            req.get("discussion_id") or 
+            settings.get("discussion_id") or 
+            os.getenv("DISCUSSION_GROUP_ID")
+        )
+        target_channel = (
+            req.get("channel_id") or 
+            req.get("chanel_id") or 
+            settings.get("channel_id") or 
+            os.getenv("CHANNEL_ID")
+        )
         
         bot = request.app["bot"]
 

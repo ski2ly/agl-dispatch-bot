@@ -95,6 +95,10 @@ def build_card(req: dict) -> str:
         lines.append(f"Стоимость: {val} {curr}")
     else:
         lines.append(f"Стоимость: НЕ УКАЗАНА")
+    
+    if v('target'):
+        lines.append(f"Таргет: {v('target')}")
+        
     lines.append(f"Срочность: {v('urgency_type') or v('urgency_days') or 'Стандарт'}")
 
     # Specific fields

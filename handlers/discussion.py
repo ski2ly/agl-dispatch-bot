@@ -23,8 +23,14 @@ async def handle_discussion_forward(update: Update, context: ContextTypes.DEFAUL
     target_channel = settings.get("channel_id") or os.getenv("CHANNEL_ID")
 
     # LOG EVERY MESSAGE IN GROUP FOR DEBUGGING
-    logger.info(f"🔍 DEBUG: Msg in chat {msg.chat_id} ({msg.chat.title}). Text: {msg.text[:50] if msg.text else '[No Text]'}. "
-                f"FwdFrom: {msg.forward_from_chat.id if msg.forward_from_chat else 'No'}. "
+    fwd_info = "No"
+    if hasattr(msg, 'forward_from_chat') and msg.forward_from_chat:
+        fwd_info = str(msg.forward_from_chat.id)
+    elif hasattr(msg, 'forward_origin') and msg.forward_origin and hasattr(msg.forward_origin, 'chat'):
+        fwd_info = str(msg.forward_origin.chat.id)
+
+    logger.info(f"🔍 DEBUG: Msg in chat {msg.chat_id} ({msg.chat.title}). Text: {(msg.text or msg.caption or '')[:50]}. "
+                f"FwdFrom: {fwd_info}. "
                 f"AutoFwd: {msg.is_automatic_forward}")
 
     if not target_discussion:
@@ -42,8 +48,14 @@ async def handle_discussion_forward(update: Update, context: ContextTypes.DEFAUL
 
     # A message is a potential link if it's an automatic forward OR it's a forward from our channel
     is_fwd = msg.is_automatic_forward
-    if not is_fwd and msg.forward_from_chat:
-        if norm(msg.forward_from_chat.id) == norm(target_channel):
+    fwd_chat_id = None
+    if hasattr(msg, 'forward_from_chat') and msg.forward_from_chat:
+        fwd_chat_id = msg.forward_from_chat.id
+    elif hasattr(msg, 'forward_origin') and msg.forward_origin and hasattr(msg.forward_origin, 'chat'):
+        fwd_chat_id = msg.forward_origin.chat.id
+
+    if not is_fwd and fwd_chat_id:
+        if norm(fwd_chat_id) == norm(target_channel):
             is_fwd = True
 
     if is_fwd:
@@ -52,7 +64,11 @@ async def handle_discussion_forward(update: Update, context: ContextTypes.DEFAUL
         
         if match:
             req_id = int(match.group(1))
-            fwd_msg_id = msg.forward_from_message_id if msg.forward_from_chat else None
+            fwd_msg_id = None
+            if hasattr(msg, 'forward_from_message_id'):
+                fwd_msg_id = msg.forward_from_message_id
+            elif hasattr(msg, 'forward_origin') and hasattr(msg.forward_origin, 'message_id'):
+                fwd_msg_id = msg.forward_origin.message_id
             
             try:
                 # Link by ID parsed from text
@@ -66,16 +82,16 @@ async def handle_discussion_forward(update: Update, context: ContextTypes.DEFAUL
                 logger.error(f"❌ LINK ERROR (text): {e}")
         
         # Fallback to numeric link
-        if msg.forward_from_chat and msg.forward_from_message_id:
-            fwd_from_id = msg.forward_from_chat.id
-            if norm(fwd_from_id) == norm(target_channel):
+        # We need fwd_from_id and fwd_msg_id which we calculated above
+        if fwd_chat_id and fwd_msg_id:
+            if norm(fwd_chat_id) == norm(target_channel):
                 try:
                     updated = await db.update_request_by_channel_msg_id(
-                        msg.forward_from_message_id, 
+                        fwd_msg_id, 
                         {"discussion_msg_id": msg.message_id}
                     )
                     if updated:
-                        logger.info(f"✅ LINK SUCCESS: channel_msg_id {msg.forward_from_message_id} linked to disc_msg {msg.message_id}")
+                        logger.info(f"✅ LINK SUCCESS: channel_msg_id {fwd_msg_id} linked to disc_msg {msg.message_id}")
                         return
                 except Exception as e:
                     logger.error(f"❌ LINK ERROR (numeric): {e}")
@@ -83,7 +99,21 @@ async def handle_discussion_forward(update: Update, context: ContextTypes.DEFAUL
         logger.warning(f"⚠️ LINK FAILED: Forward received but could not find request. Text matches: {bool(match)}")
         return
 
-    if not (msg.reply_to_message and msg.reply_to_message.forward_from_chat):
+    # 2. Handle User Comments (replies to the forward)
+    reply_fwd_chat_id = None
+    reply_fwd_msg_id = None
+    if msg.reply_to_message:
+        rm = msg.reply_to_message
+        if hasattr(rm, 'forward_from_chat') and rm.forward_from_chat:
+            reply_fwd_chat_id = rm.forward_from_chat.id
+            reply_fwd_msg_id = rm.forward_from_message_id
+        elif hasattr(rm, 'forward_origin'):
+            o = rm.forward_origin
+            if o:
+                if hasattr(o, 'chat'): reply_fwd_chat_id = o.chat.id
+                if hasattr(o, 'message_id'): reply_fwd_msg_id = o.message_id
+
+    if not reply_fwd_chat_id:
         return
 
     reply_text = msg.reply_to_message.text or ""

@@ -117,8 +117,6 @@ async def process_ai_message(update: Update, context: ContextTypes.DEFAULT_TYPE,
         
         await db.save_ai_context(user_id, merged, history=history) # Persistent save
 
-        preview = ai_assistant.build_preview(merged)
-        
         is_ready = merged.get("ready_to_publish")
         if is_ready:
             keyboard = [
@@ -134,14 +132,25 @@ async def process_ai_message(update: Update, context: ContextTypes.DEFAULT_TYPE,
                 [InlineKeyboardButton("❌ Отмена", callback_data="cancel_ai")]
             ]
             status_text = "📋 Черновик (недостаточно данных):"
-        
+
         # Cleanup old bot message
         old_msg_id = context.user_data.get("last_ai_msg_id")
         if old_msg_id:
             try: await context.bot.delete_message(update.effective_chat.id, old_msg_id)
             except: pass
+
+        card_preview = build_card(merged)
+        missing_info = ""
+        if not is_ready and merged.get("missing_fields"):
+            missing_info = f"\n⚠️ <b>Не хватает:</b> {', '.join(merged['missing_fields'])}\n"
+        
+        question = f"\n🤖 <i>{merged.get('next_question')}</i>" if merged.get("next_question") else ""
             
-        sent_msg = await update.message.reply_text(f"{info_prefix}\n{status_text}\n\n{preview}\n\nВсе верно?", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="HTML")
+        sent_msg = await update.message.reply_text(
+            f"{info_prefix}\n{status_text}\n\n{card_preview}\n{missing_info}{question}\n\nВсе верно?", 
+            reply_markup=InlineKeyboardMarkup(keyboard), 
+            parse_mode="HTML"
+        )
         context.user_data["last_ai_msg_id"] = sent_msg.message_id
         
     except Exception as e:

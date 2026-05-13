@@ -14,7 +14,16 @@ _REQ_ID_RE = re.compile(r"#(\d{1,7})\b")
 async def handle_discussion_forward(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Save messages from discussion group as comments to the corresponding request."""
     msg = update.effective_message
-    if not msg or str(msg.chat_id) != str(DISCUSSION_GROUP_ID):
+    if not msg:
+        return
+
+    # Fetch settings to get current discussion ID
+    settings = await db.get_settings()
+    target_discussion = settings.get("discussion_id") or os.getenv("DISCUSSION_GROUP_ID")
+
+    logger.info(f"Group message received: chat_id={msg.chat_id}, target={target_discussion}, is_fwd={msg.is_automatic_forward}")
+
+    if str(msg.chat_id) != str(target_discussion):
         return
 
     if msg.is_automatic_forward and msg.forward_from_chat:

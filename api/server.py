@@ -670,6 +670,7 @@ async def api_submit(request):
                                         chat_id=discussion_id, 
                                         text=update_notif, 
                                         message_thread_id=int(req.get("discussion_msg_id")),
+                                        reply_parameters=ReplyParameters(message_id=int(req.get("discussion_msg_id"))),
                                         parse_mode="HTML"
                                     )
                                 elif msg_id and target_channel_id:
@@ -821,11 +822,14 @@ async def api_bid(request):
         
         bot = request.app["bot"]
         
-        # Small retry to wait for Telegram forward if just posted
+        # Small retry loop to wait for Telegram forward if just posted or if handler was slow
         if not req.get("discussion_msg_id"):
-            await asyncio.sleep(1.5)
-            req = await db.get_request(int(req_id))
-            logger.info(f"Refreshed req #{req_id} after wait, disc_msg_id={req.get('discussion_msg_id')}")
+            for _ in range(3): # Try up to 3 times
+                await asyncio.sleep(1.0)
+                req = await db.get_request(int(req_id))
+                if req.get("discussion_msg_id"):
+                    logger.info(f"Refreshed req #{req_id}, found disc_msg_id={req.get('discussion_msg_id')}")
+                    break
 
         if discussion_id and target_channel:
             msg_id = req.get("channel_msg_id")

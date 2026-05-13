@@ -21,35 +21,34 @@ class AIAssistant:
     def _get_system_prompt(self, settings=None):
         today = datetime.now(TZ).strftime("%d.%m.%Y %H:%M")
         regions_list = settings.get("regions", []) if settings else []
-        if regions_list:
-            regions_str = "|".join([r["name"] if isinstance(r, dict) else str(r) for r in regions_list])
-        else:
-            regions_str = "СНГ|Европа|Китай|Турция|Индия/ЮВА|Америка|ОАЭ|Другое"
+        regions_str = "|".join([r["name"] if isinstance(r, dict) else str(r) for r in regions_list])
 
-        return f"""Ты — Робот-Секретарь AGL. Твоя задача: идеально извлечь ВСЕ детали заявки.
+        return f"""Ты — Робот-Секретарь AGL. Твоя задача: идеально извлечь данные.
 
-### ПРАВИЛА:
-1. РЕГИОН: Если есть Китай — это строго КИТАЙ.
-2. ДОП. ИНФО (extra_info): Записывай сюда ВСЁ, что не попало в основные поля: упаковка (вкладыш), общая партия (1000т), запрашиваемые услуги (таможня, аренда, погрузка). Это КРИТИЧНО.
-3. ПОГРАНПЕРЕХОД: Станции вроде "Алтынколь" или переходы пиши в `border_crossing_cn`.
-4. НИКОГДА НЕ ПРИДУМЫВАЙ ЦИФРЫ. Нет данных — null.
-5. ЯЗЫК: Ответы и missing_fields — на РУССКОМ.
+### ГЕОГРАФИЯ (КРИТИЧНО):
+Направление выбирай из списка: [{regions_str}]
+- ЕВРОПА: Литва (Vilnius), Латвия (Riga), Польша, Германия, Нидерланды, Бельгия и весь ЕС.
+- ОАЭ: Дубай (Dubai), Абу-Даби, Шарджа.
+- СНГ: Узбекистан, Казахстан, РФ, Беларусь.
+- ПРИОРИТЕТ: Если одна точка в Европе, а другая в СНГ — регион ЕВРОПА.
 
-### СПИСОК ПОЛЕЙ (missing_fields):
-Маршрут, Груз, Вес, Объем, Места, Стоимость, ТН ВЭД, Вид транспорта, Затаможка, Растаможка, Погранпереход.
+### ПРАВИЛА ЗАПОЛНЕНИЯ ПОЛЕЙ:
+1. ЦИФРЫ: В поля cargo_weight, cargo_volume, cargo_places пиши ТОЛЬКО ЧИСЛА. Убирай "кг", "тонн", "м3". Если "20 тонн" -> пиши "20000".
+2. ТРАНЗИТ: Если написано "Via Turkiye" или "через Турцию" — пиши "Турция" в `transit_info`. НЕ проси это поле, если оно указано.
+3. ТАМОЖНЯ: Если есть "EX1", "T1" или "customs" — это затаможка/растаможка.
+4. УПАКОВКА: IBC, Тенты, Контейнеры — пиши в `transport_sub` или `extra_info`.
 
 ### ФОРМАТ JSON:
 {{
-  "regions": "Китай",
-  "transport_cat": "Контейнер",
-  "transport_sub": "20GP",
-  "route_from": "Ташкент, Узбекистан", "route_to": "Тайчжоу, Китай",
-  "cargo_name": "...", "cargo_weight": "...", "cargo_volume": null, "cargo_places": null, "hs_code": null,
-  "border_crossing_cn": "Алтынколь",
-  "extra_info": "Партия 1000т. Упаковка: вкладыш. Услуги: таможня, погрузка, аренда КТК.", 
-  "missing_fields": ["Объем", "Количество мест"],
+  "regions": "Европа",
+  "transport_cat": "Авто",
+  "route_from": "Вильнюс, Литва", "route_to": "Ташкент, Узбекистан",
+  "cargo_name": "Novoflow 165", "cargo_weight": "20000", "cargo_volume": null, "cargo_places": "20",
+  "transit_info": "Турция",
+  "extra_info": "IBC container, Netherlands origin, EX1 needed, loading 22.10.2025", 
+  "missing_fields": ["Стоимость", "Объем"],
   "ready_to_publish": false,
-  "next_question": "Уточните объем и количество мест?"
+  "next_question": "Уточните, пожалуйста, объем груза и его стоимость?"
 }}
 
 Today's date: {today}
@@ -99,8 +98,18 @@ Today's date: {today}
             val = draft.get(key)
             if val is None or str(val).strip().lower() in ("", "-", "none", "false", "null"):
                 continue
+            
+            # Unit normalization for weight
+            if key == "cargo_weight":
+                try:
+                    num = float(str(val).replace(",", ".").split()[0])
+                    if num > 0:
+                        val = f"{int(num)} кг" if num > 100 else f"{num} кг"
+                except: pass
+            
             safe_val = html.escape(str(val))
             lines.append(f"{label}: <b>{safe_val}</b>")
+            
         missing = draft.get("missing_fields", [])
         if missing:
             safe_missing = html.escape(", ".join(missing))

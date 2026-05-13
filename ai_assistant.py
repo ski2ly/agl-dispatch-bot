@@ -86,17 +86,17 @@ Today's date: {today}
         import html
         lines = []
         field_labels = {
-            "regions": "🌍 Направление", "transport_cat": "🚛 Транспорт",
-            "delivery_terms": "📦 Инкотермс",
-            "route_from": "📍 Откуда", "route_to": "📍 Куда",
-            "cargo_name": "📦 Груз", "cargo_weight": "⚖️ Вес",
-            "cargo_places": "📏 Места", "cargo_volume": "📦 Объем", "cargo_value": "💰 Стоимость",
-            "hs_code": "📝 ТН ВЭД", "customs_address": "🏛 Затаможка",
-            "clearance_address": "🏛 Растаможка", "loading_address": "📍 Погрузка",
-            "unloading_address": "📍 Выгрузка", "urgency_type": "🕒 Срочность",
-            "transit_info": "🛣 Транзит", "extra_info": "📝 Доп. инфо", 
-            "transport_sub": "🚛 Вид авто", "temp_control": "🌡 Темп. режим", "adr_class": "🔥 ADR класс",
-            "border_crossing_cn": "🌉 Погранпереход"
+            "regions": "Направление", "transport_cat": "Транспорт",
+            "delivery_terms": "Инкотермс",
+            "route_from": "Откуда", "route_to": "Куда",
+            "cargo_name": "Груз", "cargo_weight": "Вес",
+            "cargo_places": "Места", "cargo_volume": "Объем", "cargo_value": "Стоимость",
+            "hs_code": "ТН ВЭД", "customs_address": "Затаможка",
+            "clearance_address": "Растаможка", "loading_address": "Погрузка",
+            "unloading_address": "Выгрузка", "urgency_type": "Срочность",
+            "transit_info": "Транзит", "extra_info": "Доп. инфо", 
+            "transport_sub": "Вид авто", "temp_control": "Темп. режим", "adr_class": "ADR класс",
+            "border_crossing_cn": "Погранпереход"
         }
         for key, label in field_labels.items():
             val = draft.get(key)

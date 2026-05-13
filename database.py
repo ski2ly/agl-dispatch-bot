@@ -766,14 +766,14 @@ class Database:
             ],
             "transport_types": ["Авто", "Контейнер", "Ж/Д Вагон", "Авиа", "Мультимодальная"],
             "regions": [
-                {"name": "СНГ", "emoji": "🗺️"},
-                {"name": "Европа", "emoji": "🇪🇺"},
-                {"name": "Китай", "emoji": "🇨🇳"},
-                {"name": "Турция", "emoji": "🇹🇷"},
-                {"name": "Индия/ЮВА", "emoji": "🇮🇳"},
-                {"name": "Америка", "emoji": "🇺🇸"},
-                {"name": "ОАЭ", "emoji": "🇦🇪"},
-                {"name": "Другое", "emoji": "🌐"}
+                {"name": "СНГ", "emoji": ""},
+                {"name": "Европа", "emoji": ""},
+                {"name": "Китай", "emoji": ""},
+                {"name": "Турция", "emoji": ""},
+                {"name": "Индия/ЮВА", "emoji": ""},
+                {"name": "Америка", "emoji": ""},
+                {"name": "ОАЭ", "emoji": ""},
+                {"name": "Другое", "emoji": ""}
             ],
             "currencies": ["USD", "EUR", "RUB", "CNY", "UZS", "KZT", "TRY", "GBP"],
             "cancel_reasons": [

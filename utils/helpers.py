@@ -35,8 +35,8 @@ def build_card(req: dict) -> str:
     req_id = req.get("id", 0)
     urgency = v('urgency_type', '')
     title = f"[НОВАЯ ЗАЯВКА #{req_id:05d}]"
-    if urgency == "Срочно" or urgency == "🔥 СРОЧНО":
-        title += " - СРОЧНАЯ 🔥"
+    if urgency == "Срочно" or urgency == "СРОЧНО":
+        title += " - СРОЧНО"
 
     t_cat = str(req.get("transport_cat", ""))
     t_sub = v("transport_sub")

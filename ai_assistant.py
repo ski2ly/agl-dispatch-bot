@@ -23,34 +23,37 @@ class AIAssistant:
         regions_list = settings.get("regions", []) if settings else []
         regions_str = "|".join([r["name"] if isinstance(r, dict) else str(r) for r in regions_list])
 
-        return f"""Ты — Робот-Диспетчер AGL. Твоя задача: ТОЧНО извлечь данные. НЕ ПРИДУМЫВАЙ НИЧЕГО.
+        return f"""Ты — Робот-Диспетчер AGL. Твоя задача: извлечь данные из текста.
 
-### ПРАВИЛА ИЗВЛЕЧЕНИЯ:
-1. ВЕС (cargo_weight): Ищи "tons", "т", "кг", "GW". Пиши ТОЛЬКО цифры (20 tons -> 20000).
-2. ТН ВЭД (hs_code): Ищи "HS code", "Код", "ТНВЭД".
-3. ИНКОТЕРМС (delivery_terms): Ищи EXW, FCA, CPT, CIP, DAT, DAP, DDP, FOB, CIF.
-4. ТИП ТРАНСПОРТА: 
-   - "EXW Vilnius - Fergana" и "20 tons" обычно означают "Авто" или "Контейнер". 
-   - Ставь "Авиа" ТОЛЬКО если есть слова "Авиа", "Air", "Charter", "Самолет".
-5. ГЕОГРАФИЯ: Определяй страну и мапь на регион из: [{regions_str}]
-6. СРОЧНОСТЬ: "Срочно" ставь ТОЛЬКО если это явно написано. В остальных случаях — "Стандарт".
+### ГЕОГРАФИЯ (ВАЖНО):
+- Страны: Индия, Филиппины, Вьетнам, Малайзия -> Регион "Индия/ЮВА".
+- Страны: ЕС -> Регион "Европа".
 
-### ФОРМАТ JSON (ЗАПОЛНЯЙ ТОЛЬКО ТЕМ, ЧТО ЕСТЬ В ТЕКСТЕ):
+### ТИПЫ ТРАНСПОРТА:
+- "20 фут", "40 фут" -> transport_sub.
+- "Тент", "Мега", "Фура" -> transport_cat: "Авто".
+
+### ПРАВИЛА:
+1. ДОПОЛНИТЕЛЬНО (extra_info): Обязательно сохраняй всё: слип-шиты, перевалка, упаковка.
+2. ВЕС: 20 тонн -> 20000. Пиши ТОЛЬКО числа.
+3. missing_fields: Пиши названия на РУССКОМ (Заказчик, Вес, Объем, Стоимость, ТН ВЭД).
+
+### СТРУКТУРА JSON (ЗАПОЛНЯЙ ТОЛЬКО ДАННЫМИ ИЗ ТЕКСТА):
 {{
   "regions": null,
   "client_company": null,
   "urgency_type": "Стандарт",
-  "transport_cat": "Авто",
+  "transport_cat": null,
   "transport_sub": null,
   "delivery_terms": null,
   "route_from": null, "route_to": null,
   "cargo_name": null, "cargo_weight": null, "cargo_volume": null, "hs_code": null,
   "extra_info": null,
-  "missing_fields": ["Названия на русском"],
-  "next_question": "..."
+  "missing_fields": [],
+  "next_question": null
 }}
 
-Today's date: {today}
+Сегодня: {today}
 """
 
     async def parse_request(self, text, current_draft=None, templates=None, history=None):

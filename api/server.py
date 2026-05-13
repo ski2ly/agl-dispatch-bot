@@ -550,7 +550,8 @@ ALLOWED_REQUEST_FIELDS = {
     "multimodal_next", "company", "delivery_terms_eu", "transit_rf_allowed",
     "road_type_cn", "border_crossing_cn", "container_type_cn", "loading_days",
     "customs_days", "urgency_days", "ports_list",
-    "cancel_reason", "channel_msg_id", "mute_reminders", "last_notified_at", "winner_name", "source", "days_loading", "days_unloading"
+    "cancel_reason", "channel_msg_id", "mute_reminders", "last_notified_at", "winner_name", "source", "days_loading", "days_unloading",
+    "cargo_oversized", "cargo_dimensions", "temp_control", "temp_range"
 }
 ALLOWED_STATUSES = {"Открыта", "В работе", "Успешно реализована", "Отменена"}
 

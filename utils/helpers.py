@@ -73,6 +73,15 @@ def build_card(req: dict) -> str:
     if v('cargo_places'): lines.append(f"Мест: {v('cargo_places')}")
     if v('cargo_volume'): lines.append(f"Объем: {v('cargo_volume')} м³")
     if v('packaging'): lines.append(f"Упаковка: {v('packaging')}")
+    if v('stackable') == 'Да': lines.append("Штабелируемый: Да")
+    elif v('stackable') == 'Нет': lines.append("Штабелируемый: Нет")
+    
+    if v('cargo_oversized') == 'Да':
+        lines.append(f"Негабаритный: Да ({v('cargo_dimensions', 'размеры не указаны')})")
+    
+    if v('temp_control') == 'Да':
+        lines.append(f"Температурный режим: {v('temp_range', 'не указан')}")
+    
     lines.append("")
     val = v('cargo_value')
     if val:
@@ -87,7 +96,7 @@ def build_card(req: dict) -> str:
         "delivery_terms_eu": "Условия", "route_type": "Маршрут", "export_decl": "Экспортная", 
         "origin_cert": "Сертификат", "road_type_cn": "Тип фуры", "border_crossing_cn": "Погранпереход",
         "container_owner": "Контейнер", "glonass_seal": "Пломба", "days_loading": "Дней на погр. (ПРР+Там)",
-        "days_unloading": "Дней на выгрузке (ПРР+Там)", "stackable": "Штабелируемый", "flight_type": "Рейс", "ports_list": "Порт"
+        "days_unloading": "Дней на выгрузке (ПРР+Там)", "flight_type": "Рейс", "ports_list": "Порт"
     }
     spec_fields = []
     for k, label in spec_map.items():

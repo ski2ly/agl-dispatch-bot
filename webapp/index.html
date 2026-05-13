@@ -252,6 +252,38 @@
                                  <option value="Другое">Другое...</option>
                              </select>
                         </div>
+
+                        <!-- Stackable, Oversized, Temperature -->
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="space-y-1">
+                                <label class="block text-[8px] font-bold uppercase opacity-40 ml-2">Штабелируемость</label>
+                                <select id="stackable" class="w-full p-4 tg-input text-sm font-bold">
+                                    <option value="Нет">Нет</option>
+                                    <option value="Да">Да</option>
+                                </select>
+                            </div>
+                            <div class="space-y-1">
+                                <label class="block text-[8px] font-bold uppercase opacity-40 ml-2">Габариты</label>
+                                <select id="cargo_oversized" class="w-full p-4 tg-input text-sm font-bold" onchange="toggleOversized(this)">
+                                    <option value="Нет">Обычные</option>
+                                    <option value="Да">⚠️ НЕГАБАРИТ</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div id="oversized-container" class="hidden animate-fade">
+                            <input type="text" id="cargo_dimensions" placeholder="Размеры (ДхШхВ, м)..." class="w-full p-4 tg-input text-sm">
+                        </div>
+                        
+                        <div class="space-y-3">
+                            <div class="flex items-center space-x-3 p-4 bg-[var(--secondary-bg)] rounded-2xl border border-[var(--corp-lime)]/10">
+                                <input type="checkbox" id="temp_control" class="w-5 h-5 rounded accent-[var(--corp-emerald)]" onchange="toggleTemp(this)">
+                                <label for="temp_control" class="text-xs font-bold uppercase opacity-60">Температурный режим</label>
+                            </div>
+                            <div id="temp-container" class="hidden animate-fade">
+                                <input type="text" id="temp_range" placeholder="Требуемый режим (напр. +2°...+8°C)..." class="w-full p-4 tg-input text-sm">
+                            </div>
+                        </div>
+
                         <div id="adr-class-container" class="space-y-2 hidden animate-fade">
                              <label class="block text-[10px] font-bold uppercase opacity-40">Класс опасности (ADR)</label>
                              <select id="adr_class" class="w-full p-4 tg-input text-sm font-bold">
@@ -1163,7 +1195,11 @@
                 status: editModeId ? document.getElementById('status-select').value : 'Открыта', 
                 feedback: document.getElementById('feedback_select') ? document.getElementById('feedback_select').value : '', 
                 days_loading: document.getElementById('days_loading') ? document.getElementById('days_loading').value : '', 
-                days_unloading: document.getElementById('days_unloading') ? document.getElementById('days_unloading').value : '' 
+                days_unloading: document.getElementById('days_unloading') ? document.getElementById('days_unloading').value : '',
+                cargo_oversized: document.getElementById('cargo_oversized').value,
+                cargo_dimensions: document.getElementById('cargo_dimensions').value,
+                temp_control: document.getElementById('temp_control').checked ? 'Да' : 'Нет',
+                temp_range: document.getElementById('temp_range').value
             };
             ['cargo_currency','transport_sub','delivery_terms_eu','delivery_terms','route_type','transit_rf_allowed','export_decl','origin_cert','border_crossing_cn','road_type_cn','container_owner','container_type_cn','urgency_days','days_loading','days_unloading','glonass_seal','ports_list','flight_type','stackable'].forEach(id => { const el = document.getElementById(id); if(el) payload[id] = el.value; });
             
@@ -1203,7 +1239,15 @@
             });
         }
 
-        function resetForm() { editModeId = null; currentStep = 1; uploadedAttachmentIds = []; clear(document.getElementById('attachments-list')); document.getElementById('requestForm').reset(); document.querySelectorAll('.step-container').forEach(s => s.classList.remove('active')); document.getElementById('step-1').classList.add('active'); document.getElementById('edit-only-fields').classList.add('hidden'); document.getElementById('btn-back-step3').textContent = '← Способ'; }
+        function resetForm() { 
+            editModeId = null; currentStep = 1; uploadedAttachmentIds = []; clear(document.getElementById('attachments-list')); document.getElementById('requestForm').reset(); 
+            document.querySelectorAll('.step-container').forEach(s => s.classList.remove('active')); 
+            document.getElementById('step-1').classList.add('active'); document.getElementById('edit-only-fields').classList.add('hidden'); 
+            document.getElementById('btn-back-step3').textContent = '← Способ'; 
+            document.getElementById('adr-class-container').classList.add('hidden');
+            document.getElementById('oversized-container').classList.add('hidden');
+            document.getElementById('temp-container').classList.add('hidden');
+        }
         function updateMainButton() { if(currentTab==='form' && currentStep===3) { tg.MainButton.setText(editModeId ? "СОХРАНИТЬ" : "ОТПРАВИТЬ"); tg.MainButton.show(); } else tg.MainButton.hide(); }
 
         function pingLogistics() {
@@ -1281,7 +1325,7 @@
                 
                 document.getElementById('btn-back-step3').textContent = '← База';
                 setupFields(() => {
-                    ['cargo_currency','cargo_name','cargo_value','hs_code','route_from','route_to','loading_address','customs_address','clearance_address','unloading_address','client_company','responsible','target','message_text','cargo_weight','cargo_places','cargo_volume','packaging','dangerous_cargo','adr_class','urgency_type','delivery_terms_eu','route_type','transit_rf_allowed','export_decl','origin_cert','border_crossing_cn','road_type_cn','container_owner','container_type_cn','urgency_days','days_loading','days_unloading','glonass_seal','ports_list','flight_type','stackable','source'].forEach(fid => { 
+                    ['cargo_currency','cargo_name','cargo_value','hs_code','route_from','route_to','loading_address','customs_address','clearance_address','unloading_address','client_company','responsible','target','message_text','cargo_weight','cargo_places','cargo_volume','packaging','dangerous_cargo','adr_class','urgency_type','delivery_terms_eu','route_type','transit_rf_allowed','export_decl','origin_cert','border_crossing_cn','road_type_cn','container_owner','container_type_cn','urgency_days','days_loading','days_unloading','glonass_seal','ports_list','flight_type','stackable','source','cargo_oversized','cargo_dimensions','temp_range'].forEach(fid => { 
                         const el = document.getElementById(fid); 
                         if(el) {
                             el.value = r[fid] || ''; 
@@ -1296,6 +1340,23 @@
                         document.getElementById('adr-class-container').classList.remove('hidden');
                     } else {
                         document.getElementById('adr-class-container').classList.add('hidden');
+                    }
+                    
+                    // Handle oversized UI
+                    if(r.cargo_oversized === 'Да') {
+                        document.getElementById('oversized-container').classList.remove('hidden');
+                    } else {
+                        document.getElementById('oversized-container').classList.add('hidden');
+                    }
+                    
+                    // Handle temp UI
+                    const tc = document.getElementById('temp_control');
+                    if(r.temp_control === 'Да') {
+                        tc.checked = true;
+                        document.getElementById('temp-container').classList.remove('hidden');
+                    } else {
+                        tc.checked = false;
+                        document.getElementById('temp-container').classList.add('hidden');
                     }
                     
                     if (canEdit) {
@@ -1613,6 +1674,26 @@
             } else {
                 adrContainer.classList.add('hidden');
                 document.getElementById('adr_class').value = '';
+            }
+        }
+
+        async function toggleOversized(el) {
+            const container = document.getElementById('oversized-container');
+            if (el.value === 'Да') {
+                container.classList.remove('hidden');
+            } else {
+                container.classList.add('hidden');
+                document.getElementById('cargo_dimensions').value = '';
+            }
+        }
+
+        async function toggleTemp(el) {
+            const container = document.getElementById('temp-container');
+            if (el.checked) {
+                container.classList.remove('hidden');
+            } else {
+                container.classList.add('hidden');
+                document.getElementById('temp_range').value = '';
             }
         }
 

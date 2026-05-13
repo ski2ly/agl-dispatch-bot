@@ -150,7 +150,11 @@ class Database:
             updated_at TIMESTAMPTZ DEFAULT NOW(),
             last_notified_at TIMESTAMPTZ,
             feedback_requested BOOLEAN DEFAULT FALSE,
-            source TEXT
+            source TEXT,
+            cargo_oversized TEXT,
+            cargo_dimensions TEXT,
+            temp_control TEXT,
+            temp_range TEXT
         );
 
         CREATE TABLE IF NOT EXISTS attachments (

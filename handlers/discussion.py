@@ -22,22 +22,31 @@ async def handle_discussion_forward(update: Update, context: ContextTypes.DEFAUL
     target_discussion = settings.get("discussion_id") or os.getenv("DISCUSSION_GROUP_ID")
     target_channel = settings.get("channel_id") or os.getenv("CHANNEL_ID")
 
+    # LOG EVERY MESSAGE IN GROUP FOR DEBUGGING
+    logger.info(f"🔍 DEBUG: Msg in chat {msg.chat_id} ({msg.chat.title}). Text: {msg.text[:50] if msg.text else '[No Text]'}. "
+                f"FwdFrom: {msg.forward_from_chat.id if msg.forward_from_chat else 'No'}. "
+                f"AutoFwd: {msg.is_automatic_forward}")
+
     if not target_discussion:
         return
 
-    # Normalize IDs for comparison (Telegram IDs can be -100... or just ...)
+    # Normalize IDs for comparison
     def norm(i):
         if not i: return ""
         s = str(i)
         if s.startswith("-100"): return s[4:]
         return s.lstrip("-")
 
-    logger.info(f"Group message received: chat_id={msg.chat_id}, target_disc={target_discussion}, is_fwd={msg.is_automatic_forward}")
-
     if norm(msg.chat_id) != norm(target_discussion):
         return
 
-    if msg.is_automatic_forward:
+    # A message is a potential link if it's an automatic forward OR it's a forward from our channel
+    is_fwd = msg.is_automatic_forward
+    if not is_fwd and msg.forward_from_chat:
+        if norm(msg.forward_from_chat.id) == norm(target_channel):
+            is_fwd = True
+
+    if is_fwd:
         text = msg.text or msg.caption or ""
         match = _REQ_ID_RE.search(text)
         
@@ -46,28 +55,32 @@ async def handle_discussion_forward(update: Update, context: ContextTypes.DEFAUL
             fwd_msg_id = msg.forward_from_message_id if msg.forward_from_chat else None
             
             try:
-                # Link by ID parsed from text (most reliable for our case)
+                # Link by ID parsed from text
                 await db.update_request(req_id, {
                     "discussion_msg_id": msg.message_id,
                     "channel_msg_id": fwd_msg_id
                 })
-                logger.info(f"🔗 Linked via text parsing: request #{req_id} to discussion_msg_id {msg.message_id}")
+                logger.info(f"✅ LINK SUCCESS: request #{req_id} linked to discussion_msg_id {msg.message_id}")
+                return
             except Exception as e:
-                logger.error(f"Failed to link discussion msg via text: {e}")
-            return
+                logger.error(f"❌ LINK ERROR (text): {e}")
         
-        # Fallback to numeric link if text parsing failed for some reason
+        # Fallback to numeric link
         if msg.forward_from_chat and msg.forward_from_message_id:
             fwd_from_id = msg.forward_from_chat.id
             if norm(fwd_from_id) == norm(target_channel):
                 try:
-                    await db.update_request_by_channel_msg_id(
+                    updated = await db.update_request_by_channel_msg_id(
                         msg.forward_from_message_id, 
                         {"discussion_msg_id": msg.message_id}
                     )
-                    logger.info(f"🔗 Linked via channel_msg_id {msg.forward_from_message_id}")
+                    if updated:
+                        logger.info(f"✅ LINK SUCCESS: channel_msg_id {msg.forward_from_message_id} linked to disc_msg {msg.message_id}")
+                        return
                 except Exception as e:
-                    logger.error(f"Failed to link discussion msg via channel_id: {e}")
+                    logger.error(f"❌ LINK ERROR (numeric): {e}")
+        
+        logger.warning(f"⚠️ LINK FAILED: Forward received but could not find request. Text matches: {bool(match)}")
         return
 
     if not (msg.reply_to_message and msg.reply_to_message.forward_from_chat):

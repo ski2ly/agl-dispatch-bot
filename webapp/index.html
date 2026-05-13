@@ -1217,7 +1217,13 @@
                                 b.payment_terms ? el('div', { class: 'col-span-2', text: `💳 Оплата: ${b.payment_terms}` }) : null
                             ),
                             b.demurrage ? el('div', { class: 'p-3 bg-[var(--secondary-bg)] rounded-xl text-[9px] italic', text: `Простой: ${b.demurrage}` }) : null,
-                            b.comment ? el('div', { class: 'p-3 bg-[var(--corp-cream)]/30 rounded-xl text-[9px]', text: b.comment }) : null
+                            b.comment ? el('div', { class: 'p-3 bg-[var(--corp-cream)]/30 rounded-xl text-[9px]', text: b.comment }) : null,
+                            (currentUser && (['admin', 'superuser'].includes(currentUser.role) || String(b.user_id) === String(currentUser.telegram_id))) ? 
+                                el('button', { 
+                                    class: 'w-full py-2 text-[8px] font-bold text-red-400 bg-red-500/10 rounded-lg uppercase tracking-wider mt-2',
+                                    onclick: () => deleteBid(b.id, reqId),
+                                    text: 'УДАЛИТЬ СТАВКУ 🗑'
+                                }) : null
                         );
                         cont.appendChild(card);
                     });
@@ -1807,6 +1813,22 @@
 
                     if (canEdit) {
                         document.getElementById('edit-only-fields').classList.remove('hidden');
+                        
+                        // Add Delete Request button if admin/superuser/creator
+                        const delContainer = document.getElementById('edit-only-fields');
+                        const oldDel = document.getElementById('btn-delete-request');
+                        if (oldDel) oldDel.remove();
+                        
+                        if (currentUser && (['admin', 'superuser'].includes(currentUser.role) || String(r.creator_id) === String(currentUser.telegram_id))) {
+                            const delBtn = el('button', {
+                                id: 'btn-delete-request',
+                                class: 'w-full py-4 bg-red-500/10 text-red-400 rounded-2xl text-[10px] font-bold uppercase mt-6 border border-red-500/20',
+                                onclick: () => deleteRequest(id),
+                                text: 'Удалить заявку навсегда 🗑'
+                            });
+                            delContainer.appendChild(delBtn);
+                        }
+
                         const st = document.getElementById('status-select');
                         st.innerHTML = '<option value="Открыта">Открыта</option><option value="В работе">В работе</option><option value="Успешно реализована">Успешно ✅</option><option value="Отменена">Отменена ❌</option>';
                         st.value = r.status;
@@ -1837,9 +1859,12 @@
                                     text: 'ВЫБРАТЬ'
                                 })
                                 : null;
+                            const deleteBtn = (currentUser && (['admin', 'superuser'].includes(currentUser.role) || String(b.manager_telegram_id) === String(currentUser.telegram_id)))
+                                ? el('button', { type: 'button', class: 'ml-2 text-red-400 text-[10px]', onclick: () => deleteBid(b.id, id), text: 'Удалить' })
+                                : null;
                             bidsCont.appendChild(el('div',
                                 { class: 'p-4 bg-white/5 rounded-xl border border-white/10 space-y-2' },
-                                el('div', { class: 'flex justify-between items-start' }, leftCol, winnerBtn),
+                                el('div', { class: 'flex justify-between items-start' }, leftCol, el('div', null, winnerBtn, deleteBtn)),
                                 el('div', { class: 'text-[9px] opacity-60', text: b.comment || 'Нет комментария' })
                             ));
                         });
@@ -2519,6 +2544,44 @@
         }
 
         checkProfile();
+        function deleteRequest(id) {
+            tg.showConfirm(`⚠️ ВЫ УВЕРЕНЫ? Заявка #${String(id).padStart(5, '0')} будет удалена из базы, канала и группы обсуждения!`, (ok) => {
+                if (!ok) return;
+                tg.MainButton.showProgress();
+                fetch('/api/delete_request', { 
+                    method: 'POST', 
+                    headers: { 'Content-Type': 'application/json' }, 
+                    body: JSON.stringify({ initData: tg.initData, id: id }) 
+                }).then(r => r.json()).then(res => {
+                    tg.MainButton.hideProgress();
+                    if (res.success) {
+                        tg.showAlert("✅ Заявка удалена");
+                        resetForm();
+                        switchTab('list');
+                    } else {
+                        tg.showAlert("❌ Ошибка: " + (res.error || 'Unknown error'));
+                    }
+                });
+            });
+        }
+
+        function deleteBid(bidId, reqId) {
+            tg.showConfirm(`Удалить вашу ставку и сообщение в группе?`, (ok) => {
+                if (!ok) return;
+                fetch('/api/delete_bid', { 
+                    method: 'POST', 
+                    headers: { 'Content-Type': 'application/json' }, 
+                    body: JSON.stringify({ initData: tg.initData, id: bidId }) 
+                }).then(r => r.json()).then(res => {
+                    if (res.success) {
+                        tg.showAlert("✅ Ставка удалена");
+                        openRequestForEdit(reqId);
+                    } else {
+                        tg.showAlert("❌ Ошибка: " + (res.error || 'Unknown error'));
+                    }
+                });
+            });
+        }
     </script>
 </body>
 

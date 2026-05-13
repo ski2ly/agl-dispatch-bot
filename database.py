@@ -372,6 +372,12 @@ class Database:
                     if col not in req_cols:
                         await conn.execute(f"ALTER TABLE requests ADD COLUMN IF NOT EXISTS {col} TEXT")
                 
+                # Update requests table
+                await conn.execute("ALTER TABLE requests ADD COLUMN IF NOT EXISTS channel_id BIGINT")
+            
+                # Update bids table to store their message IDs in Telegram
+                await conn.execute("ALTER TABLE bids ADD COLUMN IF NOT EXISTS discussion_msg_id BIGINT")
+
                 if 'mute_reminders' not in req_cols:
                     await conn.execute("ALTER TABLE requests ADD COLUMN IF NOT EXISTS mute_reminders BOOLEAN DEFAULT FALSE")
                 if 'urgent_reminder_sent' not in req_cols:
@@ -666,6 +672,31 @@ class Database:
                 fields.get("validity"), fields.get("payment_terms") or fields.get("payment_method"),
                 fields.get("loading_hours"), fields.get("demurrage"), fields.get("comment")
             )
+
+    async def add_bid(self, req_id: int, manager_id: int, manager_name: str, amount: float, currency: str, comment: str = "", disc_msg_id: int = None):
+        async with self._pool.acquire() as conn:
+            row = await conn.fetchrow(
+                """INSERT INTO bids (request_id, user_id, manager_name, amount, currency, comment, discussion_msg_id) 
+                   VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *""",
+                req_id, manager_id, manager_name, amount, currency, comment, disc_msg_id
+            )
+            return dict(row)
+
+    async def delete_bid(self, bid_id: int):
+        async with self._pool.acquire() as conn:
+            row = await conn.fetchrow("DELETE FROM bids WHERE id = $1 RETURNING *", bid_id)
+            return dict(row) if row else None
+
+    async def delete_request(self, req_id: int):
+        async with self._pool.acquire() as conn:
+            # This will also delete bids due to ON DELETE CASCADE
+            row = await conn.fetchrow("DELETE FROM requests WHERE id = $1 RETURNING id, channel_msg_id, discussion_msg_id", req_id)
+            return dict(row) if row else None
+
+    async def get_bid_by_id(self, bid_id: int):
+        async with self._pool.acquire() as conn:
+            row = await conn.fetchrow("SELECT * FROM bids WHERE id = $1", bid_id)
+            return dict(row) if row else None
 
     async def get_bids(self, request_id: int):
         async with self._pool.acquire() as conn:

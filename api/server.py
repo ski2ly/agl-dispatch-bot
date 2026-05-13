@@ -786,26 +786,12 @@ async def api_bid(request):
         existing_bid = await db.get_user_bid(int(req_id), user_id)
         is_update = existing_bid is not None
         
-        await db.upsert_bid(int(req_id), user_id, profile["name"], data)
-        await db.log_activity(int(req_id), user_id, profile["name"], "bid_updated" if is_update else "bid_submitted", {"amount": data.get("amount")})
-        
-        # Add internal comment
-        bid_data = {**data, "request_id": int(req_id), "manager_name": profile["name"]}
-        bid_card = build_bid_card(bid_data)
-        if is_update:
-            comment_text = f"🔄 Ставка обновлена: <b>{data.get('amount')} {data.get('currency')}</b>"
-            await db.add_comment(int(req_id), user_id, profile["name"], comment_text, "bid_update")
-        else:
-            await db.add_comment(int(req_id), user_id, profile["name"], bid_card, "bid")
-        
         # Notify channel/discussion if possible
         req = await db.get_request(int(req_id))
         if not req:
             return safe_json_response({"ok": True, "note": "bid saved but req not found for sync"})
 
         settings = await db.get_settings()
-        # Prefer per-request IDs if they exist (user mentioned they are fixed to the card)
-        # Support various spellings including the user's typo 'disscusion_group_id'
         discussion_id = (
             req.get("discussion_group_id") or 
             req.get("disscusion_group_id") or 
@@ -831,25 +817,37 @@ async def api_bid(request):
                     logger.info(f"Refreshed req #{req_id}, found disc_msg_id={req.get('discussion_msg_id')}")
                     break
 
+        # Sync bid to discussion group if configured
+        disc_msg_id = None
         if discussion_id and target_channel:
             msg_id = req.get("channel_msg_id")
             if msg_id:
-                notif_text = bid_card
+                notif_text = build_bid_card({**data, "request_id": int(req_id), "manager_name": profile["name"]})
                 if is_update:
                     notif_text = f"🔄 <b>{profile['name']} обновил ставку</b>\n\nАктуальная ставка: <b>{data.get('amount')} {data.get('currency')}</b>\n#ставка"
                 
-                logger.info(f"Syncing bid to discussion: req_id={req_id}, channel_msg_id={msg_id}")
-                await sync_bid_to_discussion(bot, discussion_id, target_channel, msg_id, notif_text, req.get("discussion_msg_id"))
-            else:
-                logger.warning(f"No channel_msg_id for req #{req_id}, cannot sync bid")
-        else:
-            logger.warning(f"Missing discussion_id ({discussion_id}) or target_channel ({target_channel}) for sync")
-            if discussion_id:
                 try:
-                    await bot.send_message(chat_id=discussion_id, text=bid_card, parse_mode="HTML")
-                except:
-                    pass
+                    disc_msg_id = await sync_bid_to_discussion(bot, discussion_id, target_channel, msg_id, notif_text, req.get("discussion_msg_id"))
+                    logger.info(f"SyncBid result: req_id={req_id}, disc_msg_id={disc_msg_id}")
+                except Exception as e:
+                    logger.error(f"SyncBid failed for req {req_id}: {e}")
 
+        # Finalize status and add bid to DB
+        amount = float(str(data.get("amount")).replace(" ", "").replace(",", "."))
+        new_status = "В работе" if amount > 0 else req.get("status")
+        comment = data.get("comment", "")
+        currency = data.get("currency", "USD")
+        await db.add_bid(int(req_id), user_id, profile["name"], amount, currency, comment, disc_msg_id)
+        
+        # Add internal comment
+        bid_data = {**data, "request_id": int(req_id), "manager_name": profile["name"]}
+        bid_card = build_bid_card(bid_data)
+        if is_update:
+            comment_text = f"🔄 Ставка обновлена: <b>{data.get('amount')} {data.get('currency')}</b>"
+            await db.add_comment(int(req_id), user_id, profile["name"], comment_text, "bid_update")
+        else:
+            await db.add_comment(int(req_id), user_id, profile["name"], bid_card, "bid")
+        
         # Notify the creator of the request
         creator_id = req.get("creator_id") if req else None
         logger.info(f"Notification check: creator_id={creator_id}, current_user={user_id}")
@@ -1209,6 +1207,95 @@ async def api_admin_broadcast(request):
             
     return safe_json_response({"ok": True, "sent": sent})
 
+async def api_delete_request(request):
+    """Delete a request from DB and Telegram."""
+    try:
+        profile, err = await check_auth(request)
+        if err or profile["role"] not in ["admin", "superuser"]:
+            return web.json_response({"error": "Forbidden"}, status=403)
+            
+        data = await request.json()
+        req_id = data.get("id")
+        
+        bot = request.app["bot"]
+        settings = await db.get_settings()
+        
+        # 1. Get info to check ownership
+        req = await db.get_request(int(req_id))
+        if not req:
+            return web.json_response({"error": "Request not found"}, status=404)
+        
+        # 2. Check permission: superuser, admin, or creator
+        if profile["role"] not in ["admin", "superuser"] and str(req.get("creator_id")) != str(profile["telegram_id"]):
+            return web.json_response({"error": "Forbidden: you are not the creator of this request"}, status=403)
+
+        # 3. Delete from DB and get Telegram IDs
+        result = await db.delete_request(int(req_id))
+        if not result:
+            return web.json_response({"error": "Failed to delete from DB"}, status=500)
+        
+        # 4. Delete from Telegram Channel
+        channel_id = settings.get("channel_id") or os.getenv("CHANNEL_ID")
+        if channel_id and result.get("channel_msg_id"):
+            try:
+                await bot.delete_message(chat_id=channel_id, message_id=int(result["channel_msg_id"]))
+            except Exception as e:
+                logger.warning(f"Could not delete channel message: {e}")
+
+        # 5. Delete from Discussion Group
+        disc_id = settings.get("discussion_id") or os.getenv("DISCUSSION_GROUP_ID")
+        if disc_id and result.get("discussion_msg_id"):
+            try:
+                await bot.delete_message(chat_id=disc_id, message_id=int(result["discussion_msg_id"]))
+            except Exception as e:
+                logger.warning(f"Could not delete discussion message: {e}")
+
+        return web.json_response({"success": True})
+    except Exception as e:
+        logger.error(f"api_delete_request error: {e}")
+        return web.json_response({"error": str(e)}, status=500)
+
+async def api_delete_bid(request):
+    """Delete a bid from DB and Telegram."""
+    try:
+        profile, err = await check_auth(request)
+        if err or profile["role"] not in ["admin", "superuser"]:
+            return web.json_response({"error": "Forbidden"}, status=403)
+            
+        data = await request.json()
+        bid_id = data.get("id")
+        
+        bot = request.app["bot"]
+        settings = await db.get_settings()
+        
+        # 1. Get info to check ownership
+        # We need to find the bid to check user_id. Let's add a method or just use raw query
+        db_bid = await db.get_bid_by_id(int(bid_id))
+        if not db_bid:
+            return web.json_response({"error": "Bid not found"}, status=404)
+
+        # 2. Check permission: superuser, admin, or creator
+        if profile["role"] not in ["admin", "superuser"] and str(db_bid.get("user_id")) != str(profile["telegram_id"]):
+            return web.json_response({"error": "Forbidden: you are not the owner of this bid"}, status=403)
+
+        # 3. Delete from DB
+        result = await db.delete_bid(int(bid_id))
+        if not result:
+            return web.json_response({"error": "Failed to delete from DB"}, status=500)
+        
+        # 4. Delete from Telegram Group if tracked
+        disc_id = settings.get("discussion_id") or os.getenv("DISCUSSION_GROUP_ID")
+        if disc_id and result.get("discussion_msg_id"):
+            try:
+                await bot.delete_message(chat_id=disc_id, message_id=int(result["discussion_msg_id"]))
+            except Exception as e:
+                logger.warning(f"Could not delete bid message: {e}")
+
+        return web.json_response({"success": True})
+    except Exception as e:
+        logger.error(f"api_delete_bid error: {e}")
+        return web.json_response({"error": str(e)}, status=500)
+
 DICTIONARY_KEYS = {"incoterms", "ports", "border_crossings", "transport_subtypes", "transport_types", "regions", "currencies", "cancel_reasons", "sources"}
 SETTABLE_KEYS = DICTIONARY_KEYS | {
     "ai_prompt_extra", "ai_strictness", "channel_id", "discussion_id", "reminder_interval"
@@ -1258,6 +1345,8 @@ def setup_api(app):
     app.router.add_post("/api/submit", api_submit)
     app.router.add_post("/api/bid", api_bid)
     app.router.add_post("/api/bid_cancel", api_bid_cancel)
+    app.router.add_post("/api/delete_request", api_delete_request)
+    app.router.add_post("/api/delete_bid", api_delete_bid)
     app.router.add_get("/api/settings", api_get_settings)
     app.router.add_get("/api/dictionary", api_get_dictionary)
     app.router.add_get("/api/stats", api_stats)

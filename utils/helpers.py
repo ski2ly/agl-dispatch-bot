@@ -99,6 +99,12 @@ def build_card(req: dict) -> str:
     if v('target'):
         lines.append(f"Таргет: {v('target')}")
         
+    if v('cargo_readiness'):
+        lines.append(f"Готовность: {v('cargo_readiness')}")
+        
+    if v('loading_type'):
+        lines.append(f"Погрузка: {v('loading_type')}")
+        
     lines.append(f"Срочность: {v('urgency_type') or v('urgency_days') or 'Стандарт'}")
 
     # Specific fields

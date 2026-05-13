@@ -479,6 +479,8 @@ async def api_export_xlsx(request):
             'contact_phone': 'Телефон клиента',
             'cancel_reason': 'Причина отмены',
             'target': 'Таргет ($)',
+            'cargo_readiness': 'Готовность груза',
+            'loading_type': 'Тип погрузки',
             'message_text': 'Доп. информация'
         }
         
@@ -542,7 +544,7 @@ ALLOWED_REQUEST_FIELDS = {
     "responsible", "status", "regions", "transport_cat", "transport_sub",
     "cargo_name", "hs_code", "cargo_value", "cargo_currency", "cargo_weight", "cargo_places", "cargo_volume", "packaging", "dangerous_cargo", "adr_class", "urgency_type",
     "client_company", "contact_name", "contact_phone",
-    "message_text", "target", "delivery_terms", "route_type", "loading_address",
+    "message_text", "target", "cargo_readiness", "loading_type", "delivery_terms", "route_type", "loading_address",
     "customs_address", "clearance_address", "unloading_address", "transit_rf",
     "export_decl", "origin_cert", "route_from", "route_to",
     "container_type", "road_type", "container_owner", "glonass_seal",

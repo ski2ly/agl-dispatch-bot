@@ -155,7 +155,9 @@ class Database:
             cargo_dimensions TEXT,
             temp_control TEXT,
             temp_range TEXT,
-            discussion_msg_id BIGINT
+            discussion_msg_id BIGINT,
+            cargo_readiness TEXT,
+            loading_type TEXT
         );
 
         CREATE TABLE IF NOT EXISTS attachments (
@@ -263,6 +265,8 @@ class Database:
                 ADD COLUMN IF NOT EXISTS days_loading TEXT,
                 ADD COLUMN IF NOT EXISTS days_unloading TEXT,
                 ADD COLUMN IF NOT EXISTS discussion_msg_id BIGINT,
+                ADD COLUMN IF NOT EXISTS cargo_readiness TEXT,
+                ADD COLUMN IF NOT EXISTS loading_type TEXT,
                 ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
                 ALTER TABLE ai_sessions ADD COLUMN IF NOT EXISTS history JSONB DEFAULT '[]';
             """)
@@ -363,7 +367,7 @@ class Database:
                     'delivery_terms_eu', 'transit_rf_allowed', 'road_type_cn', 'border_crossing_cn',
                     'container_type_cn', 'loading_days', 'customs_days', 'urgency_days', 'ports_list',
                     'dangerous_cargo', 'packaging', 'message_text', 'source', 'cargo_volume',
-                    'cargo_oversized', 'cargo_dimensions', 'temp_control', 'temp_range', 'responsible'
+                    'cargo_oversized', 'cargo_dimensions', 'temp_control', 'temp_range', 'responsible', 'cargo_readiness', 'loading_type'
                 ]:
                     if col not in req_cols:
                         await conn.execute(f"ALTER TABLE requests ADD COLUMN IF NOT EXISTS {col} TEXT")

@@ -259,11 +259,13 @@ class AIAssistant:
             "- cargo_weight: только число в кг (20 тонн -> 20000)\n"
             "- cargo_volume: только число в м3\n"
             "- cargo_places: текст (29 паллет, 20 pcs)\n"
-            "- target: целевая ставка, если указана (например, \"$1500\" или \"1200 USD\")\n\n"
+            "- target: целевая ставка, если указана (например, \"$1500\" или \"1200 USD\")\n"
+            "- cargo_readiness: готовность груза (например, \"Груз готов\", \"Запрос ставки\" или конкретная дата \"15.05.2026\")\n"
+            "- loading_type: тип погрузки (например, \"Верхняя, Боковая\", \"Задняя\", \"Полная растентовка\")\n\n"
             "СРОЧНОСТЬ: Стандарт. Ставь Срочно только если прямо написано "
             "\"срочно\", \"вопрос скорости\", \"горит\".\n\n"
             "missing_fields: список НА РУССКОМ из: Заказчик, Вес, Объем, "
-            "Стоимость, ТН ВЭД, Мест, Таргет.\n\n"
+            "Стоимость, ТН ВЭД, Мест, Таргет, Готовность.\n\n"
             "Сегодня: " + today
         )
 
@@ -382,6 +384,8 @@ class AIAssistant:
             "transit_info": "transit_rf_allowed",
             "border_crossing_cn": "border_crossing_cn",
             "target": "target",
+            "cargo_readiness": "cargo_readiness",
+            "loading_type": "loading_type",
         }
         for draft_key, db_key in field_map.items():
             val = draft.get(draft_key)

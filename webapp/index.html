@@ -415,6 +415,20 @@
                                 <option value="">-- Откуда узнали о нас? --</option>
                             </select>
                         </div>
+                        <div class="space-y-2">
+                            <label class="block text-[10px] font-bold uppercase opacity-40">Готовность груза</label>
+                            <div class="space-y-2">
+                                <select id="cargo_readiness_select" class="w-full p-4 tg-input text-sm font-bold" onchange="handleReadinessChange(this)">
+                                    <option value="Запрос ставки" selected>Запрос ставки</option>
+                                    <option value="Груз готов">Груз готов</option>
+                                    <option value="Выбрать дату">Выбрать дату...</option>
+                                </select>
+                                <input type="hidden" id="cargo_readiness" value="Запрос ставки">
+                                <div id="readiness-date-container" class="hidden animate-fade">
+                                    <input type="date" id="readiness_date" class="w-full p-4 tg-input text-sm" onchange="document.getElementById('cargo_readiness').value = 'Груз на ' + this.value.split('-').reverse().join('.')">
+                                </div>
+                            </div>
+                        </div>
                     </section>
                     <div id="dynamic-fields"
                         class="space-y-6 bg-[var(--secondary-bg)] p-6 rounded-[2rem] border border-[var(--corp-lime)]/10">
@@ -1489,7 +1503,10 @@
 
             let subTypes = [];
             switch (selectedMethod) {
-                case 'Авто': subTypes = ['Тент 90м³', 'Тент 110м³', 'Шаланда', 'Рефрижератор', 'Юмба', 'Мега', 'Автовоз', 'Трал']; break;
+                case 'Авто': 
+                    subTypes = ['Тент 90м³', 'Тент 110м³', 'Шаланда', 'Рефрижератор', 'Юмба', 'Мега', 'Автовоз', 'Трал']; 
+                    html += renderMultiSelect('loading_type', 'Тип погрузки', ['Задняя', 'Боковая', 'Верхняя', 'Полная растентовка']);
+                    break;
                 case 'Контейнер': subTypes = ['20GP', '20HC', '40GP', '40HQ', '45HC', '40OT', '40FR']; break;
                 case 'Ж/Д Вагон': subTypes = ['Крытый вагон 138т', 'Крытый вагон 150т', 'Полувагон', 'Платформа', 'Хоппер']; break;
                 case 'Мультимодальная': subTypes = ['Авто + Ж/Д', 'Море + Авто', 'Море + Ж/Д', 'Авиа + Авто']; break;
@@ -1591,7 +1608,9 @@
                 cargo_oversized: document.getElementById('cargo_oversized').value,
                 cargo_dimensions: document.getElementById('cargo_dimensions').value,
                 temp_control: document.getElementById('temp_control').checked ? 'Да' : 'Нет',
-                temp_range: document.getElementById('temp_range').value
+                temp_range: document.getElementById('temp_range').value,
+                cargo_readiness: document.getElementById('cargo_readiness').value,
+                loading_type: document.getElementById('loading_type') ? document.getElementById('loading_type').value : ''
             };
             ['cargo_currency', 'transport_sub', 'delivery_terms_eu', 'delivery_terms', 'route_type', 'transit_rf_allowed', 'export_decl', 'origin_cert', 'border_crossing_cn', 'road_type_cn', 'container_owner', 'container_type_cn', 'urgency_days', 'days_loading', 'days_unloading', 'glonass_seal', 'ports_list', 'flight_type', 'stackable'].forEach(id => { const el = document.getElementById(id); if (el) payload[id] = el.value; });
 
@@ -1616,6 +1635,8 @@
             h += `<div><b>Транспорт:</b> ${e(p.transport_cat)} ${p.transport_sub ? '(' + e(p.transport_sub) + ')' : ''}</div>`;
             h += `<div><b>Инкотермс:</b> ${e(p.delivery_terms || p.delivery_terms_eu || 'не указан')}</div>`;
             h += `<div><b>Стоимость:</b> ${e(p.cargo_value || 'НЕ УКАЗАНА')} ${e(p.cargo_currency || '')}</div>`;
+            if (p.cargo_readiness) h += `<div class="mt-1 text-[var(--corp-lime)] font-bold">🗓 ${e(p.cargo_readiness)}</div>`;
+            if (p.loading_type) h += `<div class="text-[9px] opacity-60 italic">Погрузка: ${e(p.loading_type)}</div>`;
             h += `<div class="mt-2 pt-2 border-t border-white/5 opacity-60 italic text-[10px]">${e(p.message_text || 'Без доп. информации')}</div>`;
             container.innerHTML = h;
             document.getElementById('preview-modal').classList.remove('hidden');
@@ -1639,6 +1660,10 @@
             document.getElementById('adr-class-container').classList.add('hidden');
             document.getElementById('oversized-container').classList.add('hidden');
             document.getElementById('temp-container').classList.add('hidden');
+            document.getElementById('readiness-date-container').classList.add('hidden');
+            document.getElementById('cargo_readiness_select').value = 'Запрос ставки';
+            document.getElementById('cargo_readiness').value = 'Запрос ставки';
+            document.getElementById('readiness_date').value = '';
 
             // Re-fill manager name after reset
             if (currentUser) {
@@ -1723,16 +1748,31 @@
 
                 document.getElementById('btn-back-step3').textContent = '← База';
                 setupFields(() => {
-                    const fieldIds = ['cargo_currency', 'cargo_name', 'cargo_value', 'hs_code', 'route_from', 'route_to', 'loading_address', 'customs_address', 'clearance_address', 'unloading_address', 'client_company', 'responsible', 'target', 'message_text', 'cargo_weight', 'cargo_places', 'cargo_volume', 'packaging', 'dangerous_cargo', 'adr_class', 'urgency_type', 'delivery_terms_eu', 'route_type', 'transit_rf_allowed', 'export_decl', 'origin_cert', 'border_crossing_cn', 'road_type_cn', 'container_owner', 'container_type_cn', 'urgency_days', 'days_loading', 'days_unloading', 'glonass_seal', 'ports_list', 'flight_type', 'stackable', 'source', 'cargo_oversized', 'cargo_dimensions', 'temp_range'];
+                    const fieldIds = ['loading_type', 'cargo_readiness', 'cargo_currency', 'cargo_name', 'cargo_value', 'hs_code', 'route_from', 'route_to', 'loading_address', 'customs_address', 'clearance_address', 'unloading_address', 'client_company', 'responsible', 'target', 'message_text', 'cargo_weight', 'cargo_places', 'cargo_volume', 'packaging', 'dangerous_cargo', 'adr_class', 'urgency_type', 'delivery_terms_eu', 'route_type', 'transit_rf_allowed', 'export_decl', 'origin_cert', 'border_crossing_cn', 'road_type_cn', 'container_owner', 'container_type_cn', 'urgency_days', 'days_loading', 'days_unloading', 'glonass_seal', 'ports_list', 'flight_type', 'stackable', 'source', 'cargo_oversized', 'cargo_dimensions', 'temp_range'];
 
                     fieldIds.forEach(fid => {
                         const el = document.getElementById(fid);
                         if (el) {
                             el.value = r[fid] || '';
                             el.disabled = !canEdit;
-                            if (el.type === 'hidden') syncMultiUI(fid);
+                            if (el.type === 'hidden' && fid !== 'cargo_readiness') syncMultiUI(fid);
                         }
                     });
+                    
+                    // Special handle for readiness
+                    const readiness = r['cargo_readiness'] || 'Груз готов';
+                    const rs = document.getElementById('cargo_readiness_select');
+                    if (['Груз готов', 'Запрос ставки'].includes(readiness)) {
+                        rs.value = readiness;
+                    } else if (readiness) {
+                        rs.value = 'Выбрать дату';
+                        const d = readiness.replace('Груз на ', '').split('.').reverse().join('-');
+                        document.getElementById('readiness_date').value = d;
+                    }
+                    handleReadinessChange(rs);
+                    if (!['Груз готов', 'Запрос ставки'].includes(readiness)) {
+                        document.getElementById('cargo_readiness').value = readiness;
+                    }
 
                     // Sync manager select for admin/superuser
                     const mSelect = document.getElementById('responsible_select');
@@ -2116,6 +2156,18 @@
             } else {
                 container.classList.add('hidden');
                 document.getElementById('temp_range').value = '';
+            }
+        }
+
+        function handleReadinessChange(el) {
+            const dateCont = document.getElementById('readiness-date-container');
+            const hidden = document.getElementById('cargo_readiness');
+            if (el.value === 'Выбрать дату') {
+                dateCont.classList.remove('hidden');
+                hidden.value = ''; // Will be filled by date input
+            } else {
+                dateCont.classList.add('hidden');
+                hidden.value = el.value;
             }
         }
 

@@ -260,6 +260,43 @@ async def handle_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
             logger.error(f"Ping failed: {e}")
             await query.answer("Ошибка при отправке")
         return
+    
+    if data.startswith("urg_remind_channel_"):
+        parts = data.split("_")
+        req_id = int(parts[3])
+        req = await db.get_request(req_id)
+        if not (req and req.get("channel_msg_id")):
+            await query.answer("Заявка не найдена в канале", show_alert=True)
+            return
+        settings = await db.get_settings()
+        channel_id = settings.get("channel_id")
+        if not channel_id:
+            await query.answer("Канал не настроен", show_alert=True)
+            return
+        try:
+            text = (
+                f"‼️ Уважаемые коллеги, заявка #{req['id']:05d} ({req['route_from']} ➔ {req['route_to']}) "
+                f"всё ещё актуальна! 🔥 <b>ГРУЗ СРОЧНЫЙ!</b> 🔥\nЖдём ваших ставок."
+            )
+            await context.bot.send_message(
+                chat_id=channel_id,
+                reply_to_message_id=int(req["channel_msg_id"]),
+                text=text,
+                parse_mode="HTML"
+            )
+            await query.answer("Напоминание отправлено!")
+            await query.edit_message_text(f"🔔 Вы напомнили коллегам в канале о срочной заявке #{req_id:05d}.")
+        except Exception as e:
+            logger.error(f"Urgent ping failed: {e}")
+            await query.answer("Ошибка при отправке")
+        return
+
+    if data.startswith("urg_mute_"):
+        req_id = int(data.split("_")[2])
+        await db.update_request(req_id, {"urgent_reminder_sent": True})
+        await query.answer("Напоминания отключены")
+        await query.edit_message_text(f"🔇 Напоминания по срочной заявке #{req_id:05d} отключены.")
+        return
 
     logger.warning(f"Unknown callback: {data}")
     await query.answer()

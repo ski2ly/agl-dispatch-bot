@@ -108,3 +108,38 @@ async def deletion_cron(bot):
             logger.error(f"Deletion cron error: {e}")
         
         await asyncio.sleep(600) # check every 10 minutes
+
+async def urgent_reminder_cron(bot):
+    """Periodic task to remind managers about urgent requests after 3 hours."""
+    logger.info("⏰ Urgent reminder cron task started")
+    await asyncio.sleep(180) # offset from startup
+    
+    while True:
+        try:
+            reqs = await db.get_urgent_requests_for_reminder(hours_old=3)
+            from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+            for req in reqs:
+                cid = req.get("creator_id")
+                req_id = req["id"]
+                if cid:
+                    keyboard = [
+                        [InlineKeyboardButton("‼️ Напомнить в канале", callback_data=f"urg_remind_channel_{req_id}")],
+                        [InlineKeyboardButton("✅ Уже не актуально", callback_data=f"fbk_not_interested_{req_id}")],
+                        [InlineKeyboardButton("🔇 Отключить", callback_data=f"urg_mute_{req_id}")]
+                    ]
+                    await bot.send_message(
+                        chat_id=cid,
+                        text=(
+                            f"🕒 <b>Срочная заявка #{req_id:05d}</b>\n"
+                            f"({req.get('route_from')} ➔ {req.get('route_to')})\n\n"
+                            f"Прошло 3 часа, но по заявке всё ещё нет финального решения. Желаете напомнить коллегам в канале?"
+                        ),
+                        parse_mode="HTML",
+                        reply_markup=InlineKeyboardMarkup(keyboard)
+                    )
+                # Mark as reminded so we don't ask again
+                await db.update_request(req_id, {"urgent_reminder_sent": True})
+        except Exception as e:
+            logger.error(f"Urgent reminder cron error: {e}")
+        
+        await asyncio.sleep(1800)  # check every 30 mins

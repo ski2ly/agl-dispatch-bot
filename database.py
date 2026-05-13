@@ -363,6 +363,10 @@ class Database:
                 
                 if 'mute_reminders' not in req_cols:
                     await conn.execute("ALTER TABLE requests ADD COLUMN IF NOT EXISTS mute_reminders BOOLEAN DEFAULT FALSE")
+                if 'urgent_reminder_sent' not in req_cols:
+                    await conn.execute("ALTER TABLE requests ADD COLUMN IF NOT EXISTS urgent_reminder_sent BOOLEAN DEFAULT FALSE")
+                if 'feedback_requested' not in req_cols:
+                    await conn.execute("ALTER TABLE requests ADD COLUMN IF NOT EXISTS feedback_requested BOOLEAN DEFAULT FALSE")
                 
                 # 3. Bids table columns
                 cols = await conn.fetch("SELECT column_name FROM information_schema.columns WHERE table_name = 'bids'")
@@ -1054,6 +1058,19 @@ class Database:
               AND feedback_requested = FALSE
               AND status != 'Отменена'
               AND status != 'Успешно реализована'
+            """
+            rows = await conn.fetch(query, hours_old)
+            return [dict(r) for r in rows]
+
+    async def get_urgent_requests_for_reminder(self, hours_old: int = 3):
+        """Finds urgent requests created >= `hours_old` hours ago where reminder hasn't been sent."""
+        async with self._pool.acquire() as conn:
+            query = """
+            SELECT * FROM requests 
+            WHERE (urgency_type = 'Срочно' OR urgency_type = '🔥 СРОЧНО')
+              AND created_at <= NOW() - INTERVAL '1 hour' * $1
+              AND urgent_reminder_sent = FALSE
+              AND status = 'Открыта'
             """
             rows = await conn.fetch(query, hours_old)
             return [dict(r) for r in rows]

@@ -532,7 +532,7 @@ ALLOWED_REQUEST_FIELDS = {
     "client_company", "contact_name", "contact_phone",
     "message_text", "target", "delivery_terms", "route_type", "loading_address",
     "customs_address", "clearance_address", "unloading_address", "transit_rf",
-    "export_decl", "origin_cert",
+    "export_decl", "origin_cert", "route_from", "route_to",
     "container_type", "road_type", "container_owner", "glonass_seal",
     "seal_instructions", "flight_type", "stackable", "departure_ports",
     "multimodal_next", "company", "delivery_terms_eu", "transit_rf_allowed",

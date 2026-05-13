@@ -28,16 +28,21 @@ def build_card(req: dict) -> str:
     def v(key, default=None):
         """Return value only if meaningful, else None."""
         val = req.get(key)
-        if val and str(val).strip() not in ("-", "", "None", "не указано", "False", "false"):
+        if val is not None and str(val).strip() not in ("-", "", "None", "не указано", "False", "false"):
             return str(val).strip()
         return default
 
     req_id = req.get("id", 0)
+    urgency = v('urgency_type', '')
+    title = f"[НОВАЯ ЗАЯВКА #{req_id:05d}]"
+    if urgency == "Срочно" or urgency == "🔥 СРОЧНО":
+        title += " - СРОЧНАЯ 🔥"
+
     t_cat = str(req.get("transport_cat", ""))
     reg = req.get("regions", "Другое")
 
     lines = [
-        f"НОВАЯ ЗАЯВКА #{req_id:05d}",
+        title,
         "",
         f"Направление: {reg}",
         f"Тип перевозки: {t_cat}",

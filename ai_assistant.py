@@ -23,22 +23,23 @@ class AIAssistant:
         regions_list = settings.get("regions", []) if settings else []
         regions_str = "|".join([r["name"] if isinstance(r, dict) else str(r) for r in regions_list])
 
-        return f"""Ты — Робот-Диспетчер AGL. Твоя задача: извлечь данные из текста.
+        return f"""Ты — Робот-Диспетчер AGL. Твоя задача: собрать ВСЕ данные из текста.
 
-### ГЕОГРАФИЯ (ВАЖНО):
-- Страны: Индия, Филиппины, Вьетнам, Малайзия -> Регион "Индия/ЮВА".
-- Страны: ЕС -> Регион "Европа".
+### ПРАВИЛО "ПЫЛЕСОС" (КРИТИЧЕСКИ ВАЖНО):
+1. Всё, что не является Весом, Кодом, Городом или Датой, но относится к грузу (упаковка, способ погрузки, слип-шиты, причины срочности, железные баночки) — ТЫ ОБЯЗАН записать в `extra_info`.
+2. Не сокращай и не выбрасывай информацию. Если написано про ручную перевалку — пиши это в `extra_info`.
 
-### ТИПЫ ТРАНСПОРТА:
+### ГЕОГРАФИЯ:
+- Страны ЕС -> Европа.
+- Филиппины, Индия, Вьетнам -> Индия/ЮВА.
+
+### ТЕХНИЧЕСКИЕ ДАННЫЕ:
 - "20 фут", "40 фут" -> transport_sub.
-- "Тент", "Мега", "Фура" -> transport_cat: "Авто".
+- "Тент", "Фура", "Мега" -> transport_cat: "Авто".
+- Код/HS/ТНВЭД -> hs_code.
+- GW / tons -> cargo_weight (только цифры в кг).
 
-### ПРАВИЛА:
-1. ДОПОЛНИТЕЛЬНО (extra_info): Обязательно сохраняй всё: слип-шиты, перевалка, упаковка.
-2. ВЕС: 20 тонн -> 20000. Пиши ТОЛЬКО числа.
-3. missing_fields: Пиши названия на РУССКОМ (Заказчик, Вес, Объем, Стоимость, ТН ВЭД).
-
-### СТРУКТУРА JSON (ЗАПОЛНЯЙ ТОЛЬКО ДАННЫМИ ИЗ ТЕКСТА):
+### ФОРМАТ JSON:
 {{
   "regions": null,
   "client_company": null,
@@ -48,7 +49,7 @@ class AIAssistant:
   "delivery_terms": null,
   "route_from": null, "route_to": null,
   "cargo_name": null, "cargo_weight": null, "cargo_volume": null, "hs_code": null,
-  "extra_info": null,
+  "extra_info": "Сюда записывай всё остальное описание погрузки и груза без исключений",
   "missing_fields": [],
   "next_question": null
 }}
@@ -162,8 +163,16 @@ class AIAssistant:
             
         missing = draft.get("missing_fields", [])
         if missing:
-            safe_missing = html.escape(", ".join(missing))
+            # Map technical names to Russian labels here in build_preview as a safety measure
+            translations = {
+                "client_company": "Заказчик", "cargo_weight": "Вес", "cargo_volume": "Объем",
+                "cargo_value": "Стоимость", "hs_code": "ТН ВЭД", "transport_sub": "Вид",
+                "route_from": "Откуда", "route_to": "Куда"
+            }
+            mapped_missing = [translations.get(m, m) for m in missing]
+            safe_missing = html.escape(", ".join(mapped_missing))
             lines.append(f"\n⚠️ Не хватает: {safe_missing}")
+            
         question = draft.get("next_question")
         if question:
             safe_question = html.escape(str(question))
@@ -176,7 +185,7 @@ class AIAssistant:
         for k, v in new_data.items():
             if k in skip_keys: continue
             if v in (None, "null", "", "-", "None"):
-                if k in merged: del merged[k]
+                # Don't delete if we already have it! (Safety for extra_info)
                 continue
             merged[k] = v
         merged["ready_to_publish"] = new_data.get("ready_to_publish", False)

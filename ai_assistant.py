@@ -252,7 +252,8 @@ Respond in JSON: {"intent": "...", "args": {...}, "text": "..."} """},
             "cargo_dimensions": "cargo_dimensions",
             "temp_control": "temp_control",
             "temp_range": "temp_range",
-            "adr_class": "adr_class"
+            "adr_class": "adr_class",
+            "responsible": "responsible"
         }
         for draft_key, db_key in field_map.items():
             val = draft.get(draft_key)

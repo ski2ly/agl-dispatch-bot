@@ -108,6 +108,16 @@ async def process_ai_message(update: Update, context: ContextTypes.DEFAULT_TYPE,
 
         merged = ai_assistant.merge_parsed_data(old_draft, parsed)
         
+        # Inject manager name so build_card can show it
+        profile = context.user_data.get("profile")
+        if not profile:
+            profile = await db.get_user(user_id)
+            if profile:
+                context.user_data["profile"] = profile
+        
+        user_name = (profile.get("name") if profile else None) or update.effective_user.first_name or "Менеджер"
+        merged["responsible"] = user_name
+        
         # Update history (keep last 10 items)
         history.append({"is_user": True, "text": text})
         if parsed.get("next_question"):

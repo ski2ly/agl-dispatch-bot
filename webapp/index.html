@@ -309,6 +309,14 @@
                     <option value="Индия/ЮВА">Индия/ЮВА</option>
                     <option value="Турция">Турция</option>
                 </select>
+                <select id="filter-transport" class="p-3 tg-input text-[10px] font-bold col-span-2" onchange="loadRequests()">
+                    <option value="">Весь транспорт</option>
+                    <option value="Авто">Авто</option>
+                    <option value="Контейнер">Контейнер</option>
+                    <option value="Ж/Д Вагон">Ж/Д Вагон</option>
+                    <option value="Авиа">Авиа</option>
+                    <option value="Мультимодальная">Мультимодал</option>
+                </select>
             </div>
             <div id="requests-container" class="space-y-4 pb-12"></div>
         </main>
@@ -329,7 +337,8 @@
                 <select id="tf-transport" class="p-3 tg-input text-[10px] font-bold" onchange="switchBidView('tenders')">
                     <option value="">Весь транспорт</option>
                     <option value="Авто">Авто</option>
-                    <option value="Ж/Д">Ж/Д</option>
+                    <option value="Контейнер">Контейнер</option>
+                    <option value="Ж/Д Вагон">Ж/Д Вагон</option>
                     <option value="Авиа">Авиа</option>
                     <option value="Мультимодальная">Мультимодал</option>
                 </select>
@@ -1166,9 +1175,10 @@
             const s = document.getElementById('search-input').value;
             const status = document.getElementById('filter-status').value;
             const region = document.getElementById('filter-region').value;
+            const transport = document.getElementById('filter-transport').value;
             
             let url = myRequestsOnly ? `/api/my_requests?initData=${encodeURIComponent(tg.initData)}` : `/api/requests?initData=${encodeURIComponent(tg.initData)}`;
-            url += `&search=${encodeURIComponent(s)}&status=${encodeURIComponent(status)}&region=${encodeURIComponent(region)}`;
+            url += `&search=${encodeURIComponent(s)}&status=${encodeURIComponent(status)}&region=${encodeURIComponent(region)}&transport=${encodeURIComponent(transport)}`;
             
             fetch(url).then(r => r.json()).then(data => {
                 const cont = document.getElementById('requests-container');

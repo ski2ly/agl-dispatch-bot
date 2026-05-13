@@ -20,91 +20,36 @@ class AIAssistant:
 
     def _get_system_prompt(self, settings=None):
         today = datetime.now(TZ).strftime("%d.%m.%Y %H:%M")
-        extra = settings.get("ai_prompt_extra", "") if settings else ""
         strictness = settings.get("ai_strictness", "medium") if settings else "medium"
-        
         strict_note = "BE VERY STRICT." if strictness == "high" else ""
         
-        # Dynamic regions from settings
         regions_list = settings.get("regions", []) if settings else []
-        if regions_list and isinstance(regions_list, list):
-            region_names = [r["name"] if isinstance(r, dict) else str(r) for r in regions_list]
-            regions_str = "|".join(region_names)
-        else:
-            regions_str = "СНГ|Европа|Китай|Турция|Индия/ЮВА|Другое"
+        regions_str = "|".join([r["name"] if isinstance(r, dict) else str(r) for r in regions_list]) or "СНГ|Европа|Китай|Турция|Индия/ЮВА|Другое"
         
-        # Define region mapping logic for the AI
-        region_rules = f"""
-ПРАВИЛА ОПРЕДЕЛЕНИЯ РЕГИОНА:
-Используй ТОЛЬКО точки Погрузки и Выгрузки.
-1. КИТАЙ: Если точка А или Б в Китае.
-2. ЕВРОПА: Если точка А или Б в Европе (Литва, Германия, Польша...). Vilnius -> Европа.
-3. ТУРЦИЯ: Если точка А или Б в Турции. (Если в тексте "Via Turkey", но точки в Литве и Ташкенте - это НЕ ТУРЦИЯ!).
-
-ВНИМАНИЕ: Если в черновике (current_draft) уже стоит "Турция", но ты видишь Вильнюс или любую страну Европы - ТЫ ОБЯЗАН ИСПРАВИТЬ РЕГИОН НА "Европа". Не повторяй ошибку из черновика!
-Приоритет: Китай > Европа > Турция > Индия/ЮВА > СНГ.
-"""
-
-        # Dynamic transport types from settings
         transport_types = settings.get("transport_types", []) if settings else []
-        if transport_types and isinstance(transport_types, list):
-            transport_str = "|".join(str(t) for t in transport_types)
-        else:
-            transport_str = "Авто|Контейнер|Ж/Д Вагон|Авиа|Мультимодальная"
+        transport_str = "|".join(str(t) for t in transport_types) or "Авто|Контейнер|Ж/Д Вагон|Авиа|Мультимодальная"
 
-        sources_list = settings.get("sources", []) if settings else []
-        if sources_list and isinstance(sources_list, list):
-            sources_str = "|".join(str(s) for s in sources_list)
-        else:
-            sources_str = "Сарафанное радио|Instagram|Facebook|Google|Яндекс|2ГИС|Партнёр / реферал|Мероприятие / выставка|Yellow Pages|Golden Pages|Другое"
-
-        return f"""You are an expert AGL Logistics Assistant. Your task is to extract cargo request details into a JSON structure.
-
-### ЛОГИКА ОПРЕДЕЛЕНИЯ РЕГИОНА (СТРОГИЙ ПРИОРИТЕТ):
-1. ЕВРОПА: Если Точка А или Б в Европе (Польша, Литва, Германия и т.д.). ЭТО ГЛАВНЫЙ ПРИОРИТЕТ.
-2. КИТАЙ: Если Точка А или Б в Китае.
-3. ТУРЦИЯ: Если Точка А или Б в Турции.
-4. СНГ: Ставить ТОЛЬКО если ОБЕ ТОЧКИ (и А, и Б) находятся внутри СНГ. 
-   - ВНИМАНИЕ: Если одна точка в Европе (Польша), а другая в СНГ (Узбекистан) — это РЕГИОН ЕВРОПА.
-   - ПРАВИЛО ВЕТО: НИКОГДА не ставь СНГ, если в маршруте есть любая страна НЕ из СНГ (Польша, Литва, Китай, Турция).
+        return f"""You are an expert AGL Logistics Assistant.
+### КРИТИЧЕСКИЕ ПРАВИЛА:
+1. НИКОГДА НЕ ПРИДУМЫВАЙ ЦИФРЫ. Если вес, объем или места не указаны — ставь null. Никаких 1000, 1 или 0 от себя.
+2. УДАЛЕНИЕ ДАННЫХ: Если пользователь говорит "убери", "сотри", "удали" поле — верни его в JSON со значением null.
+3. ДОПОЛНЕНИЕ ДАННЫХ: "добавь строку", "допиши в доп инфо", "напиши в комментарий" — всё это в поле "extra_info".
+4. СИНОНИМЫ: 
+   - "доп информация", "комментарий", "примечание", "добавь строку", "тест" -> extra_info
+   - "стоимость", "цена", "ставка" -> cargo_value
+5. ТЕКСТ "КГ": В полях веса и объема пиши ТОЛЬКО цифры. Никаких "кг" или "м3" внутри JSON.
 
 ### ФОРМАТ JSON:
 {{
   "regions": "{regions_str}",
-  "transport_cat": "{transport_str}",
-  "transport_sub": "вид авто (тент, реф и т.д.)",
+  "transport_cat": "{transport_cat if 'transport_cat' in locals() else transport_str}",
+  "transport_sub": "вид (тент, реф и т.д.)",
   "route_from": "Город, Страна", "route_to": "Город, Страна",
-  "loading_address": "...", "customs_address": "...", 
-  "clearance_address": "...", "unloading_address": "...",
-  "cargo_name": "...", "hs_code": "...", "cargo_value": "...", "cargo_weight": "...", "cargo_places": "...", "cargo_volume": "...",
-  "packaging": "...", "dangerous_cargo": "Да|Нет", "adr_class": "...",
-  "stackable": "Да|Нет", "cargo_oversized": "Да|Нет", "cargo_dimensions": "ДхШхВ",
-  "temp_control": "Да|Нет", "temp_range": "+2...+8C",
-  "urgency_type": "Стандарт|Срочно",
-  "source": "{sources_str}",
-  "extra_info": "...", "missing_fields": [], "next_question": "...",
-  "ready_to_publish": false, "not_logistics": false
+  "cargo_name": "...", "cargo_weight": null, "cargo_volume": null, "cargo_places": null, "cargo_value": null,
+  "extra_info": "...", 
+  "ready_to_publish": false,
+  "next_question": "вопрос о недостающих данных"
 }}
-
-### ВАЖНЫЕ ПРАВИЛА:
-1. НИКОГДА НЕ ПРИДУМЫВАЙ ДАННЫЕ. Если пользователь не указал вес, объем или места — НЕ СТАВЬ цифры (вроде 1000 или 1). Просто укажи это поле в "missing_fields" и оставь значение null.
-2. ЕСЛИ ПОЛЬЗОВАТЕЛЬ ПРОСИТ "УДАЛИТЬ", "УБРАТЬ" ИЛИ "ОЧИСТИТЬ" ПОЛЕ — ты ДОЛЖЕН вернуть это поле в JSON со значением null. Это критично для удаления данных из черновика.
-3. НЕ ПОВТОРЯЙ ОШИБКИ ИЗ ЧЕРНОВИКА. Если в current_draft стоит неверный регион — исправь его.
-4. ОЧИСТКА ЕДИНИЦ: Если в тексте есть "1000 кг", в поле "cargo_weight" пиши просто "1000". Бот сам добавит нужные единицы.
-
-### ОБЯЗАТЕЛЬНЫЕ ПОЛЯ ДЛЯ ПУБЛИКАЦИИ:
-1. СТРОГИЕ (без них публикация НЕВОЗМОЖНА): route_from, route_to, cargo_name, cargo_weight, cargo_places, cargo_volume.
-   - Если регион НЕ СНГ — ОБЯЗАТЕЛЬНЫ customs_address и clearance_address.
-   - Если транспорт "Контейнер" — ОБЯЗАТЕЛЕН тип контейнера (container_type_cn).
-   - Если транспорт "Авто" — ОБЯЗАТЕЛЕН вид авто (transport_sub).
-   - Если транспорт "Мультимодальная" — ОБЯЗАТЕЛЬНЫ порты.
-   - Если регион "Китай" — ОБЯЗАТЕЛЕН погранпереход.
-
-2. ВАЖНЫЕ (нужно напомнить минимум ОДИН РАЗ, но если инфо нет — ставь "-"): 
-   - cargo_value (стоимость), hs_code (ТН ВЭД), stackable (штабелируемость), temp_control.
-   - ТВОЯ ЗАДАЧА: Сначала вежливо спросить эти данные. Если менеджер говорит "неизвестно" или "пропусти", ты ОБЯЗАН поставить "-" и сделать ready_to_publish: true.
-
-НЕ ДУШИ: Если основные параметры есть, а на "важные" менеджер ответил отказом — публикуй с прочерками.
 
 {strict_note}
 Today's date: {today}
@@ -137,19 +82,18 @@ Today's date: {today}
             return {"error": str(e)}
 
     async def process_intent(self, text: str):
-        """Smart intent routing — determines what the user wants to do."""
         if not self.enabled:
             return {"error": "AI Assistant disabled"}
         try:
             messages = [
                 {"role": "system", "content": """You are an intent classifier for a logistics company AGL.
 Classify the user's message into one of these intents:
-- "create_request" — пользователь хочет создать заявку, ДОБАВИТЬ информацию, ИЗМЕНИТЬ данные, УДАЛИТЬ ЧАСТЬ данных ИЛИ задает любые вопросы по логистике. ВАЖНО: Если в сообщении есть города, грузы, веса или маршруты — это ВСЕГДА "create_request".
+- "create_request" — пользователь хочет создать заявку, ДОБАВИТЬ информацию, ИЗМЕНИТЬ данные, УДАЛИТЬ ЧАСТЬ данных ИЛИ задает любые вопросы по логистике.
 - "finish_request" — пользователь говорит "все верно", "опубликуй", "готово".
 - "create_bid" — пользователь хочет предложить свою ставку (цену) на чужую заявку.
 - "recall_request" — поиск старой заявки.
 - "cancel_request" — полная отмена и удаление всего черновика.
-- "chat" — ТОЛЬКО для пустых приветствий или тем, ВООБЩЕ не связанных с логистикой.
+- "chat" — для пустых приветствий.
 
 Respond in JSON: {"intent": "...", "args": {...}, "text": "..."} """},
                 {"role": "user", "content": text}
@@ -163,7 +107,6 @@ Respond in JSON: {"intent": "...", "args": {...}, "text": "..."} """},
             return {"intent": "create_request", "args": {}}
 
     def build_preview(self, draft: dict) -> str:
-        """Build a human-readable preview of the current draft for the user."""
         import html
         lines = []
         field_labels = {
@@ -190,10 +133,8 @@ Respond in JSON: {"intent": "...", "args": {...}, "text": "..."} """},
         }
         for key, label in field_labels.items():
             val = draft.get(key)
-            # Skip empty, false, null, or placeholder values
             if val is None or str(val).strip().lower() in ("", "-", "none", "false", "null"):
                 continue
-            
             safe_val = html.escape(str(val))
             lines.append(f"{label}: <b>{safe_val}</b>")
 
@@ -210,31 +151,20 @@ Respond in JSON: {"intent": "...", "args": {...}, "text": "..."} """},
         return "\n".join(lines) if lines else "📋 Черновик пуст"
 
     def merge_parsed_data(self, old_draft: dict, new_data: dict) -> dict:
-        """Merge newly parsed data into the existing draft. New values overwrite old ones."""
         merged = dict(old_draft) if old_draft else {}
         skip_keys = {"not_logistics", "error", "next_question", "missing_fields", "ready_to_publish"}
-        
         for k, v in new_data.items():
-            if k in skip_keys:
-                continue
-            
-            # Explicit deletion/clearing
+            if k in skip_keys: continue
             if v in (None, "null", "", "-", "None"):
-                if k in merged:
-                    del merged[k]
+                if k in merged: del merged[k]
                 continue
-                
             merged[k] = v
-        
-        # Meta fields are not merged, they come from the latest parse
         merged["ready_to_publish"] = new_data.get("ready_to_publish", False)
         merged["next_question"] = new_data.get("next_question")
         merged["missing_fields"] = new_data.get("missing_fields", [])
-        
         return merged
 
     def to_request_fields(self, draft: dict) -> dict:
-        """Convert AI draft to a dict suitable for db.create_request()."""
         db_fields = {}
         field_map = {
             "regions": "regions", "transport_cat": "transport_cat",
@@ -248,18 +178,13 @@ Respond in JSON: {"intent": "...", "args": {...}, "text": "..."} """},
             "dangerous_cargo": "dangerous_cargo", "extra_info": "message_text",
             "loading_date": "days_loading", "unloading_date": "days_unloading",
             "days_loading": "days_loading", "days_unloading": "days_unloading",
-            "requirements": "target",
-            "delivery_terms": "delivery_terms", "container_type": "container_type",
-            "road_type": "road_type", "export_decl": "export_decl",
-            "origin_cert": "origin_cert", "stackable": "stackable",
-            "source": "source",
-            "transport_sub": "transport_sub",
-            "cargo_oversized": "cargo_oversized",
-            "cargo_dimensions": "cargo_dimensions",
-            "temp_control": "temp_control",
-            "temp_range": "temp_range",
-            "adr_class": "adr_class",
-            "responsible": "responsible"
+            "requirements": "target", "delivery_terms": "delivery_terms",
+            "container_type": "container_type", "road_type": "road_type",
+            "export_decl": "export_decl", "origin_cert": "origin_cert",
+            "stackable": "stackable", "source": "source",
+            "transport_sub": "transport_sub", "cargo_oversized": "cargo_oversized",
+            "cargo_dimensions": "cargo_dimensions", "temp_control": "temp_control",
+            "temp_range": "temp_range", "adr_class": "adr_class", "responsible": "responsible"
         }
         for draft_key, db_key in field_map.items():
             val = draft.get(draft_key)
@@ -268,9 +193,7 @@ Respond in JSON: {"intent": "...", "args": {...}, "text": "..."} """},
         return db_fields
 
     async def answer_db_query(self, question: str, db_module) -> str:
-        """Answer user questions about the database using AI + real data."""
-        if not self.enabled:
-            return "AI отключен"
+        if not self.enabled: return "AI отключен"
         try:
             stats = await db_module.get_stats(days=0)
             recent = await db_module.list_requests(limit=5)
@@ -279,7 +202,7 @@ Respond in JSON: {"intent": "...", "args": {...}, "text": "..."} """},
                 "recent_requests": [{"id": r["id"], "route": f"{r.get('route_from')} → {r.get('route_to')}", "status": r.get("status"), "cargo": r.get("cargo_name")} for r in recent]
             }
             messages = [
-                {"role": "system", "content": f"You are a data analyst for AGL logistics. Answer the user's question based on this data:\n{json.dumps(context_data, ensure_ascii=False, default=str)}\n\nBe concise. Use Russian. Format numbers clearly."},
+                {"role": "system", "content": f"You are a data analyst for AGL logistics. Answer the user's question based on this data:\n{json.dumps(context_data, ensure_ascii=False, default=str)}\n\nBe concise. Use Russian."},
                 {"role": "user", "content": question}
             ]
             response = await self.client.chat.completions.create(
@@ -295,8 +218,7 @@ Respond in JSON: {"intent": "...", "args": {...}, "text": "..."} """},
         try:
             with open(file_path, "rb") as audio_file:
                 transcript = await self.client.audio.transcriptions.create(
-                    model="whisper-1", 
-                    file=audio_file
+                    model="whisper-1", file=audio_file
                 )
                 return transcript.text
         except Exception as e:

@@ -65,13 +65,19 @@ def build_card(req: dict) -> str:
     if v('hs_code'): lines.append(f"ТН ВЭД: {v('hs_code')}")
     if v('dangerous_cargo') and v('dangerous_cargo') == 'Да':
         adr = v('adr_class')
-        lines.append(f"Опасный: Да (ADR {adr if adr else 'не указан'})")
+        lines.append(f"Класс ADR: {adr if adr else 'не указан'}")
     elif v('dangerous_cargo') and v('dangerous_cargo') != 'Нет':
         lines.append(f"Опасный: {v('dangerous_cargo')}")
     lines.append("")
-    if v('cargo_weight'): lines.append(f"Вес: {v('cargo_weight')} кг")
+    if v('cargo_weight'):
+        w = v('cargo_weight')
+        if 'кг' not in w.lower(): w = f"{w} кг"
+        lines.append(f"Вес: {w}")
     if v('cargo_places'): lines.append(f"Мест: {v('cargo_places')}")
-    if v('cargo_volume'): lines.append(f"Объем: {v('cargo_volume')} м³")
+    if v('cargo_volume'):
+        vol = v('cargo_volume')
+        if 'м' not in vol.lower() and 'm' not in vol.lower(): vol = f"{vol} м³"
+        lines.append(f"Объем: {vol}")
     if v('packaging'): lines.append(f"Упаковка: {v('packaging')}")
     if v('stackable') == 'Да': lines.append("Штабелируемый: Да")
     elif v('stackable') == 'Нет': lines.append("Штабелируемый: Нет")

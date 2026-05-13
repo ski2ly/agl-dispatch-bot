@@ -25,34 +25,32 @@ class AIAssistant:
 
         return f"""Ты — Робот-Секретарь AGL. Твоя задача: идеально извлечь ВСЕ данные.
 
-### ГЕОГРАФИЯ (БУДЬ ВНИМАТЕЛЕН К НАПИСАНИЮ):
+### ГЕОГРАФИЯ:
 Направление из списка: [{regions_str}]
-- ОАЭ: Абу-Даби (Abu Dhabi, Абудаби), Дубай (Dubai), Шарджа (Sharjah), Джебель-Али.
-- ЕВРОПА: Весь Евросоюз.
-- ПРИОРИТЕТ: Если одна точка в ОАЭ — регион ОАЭ.
+- ОАЭ: Абу-Даби (Abu Dhabi, Абудаби), Дубай (Dubai), Шарджа. ПРИОРИТЕТ: ОАЭ.
+- ЕВРОПА: ЕС.
 
 ### СРОЧНОСТЬ:
-- Если в тексте есть слова "срочно", "горит", "нужна скорость", "быстро" — СТАВЬ `urgency_type`: "Срочно".
+- "Срочно", "скорость", "горит" -> `urgency_type`: "Срочно".
+
+### КЛИЕНТ (client_company):
+- "Заказчик", "Клиент", "Компания" -> записывай название организации в `client_company`.
 
 ### ДОПОЛНИТЕЛЬНО (extra_info):
-- Записывай сюда ВСЕ важные детали: кто заказчик (Минобороны), контекст (выставка IDEX), проблемы (не лезет в ИЛ-76), требования (чартер). НИЧЕГО НЕ ВЫБРАСЫВАЙ.
-
-### ПРАВИЛА:
-1. ЦИФРЫ: В вес/объем/места пиши ТОЛЬКО ЧИСЛА.
-2. ТН ВЭД: Находи по названию груза.
-3. ЯЗЫК: Ответы и missing_fields — на РУССКОМ.
+- Все подробности: причины (не лезет в самолет), выставки, требования к чартеру.
 
 ### ФОРМАТ JSON:
 {{
   "regions": "ОАЭ",
+  "client_company": "Название",
   "urgency_type": "Срочно",
   "transport_cat": "Авиа",
   "route_from": "Ташкент, Узбекистан", "route_to": "Абу-Даби, ОАЭ",
-  "cargo_name": "Груз на выставку IDEX 2025", "cargo_weight": null,
-  "extra_info": "Заказчик: агентство военной промышленности при мин обороне РУз. Требуется чартер. Ранее возили на ИЛ76, сейчас груз не вмещается. Вопрос скорости, не денег.", 
-  "missing_fields": ["Вес", "Объем", "Мест"],
+  "cargo_name": "...", "cargo_weight": null,
+  "extra_info": "детали про ИЛ76 и т.д.", 
+  "missing_fields": ["Вес", "Объем"],
   "ready_to_publish": false,
-  "next_question": "Подскажите, пожалуйста, примерный вес и объем груза для подбора чартера?"
+  "next_question": "..."
 }}
 
 Today's date: {today}
@@ -86,16 +84,15 @@ Today's date: {today}
     def build_preview(self, draft: dict) -> str:
         import html
         lines = []
-        # Finalized sync with helpers.build_card (no emojis)
         reg = draft.get("regions", "Другое")
         t_cat = draft.get("transport_cat", "Авто")
         lines.append(f"Направление: <b>{html.escape(str(reg))}</b>")
         lines.append(f"Тип перевозки: <b>{html.escape(str(t_cat))}</b>")
-        
         if draft.get("transport_sub"):
             lines.append(f"Вид: <b>{html.escape(str(draft.get('transport_sub')))}</b>")
         
         lines.append(f"Источник: <b>{html.escape(str(draft.get('source', 'Не указан')))}</b>")
+        lines.append(f"Заказчик: <b>{html.escape(str(draft.get('client_company', '—')))}</b>")
         lines.append("")
         
         r_from = draft.get("route_from", "?")
@@ -182,7 +179,7 @@ Today's date: {today}
             "route_from": "route_from", "route_to": "route_to",
             "loading_address": "loading_address", "customs_address": "customs_address",
             "clearance_address": "clearance_address", "unloading_address": "unloading_address",
-            "cargo_name": "cargo_name", "hs_code": "hs_code",
+            "cargo_name": "cargo_name", "hs_code": "hs_code", "client_company": "client_company",
             "cargo_value": "cargo_value", "cargo_weight": "cargo_weight",
             "cargo_places": "cargo_places", "cargo_volume": "cargo_volume", "urgency_type": "urgency_type",
             "extra_info": "message_text", "transport_sub": "transport_sub", 

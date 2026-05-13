@@ -149,11 +149,15 @@ def build_bid_card(bid: dict) -> str:
     return "\n".join(lines)
 
 async def sync_bid_to_discussion(bot, discussion_id, channel_id, channel_msg_id, bid_card_text):
-    """Sends a bid card to the discussion group as a proper comment."""
+    """Sends a bid card to the discussion group as a proper comment.
+    
+    Telegram natively supports replying to a channel message inside the linked 
+    discussion group by using ReplyParameters and specifying both the message_id 
+    and the channel's chat_id.
+    """
     import logging
     log = logging.getLogger(__name__)
     from telegram import ReplyParameters
-    from telegram.error import BadRequest
     
     def to_int(val):
         if val is None: return None
@@ -165,65 +169,29 @@ async def sync_bid_to_discussion(bot, discussion_id, channel_id, channel_msg_id,
     target_chat = to_int(channel_id)
     target_discussion = to_int(discussion_id)
 
-    # Strategy A: Try direct reply
     if target_discussion and channel_msg_id:
         try:
+            # The magic is passing chat_id=target_chat to ReplyParameters.
+            # This tells Telegram that the message_id belongs to the channel,
+            # and it natively finds the correct thread in the discussion group!
             await bot.send_message(
                 chat_id=target_discussion,
                 text=bid_card_text,
-                reply_parameters=ReplyParameters(message_id=int(channel_msg_id)),
+                reply_parameters=ReplyParameters(message_id=int(channel_msg_id), chat_id=target_chat),
                 parse_mode="HTML"
             )
             return True
-        except Exception: pass
-
-    # Strategy B: Resolve via getDiscussionMessage
-    target_disc_id, target_msg_id = target_discussion, None
-    if target_chat and channel_msg_id:
-        try:
-            if hasattr(bot, 'get_discussion_message'):
-                m = await bot.get_discussion_message(chat_id=target_chat, message_id=int(channel_msg_id))
-                target_disc_id, target_msg_id = m.chat_id, m.message_id
-            else:
-                import aiohttp
-                url = f"https://api.telegram.org/bot{bot.token}/getDiscussionMessage"
-                async with aiohttp.ClientSession() as session:
-                    async with session.post(url, json={"chat_id": str(target_chat), "message_id": int(channel_msg_id)}) as r:
-                        res = await r.json()
-                        if res.get("ok"):
-                            target_disc_id = res["result"]["chat"]["id"]
-                            target_msg_id = res["result"]["message_id"]
-        except Exception as e: log.warning(f"Resolution failed: {e}")
-
-    # Send resolved reply
-    if target_msg_id and target_disc_id:
-        try:
-            await bot.send_message(
-                chat_id=target_disc_id,
-                text=bid_card_text,
-                reply_parameters=ReplyParameters(message_id=target_msg_id, allow_sending_without_reply=False),
-                parse_mode="HTML"
-            )
-            return True
-        except BadRequest as e:
-            if "thread not found" in str(e).lower() or "topic" in str(e).lower():
-                try:
-                    await bot.send_message(
-                        chat_id=target_disc_id,
-                        text=bid_card_text,
-                        reply_parameters=ReplyParameters(message_id=target_msg_id),
-                        message_thread_id=target_msg_id,
-                        parse_mode="HTML"
-                    )
-                    return True
-                except: pass
+        except Exception as e:
+            log.warning(f"Failed to sync bid via ReplyParameters: {e}")
 
     # Fallback
     if target_discussion:
         try:
             await bot.send_message(chat_id=target_discussion, text=bid_card_text, parse_mode="HTML")
             return True
-        except: pass
+        except Exception as e:
+            log.warning(f"Fallback send to discussion failed: {e}")
+            pass
     return False
 
 def calculate_deletion_time(now_dt: datetime, duration_hours: int = 2) -> datetime:

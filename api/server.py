@@ -659,14 +659,21 @@ async def api_submit(request):
                         discussion_id = settings.get("discussion_id") or os.getenv("DISCUSSION_GROUP_ID")
                         if discussion_id:
                             try:
-                                disc_msg = await request.app["bot"].send_message(
-                                    chat_id=discussion_id, 
-                                    text=update_notif, 
-                                    reply_to_message_id=int(msg_id) if msg_id else None,
-                                    parse_mode="HTML"
-                                )
+                                from telegram import ReplyParameters
+                                target_channel_id = settings.get("channel_id") or os.getenv("CHANNEL_ID")
+                                
+                                if msg_id and target_channel_id:
+                                    disc_msg = await request.app["bot"].send_message(
+                                        chat_id=discussion_id, 
+                                        text=update_notif, 
+                                        reply_parameters=ReplyParameters(message_id=int(msg_id), chat_id=target_channel_id),
+                                        parse_mode="HTML"
+                                    )
+                                else:
+                                    disc_msg = await request.app["bot"].send_message(chat_id=discussion_id, text=update_notif, parse_mode="HTML")
                                 await db.add_scheduled_deletion(discussion_id, disc_msg.message_id, delete_at)
-                            except:
+                            except Exception as e:
+                                logger.warning(f"Failed to reply in discussion with ReplyParameters: {e}")
                                 disc_msg = await request.app["bot"].send_message(chat_id=discussion_id, text=update_notif, parse_mode="HTML")
                                 await db.add_scheduled_deletion(discussion_id, disc_msg.message_id, delete_at)
                 except Exception as e:

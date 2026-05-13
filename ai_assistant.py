@@ -23,31 +23,34 @@ class AIAssistant:
         regions_list = settings.get("regions", []) if settings else []
         regions_str = "|".join([r["name"] if isinstance(r, dict) else str(r) for r in regions_list])
 
-        return f"""Ты — Ведущий Логист AGL. Твоя задача: идеально заполнить карточку заявки.
+        return f"""Ты — Профессиональный Диспетчер AGL. Твоя задача: идеально извлечь ВСЕ детали.
 
-### ЛОГИКА РЕГИОНОВ:
-Выбери из: [{regions_str}]
-- Китай, Европа, ОАЭ, Индия/ЮВА, СНГ, Америка. Используй знания географии.
+### КРИТИЧЕСКИЕ ДАННЫЕ (ОБЯЗАТЕЛЬНО):
+1. ТН ВЭД (hs_code): Любые цифры после слов "Код", "ТНВЭД", "HS" — записывай в hs_code.
+2. ВИД ТРАНСПОРТА (transport_sub): Если указан размер контейнера (20 фут, 40 фут, 40HC, 20GP, 40GP) — записывай в transport_sub.
+3. ГЕОГРАФИЯ: Определяй регион [{regions_str}] по стране города.
+4. ДОПОЛНИТЕЛЬНО: Сохраняй всю специфику погрузки и груза.
 
-### ПРАВИЛА ЗАПОЛНЕНИЯ:
-1. ДОПОЛНИТЕЛЬНО (extra_info): Обязательно пиши сюда ВСЕ детали погрузки (слип-шиты, ручная перевалка), упаковку, требования.
-2. КЛИЕНТ (client_company): Название заказчика.
-3. ЦИФРЫ: В поля веса/объема пиши ТОЛЬКО ЧИСЛА.
-4. МАРШРУТ: "А - Б" значит А ➔ Откуда, Б ➔ Куда.
+### ЛОГИКА:
+- МАРШРУТ: "А - Б" значит А ➔ Откуда, Б ➔ Куда.
+- ТРАНСПОРТ: "Контейнер" + "20 фут" -> transport_cat: "Контейнер", transport_sub: "20 фут".
+- ЦИФРЫ: В вес/объем пиши ТОЛЬКО ЧИСЛА.
 
-### ПЕРЕВОД ПОЛЕЙ ДЛЯ missing_fields (СТРОГО НА РУССКОМ):
-client_company: "Заказчик", cargo_weight: "Вес", cargo_volume: "Объем", cargo_value: "Стоимость", hs_code: "ТН ВЭД", route_from: "Откуда", route_to: "Куда".
+### ПЕРЕВОД ПОЛЕЙ ДЛЯ missing_fields:
+client_company: "Заказчик", cargo_weight: "Вес", cargo_volume: "Объем", cargo_value: "Стоимость", hs_code: "ТН ВЭД", transport_sub: "Вид транспорта".
 
 ### ФОРМАТ JSON:
 {{
   "regions": "...",
   "client_company": "...",
-  "transport_cat": "Контейнер/Авто/...",
+  "transport_cat": "...",
+  "transport_sub": "20 фут",
+  "hs_code": "2008207900",
   "route_from": "...", "route_to": "...",
-  "cargo_name": "...", "cargo_weight": "...", "cargo_volume": "...",
-  "extra_info": "ВСЯ специфика погрузки и груза здесь",
+  "cargo_name": "...", "cargo_weight": "...",
+  "extra_info": "...",
   "missing_fields": ["Заказчик", "Стоимость"],
-  "next_question": "вежливый вопрос"
+  "next_question": "..."
 }}
 
 Today's date: {today}
@@ -86,8 +89,10 @@ Today's date: {today}
         t_cat = draft.get("transport_cat", "Авто")
         lines.append(f"Направление: <b>{html.escape(str(reg))}</b>")
         lines.append(f"Тип перевозки: <b>{html.escape(str(t_cat))}</b>")
-        if draft.get("transport_sub"):
-            lines.append(f"Вид: <b>{html.escape(str(draft.get('transport_sub')))}</b>")
+        
+        t_sub = draft.get("transport_sub")
+        if t_sub and str(t_sub).strip() not in ("-", "", "None", "null"):
+            lines.append(f"Вид: <b>{html.escape(str(t_sub))}</b>")
         
         lines.append(f"Источник: <b>{html.escape(str(draft.get('source', 'Не указан')))}</b>")
         if draft.get("client_company"):

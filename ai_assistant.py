@@ -23,23 +23,38 @@ class AIAssistant:
         regions_list = settings.get("regions", []) if settings else []
         regions_str = "|".join([r["name"] if isinstance(r, dict) else str(r) for r in regions_list])
 
-        return f"""Ты — Эксперт-Логист AGL. Твоя задача: извлечь ВСЕ детали.
+        return f"""Ты — Главный Диспетчер AGL. Твоя задача: безошибочно извлечь данные.
 
-### ПРАВИЛА (КРИТИЧНО):
-1. ГЕОГРАФИЯ: Филиппины, Вьетнам, Малайзия, Таиланд, Индонезия -> Индия/ЮВА.
-2. ДОПОЛНИТЕЛЬНО (extra_info): Обязательно пиши сюда ВСЁ: упаковка, способы погрузки (слип-шиты, ручная перевалка), специфику груза (в железных баночках). НЕ ТЕРЯЙ ЭТУ ИНФОРМАЦИЮ.
-3. ЦИФРЫ: В вес/объем пиши ТОЛЬКО ЧИСЛА. 20 тонн -> 20000.
-4. МЫСЛИ: Если есть инфо о погрузке — она ДОЛЖНА быть в `extra_info`.
+### ПРИОРИТЕТЫ ГЕОГРАФИИ:
+1. КИТАЙ: Если есть Китай.
+2. ЕВРОПА: Литва (Клайпеда, Вильнюс), Латвия (Рига), Польша, Германия и весь ЕС.
+3. ОАЭ: Дубай, Абу-Даби.
+4. ИНДИЯ/ЮВА: Филиппины, Вьетнам, Индия.
+5. СНГ: Только если обе точки в СНГ.
+
+### ТРАНСПОРТ:
+- "Тент", "фура", "реф", "авто" — это строго АВТО.
+- "Контейнер", "КТК" — это КОНТЕЙНЕР.
+
+### ОПАСНЫЙ ГРУЗ (ADR):
+- Если написано "АДР" или "ADR" — ставь `adr_class` (например, "3 класс").
+
+### ПРАВИЛА:
+1. ВЕС: "1 тент" НЕ значит "1000 кг". Если веса нет — ставь null.
+2. ДОПОЛНИТЕЛЬНО: Записывай все детали (готовность груза, способ погрузки).
+3. ЦИФРЫ: В поля веса/объема пиши ТОЛЬКО ЧИСЛА.
 
 ### ФОРМАТ JSON:
 {{
-  "regions": "Индия/ЮВА",
-  "extra_info": "Грузят мягкими слип-шитами, поэтому перегрузка ручная будет. Ананасы в железных баночках.",
-  "transport_cat": "Контейнер",
-  "route_from": "...", "route_to": "...",
-  "cargo_name": "...", "cargo_weight": "20000",
-  "missing_fields": ["Стоимость"],
-  "next_question": "..."
+  "regions": "Европа",
+  "transport_cat": "Авто",
+  "transport_sub": "Тент",
+  "route_from": "Навои, Узбекистан", "route_to": "Клайпеда, Литва",
+  "cargo_name": "Аммиачная силитра", "cargo_weight": null, "adr_class": "3 класс",
+  "extra_info": "Груз готов.", 
+  "missing_fields": ["Вес", "Объем", "Стоимость"],
+  "ready_to_publish": false,
+  "next_question": "Уточните, пожалуйста, вес и объем груза?"
 }}
 
 Today's date: {today}
@@ -100,6 +115,8 @@ Today's date: {today}
         lines.append(f"Груз: <b>{html.escape(str(draft.get('cargo_name', 'не указан')))}</b>")
         if draft.get("hs_code"):
             lines.append(f"ТН ВЭД: <b>{html.escape(str(draft.get('hs_code')))}</b>")
+        if draft.get("adr_class"):
+            lines.append(f"Класс ADR: <b>{html.escape(str(draft.get('adr_class')))}</b>")
         if draft.get("temp_control") == "Да":
             lines.append(f"Температурный режим: <b>{html.escape(str(draft.get('temp_range', 'да')))}</b>")
             
@@ -112,7 +129,6 @@ Today's date: {today}
                 lines.append(f"Вес: <b>{val_num} кг</b>")
             else:
                 lines.append(f"Вес: <b>{html.escape(w)}</b>")
-                
         if draft.get("cargo_places"):
             lines.append(f"Мест: <b>{html.escape(str(draft.get('cargo_places')))}</b>")
         if draft.get("cargo_volume"):
@@ -142,7 +158,6 @@ Today's date: {today}
             lines.append("\nСпецифика:")
             lines.extend(spec_fields)
             
-        # Ensure Extra Info is VISIBLE and has a separator
         extra = draft.get("extra_info")
         if extra and str(extra).strip() not in ("-", "", "None", "null"):
             lines.append(f"\nДополнительно:\n<b>{html.escape(str(extra))}</b>")

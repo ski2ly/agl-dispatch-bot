@@ -229,15 +229,13 @@ async def confirm_ai_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await query.edit_message_text("❌ Черновик не найден или уже опубликован.")
             return
         
-        # ── Validate required fields before publishing (matching MiniApp requirements) ──
-        required = ["route_from", "route_to", "cargo_name", "cargo_value", "cargo_weight", "cargo_places", "cargo_volume", "hs_code"]
+        # ── Validate required fields before publishing ──
+        # Strictly mandatory fields (without these, the card is incomplete)
+        required = ["route_from", "route_to", "cargo_name", "cargo_weight", "cargo_places", "cargo_volume"]
         missing = []
         for f in required:
             val = str(parsed.get(f, "")).strip()
-            # Allow "-" for cargo_value if manager says it's unknown
-            if f == "cargo_value" and val in ("-", "неизвестно", "unknown", "пока неизвестна"):
-                continue
-            if not val or val.lower() in ("", "none", "null"):
+            if not val or val.lower() in ("", "none", "null", "-"):
                 missing.append(f)
         
         # Region/Transport specific requirements

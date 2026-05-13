@@ -304,8 +304,22 @@
                     </section>
                     <section class="space-y-5">
                         <input type="text" id="client_company" placeholder="Компания клиента" class="w-full p-4 tg-input text-sm">
-                        <div class="grid grid-cols-2 gap-4"><input type="text" id="responsible" class="w-full p-4 tg-input text-xs bg-[var(--secondary-bg)] opacity-60" readonly><input type="text" id="target" placeholder="Таргет $" class="w-full p-4 tg-input text-xs"></div>
-                        
+                        <div class="grid grid-cols-2 gap-4">
+                            <div id="manager-input-container">
+                                <label class="block text-[8px] font-bold uppercase opacity-40 ml-2">Менеджер</label>
+                                <input type="text" id="responsible" class="w-full p-4 tg-input text-xs bg-[var(--secondary-bg)] opacity-60" readonly>
+                            </div>
+                            <div id="manager-select-container" class="hidden">
+                                <label class="block text-[8px] font-bold uppercase opacity-40 ml-2">Менеджер (Admin)</label>
+                                <select id="responsible_select" class="w-full p-4 tg-input text-xs font-bold" onchange="document.getElementById('responsible').value = this.value">
+                                    <option value="">-- Выберите менеджера --</option>
+                                </select>
+                            </div>
+                            <div class="space-y-1">
+                                <label class="block text-[8px] font-bold uppercase opacity-40 ml-2">Таргет $</label>
+                                <input type="text" id="target" placeholder="Целевая ставка" class="w-full p-4 tg-input text-sm">
+                            </div>
+                        </div>                        
                         <!-- ATTACHMENTS SECTION -->
                         <div class="space-y-3">
                             <label class="block text-[10px] font-bold uppercase opacity-40">Вложения (фото, документы)</label>
@@ -686,7 +700,14 @@
                     currentUser = data.profile;
                     document.getElementById('login-screen').classList.add('hidden'); document.getElementById('app-content').classList.remove('hidden');
                     document.getElementById('user-name-display').textContent = data.profile.name; document.getElementById('responsible').value = data.profile.name;
-                    if (['admin', 'superuser'].includes(data.profile.role)) document.getElementById('tab-users').classList.remove('hidden');
+                    if (data.profile.role === 'superuser') {
+                        document.getElementById('tab-users').classList.remove('hidden');
+                        document.getElementById('manager-input-container').classList.add('hidden');
+                        document.getElementById('manager-select-container').classList.remove('hidden');
+                        loadManagersForSelect();
+                    } else if (data.profile.role === 'admin') {
+                        document.getElementById('tab-users').classList.remove('hidden');
+                    }
                     // Load settings (regions, currencies, cancel_reasons)
                     fetch(`/api/settings?initData=${encodeURIComponent(tg.initData)}`).then(r=>r.json()).then(res=>{
                         const s = res.settings || {};
@@ -1273,6 +1294,12 @@
             document.getElementById('adr-class-container').classList.add('hidden');
             document.getElementById('oversized-container').classList.add('hidden');
             document.getElementById('temp-container').classList.add('hidden');
+            
+            // Re-fill manager name after reset
+            if (currentUser) {
+                document.getElementById('responsible').value = currentUser.name;
+                document.getElementById('responsible_select').value = currentUser.name;
+            }
         }
         function updateMainButton() { if(currentTab==='form' && currentStep===3) { tg.MainButton.setText(editModeId ? "СОХРАНИТЬ" : "ОТПРАВИТЬ"); tg.MainButton.show(); } else tg.MainButton.hide(); }
 
@@ -1351,15 +1378,23 @@
                 
                 document.getElementById('btn-back-step3').textContent = '← База';
                 setupFields(() => {
-                    ['cargo_currency','cargo_name','cargo_value','hs_code','route_from','route_to','loading_address','customs_address','clearance_address','unloading_address','client_company','responsible','target','message_text','cargo_weight','cargo_places','cargo_volume','packaging','dangerous_cargo','adr_class','urgency_type','delivery_terms_eu','route_type','transit_rf_allowed','export_decl','origin_cert','border_crossing_cn','road_type_cn','container_owner','container_type_cn','urgency_days','days_loading','days_unloading','glonass_seal','ports_list','flight_type','stackable','source','cargo_oversized','cargo_dimensions','temp_range'].forEach(fid => { 
+                    const fieldIds = ['cargo_currency','cargo_name','cargo_value','hs_code','route_from','route_to','loading_address','customs_address','clearance_address','unloading_address','client_company','responsible','target','message_text','cargo_weight','cargo_places','cargo_volume','packaging','dangerous_cargo','adr_class','urgency_type','delivery_terms_eu','route_type','transit_rf_allowed','export_decl','origin_cert','border_crossing_cn','road_type_cn','container_owner','container_type_cn','urgency_days','days_loading','days_unloading','glonass_seal','ports_list','flight_type','stackable','source','cargo_oversized','cargo_dimensions','temp_range'];
+                    
+                    fieldIds.forEach(fid => { 
                         const el = document.getElementById(fid); 
                         if(el) {
                             el.value = r[fid] || ''; 
                             el.disabled = !canEdit;
-                            // Update MultiSelect UI if needed
                             if (el.type === 'hidden') syncMultiUI(fid);
                         }
                     });
+                    
+                    // Sync manager select for admin/superuser
+                    const mSelect = document.getElementById('responsible_select');
+                    if (mSelect) {
+                        mSelect.value = r['responsible'] || '';
+                        mSelect.disabled = !canEdit;
+                    }
                     
                     // Handle dangerous cargo UI
                     if(r.dangerous_cargo === 'Да') {
@@ -1520,6 +1555,20 @@
                     list.innerHTML = `<div class="p-10 text-center text-red-500 text-[10px]">Ошибка сети</div>`;
                     if (callback) callback();
                 });
+        }
+
+        function loadManagersForSelect() {
+            fetch(`/api/users?initData=${encodeURIComponent(tg.initData)}`).then(r=>r.json()).then(res=>{
+                const sel = document.getElementById('responsible_select');
+                clear(sel);
+                sel.appendChild(el('option', { value: '' }, '-- Выберите менеджера --'));
+                if (res.users) {
+                    res.users.forEach(u => {
+                        sel.appendChild(el('option', { value: u.name, text: u.name }));
+                    });
+                }
+                if (currentUser) sel.value = currentUser.name;
+            });
         }
 
         function filterUsers(f) {

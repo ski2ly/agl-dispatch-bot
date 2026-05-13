@@ -115,7 +115,8 @@ async def process_ai_message(update: Update, context: ContextTypes.DEFAULT_TYPE,
             if profile:
                 context.user_data["profile"] = profile
         
-        user_name = (profile.get("name") if profile else None) or update.effective_user.first_name or "Менеджер"
+        # Use only DB name for consistent analytics. Fallback to generic if not in DB.
+        user_name = (profile.get("name") if profile else None) or "Менеджер"
         merged["responsible"] = user_name
         
         # Update history (keep last 10 items)

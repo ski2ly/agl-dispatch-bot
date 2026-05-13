@@ -551,7 +551,7 @@ ALLOWED_REQUEST_FIELDS = {
     "road_type_cn", "border_crossing_cn", "container_type_cn", "loading_days",
     "customs_days", "urgency_days", "ports_list",
     "cancel_reason", "channel_msg_id", "mute_reminders", "last_notified_at", "winner_name", "source", "days_loading", "days_unloading",
-    "cargo_oversized", "cargo_dimensions", "temp_control", "temp_range"
+    "cargo_oversized", "cargo_dimensions", "temp_control", "temp_range", "responsible"
 }
 ALLOWED_STATUSES = {"Открыта", "В работе", "Успешно реализована", "Отменена"}
 
@@ -639,32 +639,33 @@ async def api_submit(request):
                         new_msg = await request.app["bot"].send_message(chat_id=target_channel, text=text, parse_mode="HTML")
                         await db.update_request(final_id, {"channel_msg_id": new_msg.message_id})
                         
-                    # Notify about update and schedule deletion (#53)
-                    from utils.helpers import TZ, calculate_deletion_time
-                    now = datetime.now(TZ)
-                    delete_at = calculate_deletion_time(now, 2)
-                    update_notif = f"🔄 <b>Заявка #{updated_req['id']:04d} обновлена</b>"
-                    
-                    # 1. Notify in channel
-                    notif_msg = await request.app["bot"].send_message(chat_id=target_channel, text=update_notif, parse_mode="HTML")
-                    await db.add_scheduled_deletion(target_channel, notif_msg.message_id, delete_at)
-                    
-                    # 2. Notify in discussion group if exists
-                    discussion_id = settings.get("discussion_id") or os.getenv("DISCUSSION_GROUP_ID")
-                    if discussion_id:
-                        # Use the actual channel_msg_id for the reply (important for thread)
-                        current_msg_id = updated_req.get("channel_msg_id") or msg_id
-                        try:
-                            disc_msg = await request.app["bot"].send_message(
-                                chat_id=discussion_id, 
-                                text=update_notif, 
-                                reply_to_message_id=int(current_msg_id) if current_msg_id else None,
-                                parse_mode="HTML"
-                            )
-                            await db.add_scheduled_deletion(discussion_id, disc_msg.message_id, delete_at)
-                        except:
-                            disc_msg = await request.app["bot"].send_message(chat_id=discussion_id, text=update_notif, parse_mode="HTML")
-                            await db.add_scheduled_deletion(discussion_id, disc_msg.message_id, delete_at)
+                    # Notify about update and schedule deletion (#53) - skip if superuser
+                    if profile.get("role") != "superuser":
+                        from utils.helpers import TZ, calculate_deletion_time
+                        now = datetime.now(TZ)
+                        delete_at = calculate_deletion_time(now, 2)
+                        update_notif = f"🔄 <b>Заявка #{updated_req['id']:04d} обновлена</b>"
+                        
+                        # 1. Notify in channel
+                        notif_msg = await request.app["bot"].send_message(chat_id=target_channel, text=update_notif, parse_mode="HTML")
+                        await db.add_scheduled_deletion(target_channel, notif_msg.message_id, delete_at)
+                        
+                        # 2. Notify in discussion group if exists
+                        discussion_id = settings.get("discussion_id") or os.getenv("DISCUSSION_GROUP_ID")
+                        if discussion_id:
+                            # Use the actual channel_msg_id for the reply (important for thread)
+                            current_msg_id = updated_req.get("channel_msg_id") or msg_id
+                            try:
+                                disc_msg = await request.app["bot"].send_message(
+                                    chat_id=discussion_id, 
+                                    text=update_notif, 
+                                    reply_to_message_id=int(current_msg_id) if current_msg_id else None,
+                                    parse_mode="HTML"
+                                )
+                                await db.add_scheduled_deletion(discussion_id, disc_msg.message_id, delete_at)
+                            except:
+                                disc_msg = await request.app["bot"].send_message(chat_id=discussion_id, text=update_notif, parse_mode="HTML")
+                                await db.add_scheduled_deletion(discussion_id, disc_msg.message_id, delete_at)
                 except Exception as e:
                     logger.error(f"Failed to sync channel on edit: {e}")
         else:

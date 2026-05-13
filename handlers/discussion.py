@@ -17,6 +17,20 @@ async def handle_discussion_forward(update: Update, context: ContextTypes.DEFAUL
     if not msg or str(msg.chat_id) != str(DISCUSSION_GROUP_ID):
         return
 
+    if msg.is_automatic_forward and msg.forward_from_chat:
+        # If it's the bot's own post forwarded from the channel, save its ID as the discussion root!
+        channel_id = str(os.getenv("CHANNEL_ID", ""))
+        if str(msg.forward_from_chat.id) == channel_id and msg.forward_from_message_id:
+            try:
+                await db.update_request_by_channel_msg_id(
+                    msg.forward_from_message_id, 
+                    {"discussion_msg_id": msg.message_id}
+                )
+                logger.info(f"🔗 Linked channel_msg_id {msg.forward_from_message_id} to discussion_msg_id {msg.message_id}")
+            except Exception as e:
+                logger.error(f"Failed to link discussion msg: {e}")
+        return
+
     if not (msg.reply_to_message and msg.reply_to_message.forward_from_chat):
         return
 

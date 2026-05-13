@@ -148,12 +148,13 @@ def build_bid_card(bid: dict) -> str:
     ]
     return "\n".join(lines)
 
-async def sync_bid_to_discussion(bot, discussion_id, channel_id, channel_msg_id, bid_card_text):
+async def sync_bid_to_discussion(bot, discussion_id, channel_id, channel_msg_id, bid_card_text, discussion_msg_id=None):
     """Sends a bid card to the discussion group as a proper comment.
     
-    Telegram natively supports replying to a channel message inside the linked 
-    discussion group by using ReplyParameters and specifying both the message_id 
-    and the channel's chat_id.
+    If discussion_msg_id is known (caught by handle_discussion_forward), it uses 
+    message_thread_id to place it directly in the comments thread.
+    
+    Otherwise, it falls back to cross-chat ReplyParameters.
     """
     import logging
     log = logging.getLogger(__name__)
@@ -168,21 +169,34 @@ async def sync_bid_to_discussion(bot, discussion_id, channel_id, channel_msg_id,
 
     target_chat = to_int(channel_id)
     target_discussion = to_int(discussion_id)
+    disc_msg_id = to_int(discussion_msg_id)
 
-    if target_discussion and channel_msg_id:
-        try:
-            # The magic is passing chat_id=target_chat to ReplyParameters.
-            # This tells Telegram that the message_id belongs to the channel,
-            # and it natively finds the correct thread in the discussion group!
-            await bot.send_message(
-                chat_id=target_discussion,
-                text=bid_card_text,
-                reply_parameters=ReplyParameters(message_id=int(channel_msg_id), chat_id=target_chat),
-                parse_mode="HTML"
-            )
-            return True
-        except Exception as e:
-            log.warning(f"Failed to sync bid via ReplyParameters: {e}")
+    if target_discussion:
+        if disc_msg_id:
+            try:
+                await bot.send_message(
+                    chat_id=target_discussion,
+                    text=bid_card_text,
+                    message_thread_id=disc_msg_id,
+                    parse_mode="HTML"
+                )
+                return True
+            except Exception as e:
+                log.warning(f"Failed to sync bid via message_thread_id: {e}")
+
+        if channel_msg_id:
+            try:
+                # The magic is passing chat_id=target_chat to ReplyParameters.
+                # This quotes the channel message in the main group if threading fails.
+                await bot.send_message(
+                    chat_id=target_discussion,
+                    text=bid_card_text,
+                    reply_parameters=ReplyParameters(message_id=int(channel_msg_id), chat_id=target_chat),
+                    parse_mode="HTML"
+                )
+                return True
+            except Exception as e:
+                log.warning(f"Failed to sync bid via ReplyParameters: {e}")
 
     # Fallback
     if target_discussion:

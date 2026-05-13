@@ -662,7 +662,14 @@ async def api_submit(request):
                                 from telegram import ReplyParameters
                                 target_channel_id = settings.get("channel_id") or os.getenv("CHANNEL_ID")
                                 
-                                if msg_id and target_channel_id:
+                                if req.get("discussion_msg_id"):
+                                    disc_msg = await request.app["bot"].send_message(
+                                        chat_id=discussion_id, 
+                                        text=update_notif, 
+                                        message_thread_id=int(req.get("discussion_msg_id")),
+                                        parse_mode="HTML"
+                                    )
+                                elif msg_id and target_channel_id:
                                     disc_msg = await request.app["bot"].send_message(
                                         chat_id=discussion_id, 
                                         text=update_notif, 
@@ -819,7 +826,7 @@ async def api_bid(request):
                     notif_text = f"🔄 <b>{profile['name']} обновил ставку</b>\n\nАктуальная ставка: <b>{data.get('amount')} {data.get('currency')}</b>\n#ставка"
                 
                 logger.info(f"Syncing bid to discussion: req_id={req_id}, channel_msg_id={msg_id}")
-                await sync_bid_to_discussion(bot, discussion_id, target_channel, msg_id, notif_text)
+                await sync_bid_to_discussion(bot, discussion_id, target_channel, msg_id, notif_text, req.get("discussion_msg_id"))
             else:
                 logger.warning(f"No channel_msg_id for req #{req_id}, cannot sync bid")
         else:

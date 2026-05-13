@@ -191,7 +191,7 @@ async def handle_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
             msg_id = req.get("channel_msg_id")
             if msg_id:
                 plain_card = bid_card_text.replace("**", "")
-                await sync_bid_to_discussion(context.bot, discussion_id, channel_id, msg_id, plain_card)
+                await sync_bid_to_discussion(context.bot, discussion_id, channel_id, msg_id, plain_card, req.get("discussion_msg_id"))
             else:
                 plain_card = bid_card_text.replace("**", "")
                 await context.bot.send_message(chat_id=discussion_id, text=plain_card)

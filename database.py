@@ -154,7 +154,8 @@ class Database:
             cargo_oversized TEXT,
             cargo_dimensions TEXT,
             temp_control TEXT,
-            temp_range TEXT
+            temp_range TEXT,
+            discussion_msg_id BIGINT
         );
 
         CREATE TABLE IF NOT EXISTS attachments (
@@ -261,6 +262,7 @@ class Database:
                 ADD COLUMN IF NOT EXISTS adr_class TEXT,
                 ADD COLUMN IF NOT EXISTS days_loading TEXT,
                 ADD COLUMN IF NOT EXISTS days_unloading TEXT,
+                ADD COLUMN IF NOT EXISTS discussion_msg_id BIGINT,
                 ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
                 ALTER TABLE ai_sessions ADD COLUMN IF NOT EXISTS history JSONB DEFAULT '[]';
             """)
@@ -576,6 +578,19 @@ class Database:
         set_parts.append("updated_at = NOW()")
         values.append(req_id)
         query = f"UPDATE requests SET {', '.join(set_parts)} WHERE id = ${len(values)} RETURNING *"
+        async with self._pool.acquire() as conn:
+            row = await conn.fetchrow(query, *values)
+            return dict(row) if row else None
+
+    async def update_request_by_channel_msg_id(self, channel_msg_id: int, fields: dict):
+        set_parts = []
+        values = []
+        for i, (k, v) in enumerate(fields.items()):
+            set_parts.append(f"{self._safe_col(k)} = ${i+1}")
+            values.append(v)
+        set_parts.append("updated_at = NOW()")
+        values.append(channel_msg_id)
+        query = f"UPDATE requests SET {', '.join(set_parts)} WHERE channel_msg_id = ${len(values)} RETURNING *"
         async with self._pool.acquire() as conn:
             row = await conn.fetchrow(query, *values)
             return dict(row) if row else None

@@ -153,112 +153,81 @@ async def sync_bid_to_discussion(bot, discussion_id, channel_id, channel_msg_id,
     """
     import logging
     log = logging.getLogger(__name__)
+    from telegram import ReplyParameters
+    from telegram.error import BadRequest
     
     if not channel_id or not channel_msg_id:
         log.warning(f"Sync failed: channel_id={channel_id}, channel_msg_id={channel_msg_id}")
         return False
         
     try:
-        # Normalize channel_id
-        target_chat = channel_id
-        if isinstance(target_chat, str) and (target_chat.startswith("-") or target_chat.isdigit()):
+        # Normalize IDs
+        def to_int(val):
+            if not val: return None
             try:
-                target_chat = int(target_chat)
+                if isinstance(val, str):
+                    val = val.strip()
+                return int(val)
             except:
-                pass
-                
-        # If discussion_id is missing, try to detect it from the channel
-        target_discussion = discussion_id
-        if not target_discussion:
-            try:
-                log.info(f"Detecting linked chat for {target_chat}")
-                chat_info = await bot.get_chat(chat_id=target_chat)
-                target_discussion = chat_info.linked_chat_id
-                log.info(f"Detected linked_chat_id: {target_discussion}")
-            except Exception as e:
-                log.error(f"Failed to detect linked chat: {e}")
+                return val
 
-        if not target_discussion:
-            log.warning("No discussion_id and linked_chat_id detection failed.")
-            return False
+        target_chat = to_int(channel_id)
+        target_discussion = to_int(discussion_id)
 
-        # Normalize target_discussion
-        if isinstance(target_discussion, str) and (target_discussion.startswith("-") or target_discussion.isdigit()):
-            try:
-                target_discussion = int(target_discussion)
-            except:
-                pass
-
-        log.info(f"Attempting getDiscussionMessage via direct API call: chat={target_chat}, msg={channel_msg_id}")
+        # 1. Try to get the discussion message ID in the group
+        target_disc_id = target_discussion
+        target_msg_id = None
         
-        # 1. Get Chat info to check if it's a forum and see linked_chat
         try:
-            chat_info = await bot.get_chat(chat_id=target_chat)
-            log.info(f"Channel info: linked_chat={chat_info.linked_chat_id}")
+            log.info(f"Querying get_discussion_message: chat={target_chat}, msg={channel_msg_id}")
+            # Use library method if available, otherwise fallback to direct API
+            if hasattr(bot, 'get_discussion_message'):
+                disc_msg = await bot.get_discussion_message(chat_id=target_chat, message_id=int(channel_msg_id))
+                target_disc_id = disc_msg.chat_id
+                target_msg_id = disc_msg.message_id
+            else:
+                import aiohttp
+                api_url = f"https://api.telegram.org/bot{bot.token}/getDiscussionMessage"
+                async with aiohttp.ClientSession() as session:
+                    async with session.post(api_url, json={"chat_id": str(target_chat), "message_id": int(channel_msg_id)}) as resp:
+                        res = await resp.json()
+                        if res.get("ok"):
+                            target_disc_id = res["result"]["chat"]["id"]
+                            target_msg_id = res["result"]["message_id"]
         except Exception as e:
-            log.warning(f"Could not get channel info: {e}")
+            log.warning(f"get_discussion_message failed: {e}")
 
-        # 2. Try direct API call
-        import aiohttp
-        api_url = f"https://api.telegram.org/bot{bot.token}/getDiscussionMessage"
-        async with aiohttp.ClientSession() as session:
-            async with session.post(api_url, json={"chat_id": str(target_chat), "message_id": int(channel_msg_id)}) as resp:
-                res = await resp.json()
-                if res.get("ok"):
-                    disc_data = res["result"]
-                    target_disc_id = disc_data["chat"]["id"]
-                    target_msg_id = disc_data["message_id"]
-                    
-                    log.info(f"Discussion msg found via API: {target_msg_id} in chat {target_disc_id}. Replying.")
-                    await bot.send_message(
-                        chat_id=target_disc_id,
-                        text=bid_card_text,
-                        reply_to_message_id=target_msg_id,
-                        message_thread_id=target_msg_id, # Ensure it's treated as a comment/thread
-                        parse_mode="HTML"
-                    )
-                    return True
-                else:
-                    log.error(f"API getDiscussionMessage failed: {res}")
-                    
-                    # 3. DIRECT THREAD FALLBACK: Use channel_msg_id as thread_id
-                    if target_discussion:
-                        log.info(f"Using direct thread ID fallback: chat={target_discussion}, thread={channel_msg_id}")
-                        try:
-                            await bot.send_message(
-                                chat_id=target_discussion,
-                                text=bid_card_text,
-                                message_thread_id=int(channel_msg_id),
-                                reply_to_message_id=int(channel_msg_id),
-                                parse_mode="HTML"
-                            )
-                            return True
-                        except Exception as e_final:
-                            log.error(f"Thread fallback failed: {e_final}")
-                            # Last ditch: send as regular message to group
-                            await bot.send_message(chat_id=target_discussion, text=bid_card_text, parse_mode="HTML")
-                            return True
-                    
-                    raise Exception(f"API error: {res.get('description')}")
-        
-        return True
-    except Exception as e:
-        log.error(f"Sync logic failed: {e}")
-        # Fallback to top-level message if anything fails
-        if target_discussion:
+        # 2. If we found the message in the group, reply to it
+        if target_msg_id and target_disc_id:
+            log.info(f"Found discussion msg {target_msg_id} in {target_disc_id}. Sending reply.")
             try:
-                # Ensure target_discussion is cleaned for fallback
-                if isinstance(target_discussion, str):
-                    target_discussion = target_discussion.strip()
-                    if target_discussion.startswith("-") or target_discussion.isdigit():
-                        target_discussion = int(target_discussion)
-                
-                log.info(f"Fallback: sending top-level message to {target_discussion}")
-                await bot.send_message(chat_id=target_discussion, text=bid_card_text, parse_mode="HTML")
+                await bot.send_message(
+                    chat_id=target_disc_id,
+                    text=bid_card_text,
+                    reply_parameters=ReplyParameters(message_id=target_msg_id),
+                    parse_mode="HTML"
+                )
                 return True
-            except Exception as e2:
-                log.error(f"Fallback failed: {e2}")
+            except BadRequest as e:
+                log.error(f"Failed to send reply to discussion: {e}")
+                # If it's a forum issue, maybe we need message_thread_id? 
+                # But usually for comments it's not needed.
+
+        # 3. Fallback: if we have a known discussion group ID, try sending there
+        if target_discussion:
+            log.info(f"Falling back to top-level message in discussion group {target_discussion}")
+            await bot.send_message(
+                chat_id=target_discussion,
+                text=bid_card_text,
+                parse_mode="HTML"
+            )
+            return True
+            
         return False
+    except Exception as e:
+        log.error(f"Sync logic critical failure: {e}")
+        return False
+
 
 def calculate_deletion_time(now_dt: datetime, duration_hours: int = 2) -> datetime:
     """Calculates deletion time respecting business hours (09:30 - 19:00).

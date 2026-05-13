@@ -781,15 +781,19 @@ async def api_bid(request):
             await db.add_comment(int(req_id), user_id, profile["name"], bid_card, "bid")
         
         # Notify channel/discussion if possible
-        settings = await db.get_settings()
-        discussion_id = settings.get("discussion_id") or os.getenv("DISCUSSION_GROUP_ID")
-        target_channel = settings.get("channel_id") or os.getenv("CHANNEL_ID")
-        
         req = await db.get_request(int(req_id))
+        if not req:
+            return safe_json_response({"ok": True, "note": "bid saved but req not found for sync"})
+
+        settings = await db.get_settings()
+        # Prefer per-request IDs if they exist (user mentioned they are fixed to the card)
+        discussion_id = req.get("discussion_group_id") or req.get("discussion_id") or settings.get("discussion_id") or os.getenv("DISCUSSION_GROUP_ID")
+        target_channel = req.get("channel_id") or req.get("chanel_id") or settings.get("channel_id") or os.getenv("CHANNEL_ID")
+        
         bot = request.app["bot"]
 
-        if discussion_id and req and target_channel:
-            msg_id = req.get("channel_msg_id")
+        if discussion_id and target_channel:
+            msg_id = req.get("channel_msg_id") or req.get("message_id")
             if msg_id:
                 notif_text = bid_card
                 if is_update:
@@ -798,7 +802,14 @@ async def api_bid(request):
                 logger.info(f"Syncing bid to discussion: channel={target_channel}, msg={msg_id}")
                 await sync_bid_to_discussion(bot, discussion_id, target_channel, msg_id, notif_text)
             else:
-                await bot.send_message(chat_id=discussion_id, text=bid_card)
+                logger.warning(f"No channel_msg_id for req #{req_id}, cannot sync bid")
+        else:
+            logger.warning(f"Missing discussion_id ({discussion_id}) or target_channel ({target_channel}) for sync")
+            if discussion_id:
+                try:
+                    await bot.send_message(chat_id=discussion_id, text=bid_card, parse_mode="HTML")
+                except:
+                    pass
 
         # Notify the creator of the request
         creator_id = req.get("creator_id") if req else None

@@ -86,31 +86,109 @@ Today's date: {today}
         import html
         lines = []
         field_labels = {
-            "regions": "Направление", "transport_cat": "Транспорт",
+            "regions": "Направление", 
+            "transport_cat": "Тип перевозки",
+            "transport_sub": "Вид",
+            "source": "Источник",
+            "route_from": "Маршрут_Откуда", # Helper for split display
+            "route_to": "Маршрут_Куда",
+            "loading_address": "Погрузка",
+            "customs_address": "Затаможка",
+            "clearance_address": "Растаможка",
+            "unloading_address": "Выгрузка",
+            "cargo_name": "Груз",
+            "hs_code": "ТН ВЭД",
+            "adr_class": "Класс ADR",
+            "cargo_weight": "Вес",
+            "cargo_places": "Мест",
+            "cargo_volume": "Объем",
+            "packaging": "Упаковка",
+            "cargo_value": "Стоимость",
+            "urgency_type": "Срочность",
+            "border_crossing_cn": "Погранпереход",
+            "transit_info": "Транзит",
             "delivery_terms": "Инкотермс",
-            "route_from": "Откуда", "route_to": "Куда",
-            "cargo_name": "Груз", "cargo_weight": "Вес",
-            "cargo_places": "Места", "cargo_volume": "Объем", "cargo_value": "Стоимость",
-            "hs_code": "ТН ВЭД", "customs_address": "Затаможка",
-            "clearance_address": "Растаможка", "loading_address": "Погрузка",
-            "unloading_address": "Выгрузка", "urgency_type": "Срочность",
-            "transit_info": "Транзит", "extra_info": "Доп. инфо", 
-            "transport_sub": "Вид авто", "temp_control": "Темп. режим", "adr_class": "ADR класс",
-            "border_crossing_cn": "Погранпереход"
+            "extra_info": "Дополнительно"
         }
-        for key, label in field_labels.items():
+        
+        # Build preview in the SAME order as helpers.build_card
+        # 1. Header
+        reg = draft.get("regions", "Другое")
+        t_cat = draft.get("transport_cat", "Авто")
+        lines.append(f"Направление: <b>{html.escape(str(reg))}</b>")
+        lines.append(f"Тип перевозки: <b>{html.escape(str(t_cat))}</b>")
+        
+        if draft.get("transport_sub"):
+            lines.append(f"Вид: <b>{html.escape(str(draft.get('transport_sub')))}</b>")
+        
+        lines.append(f"Источник: <b>{html.escape(str(draft.get('source', 'Не указан')))}</b>")
+        lines.append("")
+        
+        # 2. Route
+        r_from = draft.get("route_from", "?")
+        r_to = draft.get("route_to", "?")
+        lines.append(f"<b>{html.escape(str(r_from))} ➔ {html.escape(str(r_to))}</b>")
+        
+        for key, label in [("loading_address", "Погрузка"), ("customs_address", "Затаможка"), 
+                           ("clearance_address", "Растаможка"), ("unloading_address", "Выгрузка")]:
             val = draft.get(key)
-            if val is None or str(val).strip().lower() in ("", "-", "none", "false", "null"):
-                continue
+            if val and str(val).strip() not in ("-", "", "None", "null"):
+                lines.append(f"{label}: <b>{html.escape(str(val))}</b>")
+        
+        lines.append("")
+        
+        # 3. Cargo
+        lines.append(f"Груз: <b>{html.escape(str(draft.get('cargo_name', '?')))}</b>")
+        if draft.get("hs_code"):
+            lines.append(f"ТН ВЭД: <b>{html.escape(str(draft.get('hs_code')))}</b>")
+        
+        if draft.get("adr_class"):
+            lines.append(f"Класс ADR: <b>{html.escape(str(draft.get('adr_class')))}</b>")
             
-            if key == "cargo_weight":
-                try:
-                    num = float(str(val).replace(",", ".").split()[0])
-                    val = f"{int(num)} кг" if num > 0 else val
-                except: pass
+        lines.append("")
+        
+        # 4. Units
+        if draft.get("cargo_weight"):
+            w = str(draft.get("cargo_weight"))
+            if "кг" not in w.lower(): w = f"{w} кг"
+            lines.append(f"Вес: <b>{html.escape(w)}</b>")
             
-            safe_val = html.escape(str(val))
-            lines.append(f"{label}: <b>{safe_val}</b>")
+        if draft.get("cargo_places"):
+            lines.append(f"Мест: <b>{html.escape(str(draft.get('cargo_places')))}</b>")
+            
+        if draft.get("cargo_volume"):
+            vol = str(draft.get("cargo_volume"))
+            if "м" not in vol.lower() and "m" not in vol.lower(): vol = f"{vol} м³"
+            lines.append(f"Объем: <b>{html.escape(vol)}</b>")
+            
+        if draft.get("packaging"):
+            lines.append(f"Упаковка: <b>{html.escape(str(draft.get('packaging')))}</b>")
+            
+        lines.append("")
+        
+        # 5. Money & Urgency
+        val = draft.get("cargo_value")
+        if val:
+            curr = draft.get("cargo_currency") or "USD"
+            lines.append(f"Стоимость: <b>{html.escape(str(val))} {html.escape(str(curr))}</b>")
+        else:
+            lines.append("Стоимость: <b>НЕ УКАЗАНА</b>")
+            
+        lines.append(f"Срочность: <b>{html.escape(str(draft.get('urgency_type', 'Стандарт')))}</b>")
+        
+        # 6. Specifics
+        spec_fields = []
+        for k, label in [("border_crossing_cn", "Погранпереход"), ("transit_info", "Транзит"), ("delivery_terms", "Инкотермс")]:
+            val = draft.get(k)
+            if val and str(val).strip() not in ("-", "", "None", "null"):
+                spec_fields.append(f"• {label}: {html.escape(str(val))}")
+        
+        if spec_fields:
+            lines.append("\nСпецифика:")
+            lines.extend(spec_fields)
+            
+        if draft.get("extra_info"):
+            lines.append(f"\nДополнительно:\n<b>{html.escape(str(draft.get('extra_info')))}</b>")
             
         missing = draft.get("missing_fields", [])
         if missing:

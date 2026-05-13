@@ -1263,23 +1263,23 @@
         function debounceListSearch() { clearTimeout(this.tm); this.tm = setTimeout(loadRequests, 400); }
 
         function openRequestForEdit(id) {
-            editModeId = id; 
             fetch(`/api/request_details?initData=${encodeURIComponent(tg.initData)}&id=${id}`).then(r => r.json()).then(res => {
                 const r = res.request; 
                 const canEdit = currentUser && (['admin', 'superuser'].includes(currentUser.role) || String(r.creator_id) === String(currentUser.telegram_id));
                 
+                if (!canEdit) {
+                    tg.showAlert("⚠️ Вы можете открывать и редактировать только свои заявки.");
+                    return;
+                }
+
+                editModeId = id; 
                 selectedDirection = r.regions; selectedMethod = r.transport_cat; 
                 switchTab('form'); currentStep = 3; 
                 document.querySelectorAll('.step-container').forEach(s => s.classList.remove('active')); 
                 document.getElementById('step-3').classList.add('active'); 
                 document.getElementById('summary-badge').textContent = `${r.regions} | ${r.transport_cat}`; 
                 
-                if (!canEdit) {
-                    tg.MainButton.hide();
-                    document.getElementById('btn-back-step3').textContent = '← К списку';
-                } else {
-                    document.getElementById('btn-back-step3').textContent = '← База';
-                }
+                document.getElementById('btn-back-step3').textContent = '← База';
                 setupFields(() => {
                     ['cargo_currency','cargo_name','cargo_value','hs_code','route_from','route_to','loading_address','customs_address','clearance_address','unloading_address','client_company','responsible','target','message_text','cargo_weight','cargo_places','cargo_volume','packaging','dangerous_cargo','adr_class','urgency_type','delivery_terms_eu','route_type','transit_rf_allowed','export_decl','origin_cert','border_crossing_cn','road_type_cn','container_owner','container_type_cn','urgency_days','days_loading','days_unloading','glonass_seal','ports_list','flight_type','stackable','source'].forEach(fid => { 
                         const el = document.getElementById(fid); 

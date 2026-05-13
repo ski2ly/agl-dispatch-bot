@@ -528,6 +528,19 @@
             <button onclick="confirmBid()" class="w-full py-5 btn-primary text-xs uppercase shadow-2xl">Подтвердить ставку</button>
         </div>
     </div>
+    
+    <!-- BID HISTORY MODAL -->
+    <div id="history-modal" class="fixed inset-0 z-[120] bg-black/60 flex items-center justify-center hidden backdrop-blur-sm">
+        <div class="w-[95%] max-h-[85vh] glass-card p-8 space-y-6 animate-fade flex flex-col">
+            <div class="flex justify-between items-center flex-shrink-0">
+                <h2 class="text-xl font-extrabold uppercase">История ставок</h2>
+                <button onclick="closeBidHistory()" class="text-2xl">×</button>
+            </div>
+            <div id="history-content" class="flex-1 overflow-y-auto no-scrollbar space-y-4 pr-1">
+                <!-- Populated by loadBidHistory() -->
+            </div>
+        </div>
+    </div>
 
     <!-- PREVIEW MODAL -->
     <div id="preview-modal" class="fixed inset-0 z-[130] bg-black/60 flex items-center justify-center hidden backdrop-blur-md">
@@ -740,11 +753,18 @@
                     );
                     let actionEl;
                     if (view === 'tenders') {
-                        actionEl = el('button', {
-                            class: 'w-full py-4 btn-primary text-[10px] font-bold',
-                            onclick: () => openBidModal(r.id),
-                            text: 'СДЕЛАТЬ СТАВКУ'
-                        });
+                        actionEl = el('div', { class: 'flex space-x-2' },
+                            el('button', {
+                                class: 'flex-1 py-4 btn-primary text-[10px] font-bold',
+                                onclick: () => openBidModal(r.id),
+                                text: 'СДЕЛАТЬ СТАВКУ'
+                            }),
+                            el('button', {
+                                class: 'px-4 py-4 bg-[var(--secondary-bg)] text-[var(--text-color)] text-[10px] font-bold rounded-xl border border-[var(--border-color)]',
+                                onclick: () => openBidHistory(r.id),
+                                text: 'ИСТОРИЯ'
+                            })
+                        );
                     } else {
                         actionEl = el('div', { class: 'flex justify-between items-center w-full space-x-2' },
                             el('div', { class: 'flex-1 p-3 bg-[var(--secondary-bg)] rounded-xl text-xs font-bold text-[var(--corp-emerald)]', text: 'Ваша ставка: ' + (r.amount || '0') + ' ' + (r.currency || '') }),
@@ -754,6 +774,44 @@
                     cont.appendChild(el('div', { class: 'glass-card p-6 space-y-4 animate-fade' }, header, actionEl));
                 });
             });
+        }
+
+        function openBidHistory(reqId) {
+            const cont = document.getElementById('history-content');
+            cont.innerHTML = '<div class="p-10 text-center opacity-40 text-xs">Загрузка...</div>';
+            document.getElementById('history-modal').classList.remove('hidden');
+            
+            fetch(`/api/request_bids?id=${reqId}&initData=${encodeURIComponent(tg.initData)}`)
+            .then(r => r.json()).then(data => {
+                clear(cont);
+                const bids = data.bids || [];
+                if (bids.length === 0) {
+                    cont.appendChild(el('div', { class: 'p-10 text-center opacity-40 text-xs', text: 'Ставок пока нет' }));
+                    return;
+                }
+                bids.forEach(b => {
+                    const card = el('div', { class: 'glass-card p-5 space-y-3' },
+                        el('div', { class: 'flex justify-between items-start' },
+                            el('div', null,
+                                el('div', { class: 'text-[10px] font-bold text-[var(--corp-emerald)] uppercase', text: b.manager_name }),
+                                el('div', { class: 'text-[8px] opacity-40', text: format_datetime(b.updated_at || b.created_at) })
+                            ),
+                            el('div', { class: 'text-sm font-extrabold text-[var(--corp-emerald)]', text: `${b.amount} ${b.currency}` })
+                        ),
+                        el('div', { class: 'grid grid-cols-2 gap-2 text-[9px] font-medium' },
+                            b.validity ? el('div', { text: `📅 Валидность: ${b.validity}` }) : null,
+                            b.loading_hours ? el('div', { text: `⏰ ПРР: ${b.loading_hours}` }) : null,
+                            b.payment_terms ? el('div', { class: 'col-span-2', text: `💳 Оплата: ${b.payment_terms}` }) : null
+                        ),
+                        b.demurrage ? el('div', { class: 'p-3 bg-[var(--secondary-bg)] rounded-xl text-[9px] italic', text: `Простой: ${b.demurrage}` }) : null,
+                        b.comment ? el('div', { class: 'p-3 bg-[var(--corp-cream)]/30 rounded-xl text-[9px]', text: b.comment }) : null
+                    );
+                    cont.appendChild(card);
+                });
+            });
+        }
+        function closeBidHistory() {
+            document.getElementById('history-modal').classList.add('hidden');
         }
 
         function openBidModal(reqId) {

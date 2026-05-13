@@ -380,7 +380,7 @@ async def api_update_status(request):
         
         # Sync to channel
         updated_req = await db.get_request(int(req_id))
-        if updated_req and updated_req.get("channel_msg_id"):
+        if updated_req:
             settings = await db.get_settings()
             target_channel = settings.get("channel_id") or os.getenv("CHANNEL_ID")
             if target_channel:
@@ -389,13 +389,25 @@ async def api_update_status(request):
                     if updated_req['status'] != 'Открыта':
                         status_emoji = "✅" if "Успешно" in updated_req['status'] else "❌"
                         text = f"{status_emoji} СТАТУС: {updated_req['status'].upper()}\n\n" + text
-                    await request.app["bot"].edit_message_text(
-                        chat_id=target_channel,
-                        message_id=int(updated_req["channel_msg_id"]),
-                        text=text
-                    )
+                    
+                    msg_id = updated_req.get("channel_msg_id")
+                    if msg_id:
+                        try:
+                            await request.app["bot"].edit_message_text(
+                                chat_id=target_channel,
+                                message_id=int(msg_id),
+                                text=text,
+                                parse_mode="HTML"
+                            )
+                        except Exception as e:
+                            logger.warning(f"Failed to edit msg {msg_id} on status update, posting new: {e}")
+                            new_msg = await request.app["bot"].send_message(chat_id=target_channel, text=text, parse_mode="HTML")
+                            await db.update_request(req_id, {"channel_msg_id": new_msg.message_id})
+                    else:
+                        new_msg = await request.app["bot"].send_message(chat_id=target_channel, text=text, parse_mode="HTML")
+                        await db.update_request(req_id, {"channel_msg_id": new_msg.message_id})
                 except Exception as e:
-                    logger.error(f"Failed to update channel status: {e}")
+                    logger.error(f"Failed to sync channel on status update: {e}")
 
         return safe_json_response({"ok": True})
     except Exception as e:
@@ -599,54 +611,61 @@ async def api_submit(request):
             
             # Post UPDATE to channel if status or key fields changed
             updated_req = await db.get_request(final_id)
-            if updated_req and updated_req.get("channel_msg_id"):
-                settings = await db.get_settings()
-                target_channel = settings.get("channel_id") or os.getenv("CHANNEL_ID")
-                if target_channel:
-                    try:
-                        text = build_card(updated_req)
-                        # If status is not 'Открыта', we can prepend it
-                        if updated_req['status'] != 'Открыта':
-                            status_emoji = "✅" if "Успешно" in updated_req['status'] else "❌"
-                            text = f"{status_emoji} СТАТУС: {updated_req['status'].upper()}\n\n" + text
+            settings = await db.get_settings()
+            target_channel = settings.get("channel_id") or os.getenv("CHANNEL_ID")
+            
+            if updated_req and target_channel:
+                try:
+                    text = build_card(updated_req)
+                    if updated_req['status'] != 'Открыта':
+                        status_emoji = "✅" if "Успешно" in updated_req['status'] else "❌"
+                        text = f"{status_emoji} СТАТУС: {updated_req['status'].upper()}\n\n" + text
+                    
+                    msg_id = updated_req.get("channel_msg_id")
+                    if msg_id:
+                        try:
+                            await request.app["bot"].edit_message_text(
+                                chat_id=target_channel,
+                                message_id=int(msg_id),
+                                text=text,
+                                parse_mode="HTML"
+                            )
+                        except Exception as e:
+                            logger.warning(f"Failed to edit msg {msg_id} on edit, posting new: {e}")
+                            new_msg = await request.app["bot"].send_message(chat_id=target_channel, text=text, parse_mode="HTML")
+                            await db.update_request(final_id, {"channel_msg_id": new_msg.message_id})
+                    else:
+                        new_msg = await request.app["bot"].send_message(chat_id=target_channel, text=text, parse_mode="HTML")
+                        await db.update_request(final_id, {"channel_msg_id": new_msg.message_id})
                         
-                        await request.app["bot"].edit_message_text(
-                            chat_id=target_channel,
-                            message_id=int(updated_req["channel_msg_id"]),
-                            text=text,
-                            parse_mode="HTML"
-                        )
-                        
-                        # Notify about update and schedule deletion (#53)
-                        from utils.helpers import TZ, calculate_deletion_time
-                        now = datetime.now(TZ)
-                        delete_at = calculate_deletion_time(now, 2)
-                        
-                        update_notif = f"🔄 <b>Заявка #{updated_req['id']:04d} обновлена</b>"
-                        
-                        # 1. Notify in channel
-                        notif_msg = await request.app["bot"].send_message(chat_id=target_channel, text=update_notif, parse_mode="HTML")
-                        await db.add_scheduled_deletion(target_channel, notif_msg.message_id, delete_at)
-                        
-                        # 2. Notify in discussion group if exists
-                        discussion_id = settings.get("discussion_id") or os.getenv("DISCUSSION_GROUP_ID")
-                        if discussion_id:
-                            try:
-                                disc_msg = await request.app["bot"].send_message(
-                                    chat_id=discussion_id, 
-                                    text=update_notif, 
-                                    reply_to_message_id=int(updated_req["channel_msg_id"]), # This might not work if it's a different chat, but sync_bid_to_discussion logic usually handles it
-                                    parse_mode="HTML"
-                                )
-                                # If reply_to failed because it's a different chat, we just send it normally or skip reply
-                                await db.add_scheduled_deletion(discussion_id, disc_msg.message_id, delete_at)
-                            except:
-                                # Fallback: send without reply
-                                disc_msg = await request.app["bot"].send_message(chat_id=discussion_id, text=update_notif, parse_mode="HTML")
-                                await db.add_scheduled_deletion(discussion_id, disc_msg.message_id, delete_at)
-
-                    except Exception as e:
-                        logger.error(f"Failed to update channel message or send notif: {e}")
+                    # Notify about update and schedule deletion (#53)
+                    from utils.helpers import TZ, calculate_deletion_time
+                    now = datetime.now(TZ)
+                    delete_at = calculate_deletion_time(now, 2)
+                    update_notif = f"🔄 <b>Заявка #{updated_req['id']:04d} обновлена</b>"
+                    
+                    # 1. Notify in channel
+                    notif_msg = await request.app["bot"].send_message(chat_id=target_channel, text=update_notif, parse_mode="HTML")
+                    await db.add_scheduled_deletion(target_channel, notif_msg.message_id, delete_at)
+                    
+                    # 2. Notify in discussion group if exists
+                    discussion_id = settings.get("discussion_id") or os.getenv("DISCUSSION_GROUP_ID")
+                    if discussion_id:
+                        # Use the actual channel_msg_id for the reply (important for thread)
+                        current_msg_id = updated_req.get("channel_msg_id") or msg_id
+                        try:
+                            disc_msg = await request.app["bot"].send_message(
+                                chat_id=discussion_id, 
+                                text=update_notif, 
+                                reply_to_message_id=int(current_msg_id) if current_msg_id else None,
+                                parse_mode="HTML"
+                            )
+                            await db.add_scheduled_deletion(discussion_id, disc_msg.message_id, delete_at)
+                        except:
+                            disc_msg = await request.app["bot"].send_message(chat_id=discussion_id, text=update_notif, parse_mode="HTML")
+                            await db.add_scheduled_deletion(discussion_id, disc_msg.message_id, delete_at)
+                except Exception as e:
+                    logger.error(f"Failed to sync channel on edit: {e}")
         else:
             # New request
             user_id = profile['telegram_id']
@@ -667,8 +686,9 @@ async def api_submit(request):
             target_channel = settings.get("channel_id") or os.getenv("CHANNEL_ID")
             
             if target_channel:
-                msg = await request.app["bot"].send_message(chat_id=target_channel, text=build_card(req))
+                msg = await request.app["bot"].send_message(chat_id=target_channel, text=build_card(req), parse_mode="HTML")
                 await db.update_request(final_id, {"channel_msg_id": msg.message_id})
+                logger.info(f"✅ Posted new request #{final_id} to channel, msg_id={msg.message_id}")
             
         return safe_json_response({"ok": True, "id": final_id})
     except Exception as e:

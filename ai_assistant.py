@@ -23,35 +23,100 @@ class AIAssistant:
         regions_list = settings.get("regions", []) if settings else []
         regions_str = "|".join([r["name"] if isinstance(r, dict) else str(r) for r in regions_list])
 
-        return f"""Ты — Робот-Диспетчер AGL. Твоя задача: собрать ВСЕ данные из текста.
+        return f"""Ты — Старший Логист-Аналитик AGL. Твоя задача: идеально извлечь структурированные данные из запроса клиента.
 
-### ПРАВИЛО "ПЫЛЕСОС" (КРИТИЧЕСКИ ВАЖНО):
-1. Всё, что не является Весом, Кодом, Городом или Датой, но относится к грузу (упаковка, способ погрузки, слип-шиты, причины срочности, железные баночки) — ТЫ ОБЯЗАН записать в `extra_info`.
-2. Не сокращай и не выбрасывай информацию. Если написано про ручную перевалку — пиши это в `extra_info`.
+ИНСТРУКЦИЯ ПО АНАЛИЗУ (Chain of Thought):
+В JSON-ответе первым полем ВСЕГДА должно быть "_reasoning". В нем кратко проанализируй:
+1. Регион: Страны -> {regions_str}. Пример: Литва=Европа, Филиппины=Индия/ЮВА, ОАЭ=ОАЭ.
+2. Транспорт: "Чартер"=Авиа. "Тент"=Авто. "Контейнер 20 фут"=Контейнер (20 фут).
+3. ПРАВИЛО "ПЫЛЕСОСА": Какие нестандартные детали есть в тексте (слип-шиты, причины срочности, упаковка)? Они ВСЕ идут в `extra_info`.
+4. Инкотермс (EXW, FCA и т.д.) -> delivery_terms.
+5. Код ТНВЭД (HS Code) -> hs_code.
 
-### ГЕОГРАФИЯ:
-- Страны ЕС -> Европа.
-- Филиппины, Индия, Вьетнам -> Индия/ЮВА.
-
-### ТЕХНИЧЕСКИЕ ДАННЫЕ:
-- "20 фут", "40 фут" -> transport_sub.
-- "Тент", "Фура", "Мега" -> transport_cat: "Авто".
-- Код/HS/ТНВЭД -> hs_code.
-- GW / tons -> cargo_weight (только цифры в кг).
-
-### ФОРМАТ JSON:
+СТРУКТУРА JSON (используй null если данных нет):
 {{
-  "regions": null,
+  "_reasoning": "твой анализ здесь",
+  "regions": "Один из: {regions_str}",
+  "client_company": "Название заказчика",
+  "urgency_type": "Срочно (если указано про скорость) или Стандарт",
+  "transport_cat": "Авиа / Авто / Контейнер / ЖД",
+  "transport_sub": "Чартер / Тент / Мега / 20 фут / 40 фут / ...",
+  "delivery_terms": "Инкотермс (EXW, FCA...)",
+  "route_from": "Город, Страна",
+  "route_to": "Город, Страна",
+  "cargo_name": "Название груза",
+  "cargo_weight": "Только число (в кг)",
+  "cargo_volume": "Только число (в м3)",
+  "hs_code": "Только цифры кода",
+  "adr_class": "Класс опасности",
+  "extra_info": "ПРАВИЛО ПЫЛЕСОСА: ВСЕ детали погрузки, упаковки, причины. НИЧЕГО НЕ ТЕРЯЙ.",
+  "missing_fields": ["Список недостающих полей СТРОГО НА РУССКОМ: Заказчик, Вес, Объем, Стоимость, ТН ВЭД"],
+  "next_question": "Короткий вежливый вопрос о недостающих данных"
+}}
+
+ПРИМЕРЫ (Few-Shot):
+
+ВВОД: "Ташкент - Абудаби. Заказчик: мин обороны РУз. Требуется чартер. Везут груз на выставку IDEX 2025. Раньше возили на ИЛ76, сейчас груз туда не вмещается. Вопрос скорости."
+ВЫВОД: {{
+  "_reasoning": "Абу-Даби это ОАЭ -> Регион ОАЭ. Чартер -> Авиа. Вопрос скорости -> Срочно. Детали про ИЛ76 и выставку -> extra_info. Код не указан.",
+  "regions": "ОАЭ",
+  "client_company": "Мин обороны РУз",
+  "urgency_type": "Срочно",
+  "transport_cat": "Авиа",
+  "transport_sub": "Чартер",
+  "delivery_terms": null,
+  "route_from": "Ташкент, Узбекистан",
+  "route_to": "Абу-Даби, ОАЭ",
+  "cargo_name": "Груз для выставки IDEX 2025",
+  "cargo_weight": null,
+  "cargo_volume": null,
+  "hs_code": null,
+  "adr_class": null,
+  "extra_info": "Раньше возили на собственном ИЛ76, сейчас груз туда не вмещается. Ищут решение.",
+  "missing_fields": ["Вес", "Объем", "Стоимость", "ТН ВЭД"],
+  "next_question": "Уточните, пожалуйста, вес и объем груза для подбора чартера?"
+}}
+
+ВВОД: "EXW Vilnius - Fergana. route: Via Turkiye. cargo: Novoflow 165 liquid. hs code: 3402901000. GW: 20 tons"
+ВЫВОД: {{
+  "_reasoning": "Vilnius это Литва -> Европа. EXW -> delivery_terms. GW 20 tons -> 20000 кг. Маршрут через Турцию -> extra_info. Для 20 тонн из Европы обычно Авто.",
+  "regions": "Европа",
   "client_company": null,
   "urgency_type": "Стандарт",
-  "transport_cat": null,
+  "transport_cat": "Авто",
   "transport_sub": null,
+  "delivery_terms": "EXW",
+  "route_from": "Вильнюс, Литва",
+  "route_to": "Фергана, Узбекистан",
+  "cargo_name": "Novoflow 165 liquid",
+  "cargo_weight": "20000",
+  "cargo_volume": null,
+  "hs_code": "3402901000",
+  "adr_class": null,
+  "extra_info": "Транзит через Турцию (Via Turkiye).",
+  "missing_fields": ["Заказчик", "Объем", "Стоимость"],
+  "next_question": "Уточните заказчика и объем груза?"
+}}
+
+ВВОД: "Порт General Santos (Филиппины) До Ташкента 20 тонн Контейнер 20 фут Код - 2008207900 Груз: ананасы Грузят мягкими слип-шитами, перегрузка ручная"
+ВЫВОД: {{
+  "_reasoning": "Филиппины -> Индия/ЮВА. Контейнер 20 фут -> Контейнер / 20 фут. 20 тонн -> 20000 кг. Слип-шиты и ручная перегрузка -> extra_info.",
+  "regions": "Индия/ЮВА",
+  "client_company": null,
+  "urgency_type": "Стандарт",
+  "transport_cat": "Контейнер",
+  "transport_sub": "20 фут",
   "delivery_terms": null,
-  "route_from": null, "route_to": null,
-  "cargo_name": null, "cargo_weight": null, "cargo_volume": null, "hs_code": null,
-  "extra_info": "Сюда записывай всё остальное описание погрузки и груза без исключений",
-  "missing_fields": [],
-  "next_question": null
+  "route_from": "General Santos, Филиппины",
+  "route_to": "Ташкент, Узбекистан",
+  "cargo_name": "Консервированные ананасы",
+  "cargo_weight": "20000",
+  "cargo_volume": null,
+  "hs_code": "2008207900",
+  "adr_class": null,
+  "extra_info": "Грузят мягкими слип-шитами, поэтому перегрузка ручная будет.",
+  "missing_fields": ["Заказчик", "Стоимость"],
+  "next_question": "Кто выступает заказчиком и какова стоимость груза?"
 }}
 
 Сегодня: {today}
@@ -181,7 +246,7 @@ class AIAssistant:
 
     def merge_parsed_data(self, old_draft: dict, new_data: dict) -> dict:
         merged = dict(old_draft) if old_draft else {}
-        skip_keys = {"not_logistics", "error", "next_question", "missing_fields", "ready_to_publish"}
+        skip_keys = {"not_logistics", "error", "next_question", "missing_fields", "ready_to_publish", "_reasoning"}
         for k, v in new_data.items():
             if k in skip_keys: continue
             if v in (None, "null", "", "-", "None"):

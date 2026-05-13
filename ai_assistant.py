@@ -72,20 +72,26 @@ class AIAssistant:
 {{
   "regions": "{regions_str}",
   "transport_cat": "{transport_str}",
+  "transport_sub": "вид авто (тент, реф и т.д.)",
   "route_from": "Город, Страна", "route_to": "Город, Страна",
-  "loading_address": "...", "customs_address": "адрес рядом с Точкой А", 
-  "clearance_address": "адрес рядом с Точкой Б", "unloading_address": "...",
+  "loading_address": "...", "customs_address": "...", 
+  "clearance_address": "...", "unloading_address": "...",
   "cargo_name": "...", "hs_code": "...", "cargo_value": "...", "cargo_weight": "...", "cargo_places": "...", "cargo_volume": "...",
-  "transit_info": "...", "packaging": "...", "dangerous_cargo": "...",
-  "loading_date": "...", "unloading_date": "...", "days_loading": "...", "days_unloading": "...", "requirements": "...",
-  "delivery_terms": "...", "container_type": "...", "road_type": "...",
-  "export_decl": "...", "origin_cert": "...", "stackable": "...",
+  "packaging": "...", "dangerous_cargo": "Да|Нет", "adr_class": "...",
+  "stackable": "Да|Нет", "cargo_oversized": "Да|Нет", "cargo_dimensions": "ДхШхВ",
+  "temp_control": "Да|Нет", "temp_range": "+2...+8C",
   "urgency_type": "Стандарт|Срочно",
   "source": "{sources_str}",
   "extra_info": "...", "missing_fields": [], "next_question": "...",
   "ready_to_publish": false, "not_logistics": false
 }}
 
+### ОБЯЗАТЕЛЬНЫЕ ПОЛЯ ДЛЯ ПУБЛИКАЦИИ:
+1. route_from, route_to, cargo_name, cargo_value, cargo_weight, cargo_places, cargo_volume, hs_code.
+2. Если регион НЕ СНГ (Европа, Китай, Турция и т.д.) — ОБЯЗАТЕЛЬНО нужны customs_address и clearance_address.
+Если эти поля не заполнены, "ready_to_publish" должен быть false.
+
+{strict_note}
 Today's date: {today}
 """
 
@@ -160,6 +166,12 @@ Respond in JSON: {"intent": "...", "args": {...}, "text": "..."} """},
             "road_type": "🚛 Тип авто", "export_decl": "📄 EX1",
             "origin_cert": "📜 Сертификат", "stackable": "🔝 Штабель",
             "source": "📣 Источник",
+            "transport_sub": "🚛 Вид авто",
+            "cargo_oversized": "⚠️ Негабарит",
+            "cargo_dimensions": "📏 Размеры",
+            "temp_control": "🌡 Темп. режим",
+            "temp_range": "🌡 Диапазон",
+            "adr_class": "🔥 ADR класс"
         }
         for key, label in field_labels.items():
             val = draft.get(key)
@@ -226,6 +238,12 @@ Respond in JSON: {"intent": "...", "args": {...}, "text": "..."} """},
             "road_type": "road_type", "export_decl": "export_decl",
             "origin_cert": "origin_cert", "stackable": "stackable",
             "source": "source",
+            "transport_sub": "transport_sub",
+            "cargo_oversized": "cargo_oversized",
+            "cargo_dimensions": "cargo_dimensions",
+            "temp_control": "temp_control",
+            "temp_range": "temp_range",
+            "adr_class": "adr_class"
         }
         for draft_key, db_key in field_map.items():
             val = draft.get(draft_key)

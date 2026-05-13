@@ -229,8 +229,8 @@ async def confirm_ai_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await query.edit_message_text("❌ Черновик не найден или уже опубликован.")
             return
         
-        # ── Validate required fields before publishing ──
-        required = ["route_from", "route_to", "cargo_name", "cargo_weight", "cargo_places"]
+        # ── Validate required fields before publishing (matching MiniApp requirements) ──
+        required = ["route_from", "route_to", "cargo_name", "cargo_value", "cargo_weight", "cargo_places", "cargo_volume", "hs_code"]
         missing = [f for f in required if not parsed.get(f) or str(parsed[f]).strip() in ("", "-", "None")]
         
         is_sng = parsed.get("regions") in ("СНГ", "CIS")

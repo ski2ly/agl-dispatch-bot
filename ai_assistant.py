@@ -23,100 +23,33 @@ class AIAssistant:
         regions_list = settings.get("regions", []) if settings else []
         regions_str = "|".join([r["name"] if isinstance(r, dict) else str(r) for r in regions_list])
 
-        return f"""Ты — Старший Логист-Аналитик AGL. Твоя задача: идеально извлечь структурированные данные из запроса клиента.
+        return f"""Ты — Старший Логист-Аналитик AGL. Твоя задача: идеально извлечь структурированные данные.
 
-ИНСТРУКЦИЯ ПО АНАЛИЗУ (Chain of Thought):
-В JSON-ответе первым полем ВСЕГДА должно быть "_reasoning". В нем кратко проанализируй:
-1. Регион: Страны -> {regions_str}. Пример: Литва=Европа, Филиппины=Индия/ЮВА, ОАЭ=ОАЭ.
-2. Транспорт: "Чартер"=Авиа. "Тент"=Авто. "Контейнер 20 фут"=Контейнер (20 фут).
-3. ПРАВИЛО "ПЫЛЕСОСА": Какие нестандартные детали есть в тексте (слип-шиты, причины срочности, упаковка)? Они ВСЕ идут в `extra_info`.
-4. Инкотермс (EXW, FCA и т.д.) -> delivery_terms.
-5. Код ТНВЭД (HS Code) -> hs_code.
+ИНСТРУКЦИЯ ПО АНАЛИЗУ:
+1. РЕГИОН: Определи страну города и выбери из списка: [{regions_str}].
+2. ТРАНСПОРТ: "Тент/Фура" -> Авто, "Чартер/Борт" -> Авиа, "Контейнер" -> Контейнер.
+3. МЕСТА (cargo_places): Кол-во паллет, коробок, ящиков (например, "29 паллет").
+4. ПРАВИЛО ПЫЛЕСОСА: ВСЁ описание (размеры паллет, штабелирование, инструкции связаться с кем-то, даты погрузки) ЗАПИСЫВАЙ в `extra_info`.
+5. ИНКОТЕРМС: EXW, FCA, CPT и т.д. -> delivery_terms.
 
 СТРУКТУРА JSON (используй null если данных нет):
 {{
-  "_reasoning": "твой анализ здесь",
-  "regions": "Один из: {regions_str}",
-  "client_company": "Название заказчика",
-  "urgency_type": "Срочно (если указано про скорость) или Стандарт",
-  "transport_cat": "Авиа / Авто / Контейнер / ЖД",
-  "transport_sub": "Чартер / Тент / Мега / 20 фут / 40 фут / ...",
-  "delivery_terms": "Инкотермс (EXW, FCA...)",
+  "regions": "...",
+  "client_company": "Заказчик",
+  "urgency_type": "Стандарт/Срочно",
+  "transport_cat": "Авиа/Авто/Контейнер/ЖД/Сборный",
+  "transport_sub": "Вид (Тент, 20 фут, Чартер и т.д.)",
+  "delivery_terms": "...",
   "route_from": "Город, Страна",
   "route_to": "Город, Страна",
-  "cargo_name": "Название груза",
-  "cargo_weight": "Только число (в кг)",
-  "cargo_volume": "Только число (в м3)",
-  "hs_code": "Только цифры кода",
-  "adr_class": "Класс опасности",
-  "extra_info": "ПРАВИЛО ПЫЛЕСОСА: ВСЕ детали погрузки, упаковки, причины. НИЧЕГО НЕ ТЕРЯЙ.",
-  "missing_fields": ["Список недостающих полей СТРОГО НА РУССКОМ: Заказчик, Вес, Объем, Стоимость, ТН ВЭД"],
-  "next_question": "Короткий вежливый вопрос о недостающих данных"
-}}
-
-ПРИМЕРЫ (Few-Shot):
-
-ВВОД: "Ташкент - Абудаби. Заказчик: мин обороны РУз. Требуется чартер. Везут груз на выставку IDEX 2025. Раньше возили на ИЛ76, сейчас груз туда не вмещается. Вопрос скорости."
-ВЫВОД: {{
-  "_reasoning": "Абу-Даби это ОАЭ -> Регион ОАЭ. Чартер -> Авиа. Вопрос скорости -> Срочно. Детали про ИЛ76 и выставку -> extra_info. Код не указан.",
-  "regions": "ОАЭ",
-  "client_company": "Мин обороны РУз",
-  "urgency_type": "Срочно",
-  "transport_cat": "Авиа",
-  "transport_sub": "Чартер",
-  "delivery_terms": null,
-  "route_from": "Ташкент, Узбекистан",
-  "route_to": "Абу-Даби, ОАЭ",
-  "cargo_name": "Груз для выставки IDEX 2025",
-  "cargo_weight": null,
-  "cargo_volume": null,
-  "hs_code": null,
-  "adr_class": null,
-  "extra_info": "Раньше возили на собственном ИЛ76, сейчас груз туда не вмещается. Ищут решение.",
-  "missing_fields": ["Вес", "Объем", "Стоимость", "ТН ВЭД"],
-  "next_question": "Уточните, пожалуйста, вес и объем груза для подбора чартера?"
-}}
-
-ВВОД: "EXW Vilnius - Fergana. route: Via Turkiye. cargo: Novoflow 165 liquid. hs code: 3402901000. GW: 20 tons"
-ВЫВОД: {{
-  "_reasoning": "Vilnius это Литва -> Европа. EXW -> delivery_terms. GW 20 tons -> 20000 кг. Маршрут через Турцию -> extra_info. Для 20 тонн из Европы обычно Авто.",
-  "regions": "Европа",
-  "client_company": null,
-  "urgency_type": "Стандарт",
-  "transport_cat": "Авто",
-  "transport_sub": null,
-  "delivery_terms": "EXW",
-  "route_from": "Вильнюс, Литва",
-  "route_to": "Фергана, Узбекистан",
-  "cargo_name": "Novoflow 165 liquid",
-  "cargo_weight": "20000",
-  "cargo_volume": null,
-  "hs_code": "3402901000",
-  "adr_class": null,
-  "extra_info": "Транзит через Турцию (Via Turkiye).",
-  "missing_fields": ["Заказчик", "Объем", "Стоимость"],
-  "next_question": "Уточните заказчика и объем груза?"
-}}
-
-ВВОД: "Порт General Santos (Филиппины) До Ташкента 20 тонн Контейнер 20 фут Код - 2008207900 Груз: ананасы Грузят мягкими слип-шитами, перегрузка ручная"
-ВЫВОД: {{
-  "_reasoning": "Филиппины -> Индия/ЮВА. Контейнер 20 фут -> Контейнер / 20 фут. 20 тонн -> 20000 кг. Слип-шиты и ручная перегрузка -> extra_info.",
-  "regions": "Индия/ЮВА",
-  "client_company": null,
-  "urgency_type": "Стандарт",
-  "transport_cat": "Контейнер",
-  "transport_sub": "20 фут",
-  "delivery_terms": null,
-  "route_from": "General Santos, Филиппины",
-  "route_to": "Ташкент, Узбекистан",
-  "cargo_name": "Консервированные ананасы",
-  "cargo_weight": "20000",
-  "cargo_volume": null,
-  "hs_code": "2008207900",
-  "adr_class": null,
-  "extra_info": "Грузят мягкими слип-шитами, поэтому перегрузка ручная будет.",
-  "missing_fields": ["Заказчик", "Стоимость"],
-  "next_question": "Кто выступает заказчиком и какова стоимость груза?"
+  "cargo_name": "...",
+  "cargo_weight": "число в кг",
+  "cargo_volume": "число в м3",
+  "cargo_places": "...",
+  "hs_code": "...",
+  "extra_info": "ВСЯ специфика здесь",
+  "missing_fields": ["Заказчик", "Стоимость", "Вес", "Объем", "ТН ВЭД"],
+  "next_question": "..."
 }}
 
 Сегодня: {today}
@@ -150,98 +83,108 @@ class AIAssistant:
     def build_preview(self, draft: dict) -> str:
         import html
         import re
+        
+        def v(key, default=None):
+            val = draft.get(key)
+            if val is not None and str(val).strip() not in ("-", "", "None", "null", "не указано", "False", "false"):
+                return str(val).strip()
+            return default
+
         lines = []
-        reg = draft.get("regions", "Другое")
-        t_cat = draft.get("transport_cat", "Авто")
-        lines.append(f"Направление: <b>{html.escape(str(reg))}</b>")
-        lines.append(f"Тип перевозки: <b>{html.escape(str(t_cat))}</b>")
         
-        t_sub = draft.get("transport_sub")
-        if t_sub and str(t_sub).strip() not in ("-", "", "None", "null"):
-            lines.append(f"Вид: <b>{html.escape(str(t_sub))}</b>")
+        # Title synced with helpers.py
+        title = "[НОВАЯ ЗАЯВКА #00000]"
+        if v('urgency_type') == "Срочно":
+            title += " - СРОЧНО"
+        lines.append(title)
+        lines.append("")
+
+        reg = v("regions", "Другое")
+        t_cat = v("transport_cat", "Авто")
+        lines.append(f"Направление: {reg}")
+        lines.append(f"Тип перевозки: {t_cat}")
         
-        lines.append(f"Источник: <b>{html.escape(str(draft.get('source', 'Не указан')))}</b>")
-        if draft.get("client_company"):
-            lines.append(f"Заказчик: <b>{html.escape(str(draft.get('client_company')))}</b>")
+        t_sub = v("transport_sub")
+        if t_sub:
+            lines.append(f"Вид: {t_sub}")
+        
+        lines.append(f"Источник: {v('source', 'Не указан')}")
         lines.append("")
         
-        r_from = draft.get("route_from", "?")
-        r_to = draft.get("route_to", "?")
-        lines.append(f"<b>{html.escape(str(r_from))} ➔ {html.escape(str(r_to))}</b>")
+        r_from = v("route_from", "?")
+        r_to = v("route_to", "?")
+        lines.append(f"{r_from} ➔ {r_to}")
         
         for key, label in [("loading_address", "Погрузка"), ("customs_address", "Затаможка"), 
                            ("clearance_address", "Растаможка"), ("unloading_address", "Выгрузка")]:
-            val = draft.get(key)
-            if val and str(val).strip() not in ("-", "", "None", "null"):
-                lines.append(f"{label}: <b>{html.escape(str(val))}</b>")
+            val = v(key)
+            if val: lines.append(f"{label}: {val}")
         
         lines.append("")
-        lines.append(f"Груз: <b>{html.escape(str(draft.get('cargo_name', 'не указан')))}</b>")
-        if draft.get("hs_code"):
-            lines.append(f"ТН ВЭД: <b>{html.escape(str(draft.get('hs_code')))}</b>")
-        if draft.get("adr_class"):
-            lines.append(f"Класс ADR: <b>{html.escape(str(draft.get('adr_class')))}</b>")
-        if draft.get("temp_control") == "Да":
-            lines.append(f"Температурный режим: <b>{html.escape(str(draft.get('temp_range', 'да')))}</b>")
+        lines.append(f"Груз: {v('cargo_name', 'не указан')}")
+        if v("hs_code"): lines.append(f"ТН ВЭД: {v('hs_code')}")
+        if v("adr_class"): lines.append(f"Класс ADR: {v('adr_class')}")
+        if v("temp_control") == "Да":
+            lines.append(f"Температурный режим: {v('temp_range', 'да')}")
             
         lines.append("")
-        if draft.get("cargo_weight"):
-            w = str(draft.get("cargo_weight"))
+        if v("cargo_weight"):
+            w = v("cargo_weight")
             nums = re.findall(r'\d+', w)
             if nums:
-                val_num = int(nums[0])
-                lines.append(f"Вес: <b>{val_num} кг</b>")
+                lines.append(f"Вес: {int(nums[0])} кг")
             else:
-                lines.append(f"Вес: <b>{html.escape(w)}</b>")
-        if draft.get("cargo_places"):
-            lines.append(f"Мест: <b>{html.escape(str(draft.get('cargo_places')))}</b>")
-        if draft.get("cargo_volume"):
-            vol = str(draft.get("cargo_volume"))
+                lines.append(f"Вес: {w}")
+        if v("cargo_places"):
+            lines.append(f"Мест: {v('cargo_places')}")
+        if v("cargo_volume"):
+            vol = v("cargo_volume")
             nums = re.findall(r'\d+', vol)
             if nums:
-                val_num = int(nums[0])
-                lines.append(f"Объем: <b>{val_num} м³</b>")
+                lines.append(f"Объем: {int(nums[0])} м³")
             else:
-                lines.append(f"Объем: <b>{html.escape(vol)}</b>")
+                lines.append(f"Объем: {vol}")
             
         lines.append("")
-        val = draft.get("cargo_value")
+        val = v("cargo_value")
         if val:
-            curr = draft.get("cargo_currency") or "USD"
-            lines.append(f"Стоимость: <b>{html.escape(str(val))} {html.escape(str(curr))}</b>")
+            curr = v("cargo_currency") or "USD"
+            lines.append(f"Стоимость: {val} {curr}")
         else:
-            lines.append("Стоимость: <b>НЕ УКАЗАНА</b>")
-        lines.append(f"Срочность: <b>{html.escape(str(draft.get('urgency_type', 'Стандарт')))}</b>")
+            lines.append("Стоимость: НЕ УКАЗАНА")
+            
+        lines.append(f"Срочность: {v('urgency_type', 'Стандарт')}")
         
         spec_fields = []
         for k, label in [("border_crossing_cn", "Погранпереход"), ("transit_info", "Транзит"), ("delivery_terms", "Инкотермс")]:
-            val = draft.get(k)
-            if val and str(val).strip() not in ("-", "", "None", "null"):
-                spec_fields.append(f"• {label}: {html.escape(str(val))}")
+            val = v(k)
+            if val: spec_fields.append(f"• {label}: {val}")
         if spec_fields:
-            lines.append("\nСпецифика:")
+            lines.append("")
+            lines.append("Специфика:")
             lines.extend(spec_fields)
             
-        extra = draft.get("extra_info")
-        if extra and str(extra).strip() not in ("-", "", "None", "null"):
-            lines.append(f"\nДополнительно:\n<b>{html.escape(str(extra))}</b>")
+        extra = v("extra_info")
+        if extra:
+            lines.extend(["", "Дополнительно:", extra])
             
+        lines.extend(["", "Менеджер: Admin", "#заявка"])
+        
+        # Missing fields and bot question at the very end
         missing = draft.get("missing_fields", [])
         if missing:
-            # Map technical names to Russian labels here in build_preview as a safety measure
             translations = {
                 "client_company": "Заказчик", "cargo_weight": "Вес", "cargo_volume": "Объем",
                 "cargo_value": "Стоимость", "hs_code": "ТН ВЭД", "transport_sub": "Вид",
                 "route_from": "Откуда", "route_to": "Куда"
             }
             mapped_missing = [translations.get(m, m) for m in missing]
-            safe_missing = html.escape(", ".join(mapped_missing))
-            lines.append(f"\n⚠️ Не хватает: {safe_missing}")
+            lines.append(f"\n⚠️ Не хватает: {', '.join(mapped_missing)}")
             
         question = draft.get("next_question")
         if question:
-            safe_question = html.escape(str(question))
-            lines.append(f"\n🤖 {safe_question}")
+            lines.append(f"\n🤖 {question}")
+            
         return "\n".join(lines) if lines else "📋 Черновик пуст"
 
     def merge_parsed_data(self, old_draft: dict, new_data: dict) -> dict:
@@ -250,7 +193,6 @@ class AIAssistant:
         for k, v in new_data.items():
             if k in skip_keys: continue
             if v in (None, "null", "", "-", "None"):
-                # Don't delete if we already have it! (Safety for extra_info)
                 continue
             merged[k] = v
         merged["ready_to_publish"] = new_data.get("ready_to_publish", False)

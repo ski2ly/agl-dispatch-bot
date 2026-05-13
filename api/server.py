@@ -833,11 +833,11 @@ async def api_bid(request):
                     logger.error(f"SyncBid failed for req {req_id}: {e}")
 
         # Finalize status and add bid to DB
-        amount = float(str(data.get("amount")).replace(" ", "").replace(",", "."))
-        new_status = "В работе" if amount > 0 else req.get("status")
+        amount_val = str(data.get("amount")).replace(" ", "").replace(",", ".")
+        new_status = "В работе" if float(amount_val or 0) > 0 else req.get("status")
         comment = data.get("comment", "")
         currency = data.get("currency", "USD")
-        await db.add_bid(int(req_id), user_id, profile["name"], amount, currency, comment, disc_msg_id)
+        await db.add_bid(int(req_id), user_id, profile["name"], amount_val, currency, comment, disc_msg_id)
         
         # Add internal comment
         bid_data = {**data, "request_id": int(req_id), "manager_name": profile["name"]}

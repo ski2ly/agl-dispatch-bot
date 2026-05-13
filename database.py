@@ -360,7 +360,8 @@ class Database:
                     'target', 'last_notified_at', 'cancel_reason', 'clearance_address', 'unloading_address',
                     'delivery_terms_eu', 'transit_rf_allowed', 'road_type_cn', 'border_crossing_cn',
                     'container_type_cn', 'loading_days', 'customs_days', 'urgency_days', 'ports_list',
-                    'dangerous_cargo', 'packaging', 'message_text', 'source', 'cargo_volume'
+                    'dangerous_cargo', 'packaging', 'message_text', 'source', 'cargo_volume',
+                    'cargo_oversized', 'cargo_dimensions', 'temp_control', 'temp_range', 'responsible'
                 ]:
                     if col not in req_cols:
                         await conn.execute(f"ALTER TABLE requests ADD COLUMN IF NOT EXISTS {col} TEXT")

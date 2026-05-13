@@ -699,7 +699,7 @@ async def api_submit(request):
     except Exception as e:
         import traceback
         logger.error(f"api_submit error: {e}\n{traceback.format_exc()}")
-        return safe_json_response({"error": f"Internal error: {str(e)}"})
+        return safe_json_response({"error": "Internal error"})
 
 ALLOWED_CURRENCIES = {"USD", "EUR", "RUB", "CNY", "UZS", "KZT"}
 

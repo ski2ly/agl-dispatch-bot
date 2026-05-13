@@ -550,7 +550,7 @@ ALLOWED_REQUEST_FIELDS = {
     "multimodal_next", "company", "delivery_terms_eu", "transit_rf_allowed",
     "road_type_cn", "border_crossing_cn", "container_type_cn", "loading_days",
     "customs_days", "urgency_days", "ports_list",
-    "cancel_reason", "channel_msg_id", "mute_reminders", "last_notified_at", "winner_name", "source", "days_loading", "days_unloading",
+    "cancel_reason", "mute_reminders", "last_notified_at", "winner_name", "source", "days_loading", "days_unloading",
     "cargo_oversized", "cargo_dimensions", "temp_control", "temp_range", "responsible"
 }
 ALLOWED_STATUSES = {"Открыта", "В работе", "Успешно реализована", "Отменена"}
@@ -805,13 +805,13 @@ async def api_bid(request):
         bot = request.app["bot"]
 
         if discussion_id and target_channel:
-            msg_id = req.get("channel_msg_id") or req.get("message_id")
+            msg_id = req.get("channel_msg_id")
             if msg_id:
                 notif_text = bid_card
                 if is_update:
                     notif_text = f"🔄 <b>{profile['name']} обновил ставку</b>\n\nАктуальная ставка: <b>{data.get('amount')} {data.get('currency')}</b>\n#ставка"
                 
-                logger.info(f"Syncing bid to discussion: channel={target_channel}, msg={msg_id}")
+                logger.info(f"Syncing bid to discussion: req_id={req_id}, channel_msg_id={msg_id}")
                 await sync_bid_to_discussion(bot, discussion_id, target_channel, msg_id, notif_text)
             else:
                 logger.warning(f"No channel_msg_id for req #{req_id}, cannot sync bid")

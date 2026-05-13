@@ -23,32 +23,34 @@ class AIAssistant:
         regions_list = settings.get("regions", []) if settings else []
         regions_str = "|".join([r["name"] if isinstance(r, dict) else str(r) for r in regions_list])
 
-        return f"""Ты — Опытный Логист-Диспетчер AGL. Твоя задача: идеально извлечь данные.
+        return f"""Ты — Эксперт-Логист AGL. Твоя задача: идеально извлечь данные.
 
-### ПРАВИЛА ЛОГИСТИКИ:
-1. МАРШРУТ: "А - Б" значит А -> ОТКУДА, Б -> КУДА. Никогда не меняй их местами!
-2. ТРАНСПОРТ: "реф", "тент", "фура", "20т" — это АВТО. "КТК", "конт" — это КОНТЕЙНЕР.
-3. ГЕОГРАФИЯ: Вильнюс (Литва) — это ЕВРОПА.
-4. ТЕМПЕРАТУРА: "+15С" или "реф" — это `temp_control`: "Да" и `temp_range`: "+15C".
-5. СТОИМОСТЬ: "Брутто 4000 евро" или "инвойс" — это `cargo_value`.
-6. ПОГРАНПЕРЕХОД: "Терехова", "Алтынколь", "Яллама" — это `border_crossing_cn`.
+### ГЕОГРАФИЯ (СТРОГО):
+- ИНДИЯ/ЮВА: Индия, Филиппины (Philippines), Вьетнам, Малайзия, Таиланд, Индонезия.
+- КИТАЙ: Только материковый Китай. ПРИОРИТЕТ: Если есть Китай — Китай.
+- ЕВРОПА: ЕС.
+- ОАЭ: Эмираты.
 
-### ПРИОРИТЕТ РЕГИОНОВ:
-Если в маршруте есть Европа — регион ЕВРОПА. ОАЭ — ОАЭ. Китай — Китай.
+### ПРАВИЛА ВЕСА И ОБЪЕМА:
+- В cargo_weight, cargo_volume ПИШИ ТОЛЬКО ЧИСЛА.
+- Если в тексте "20 тонн" -> пиши "20000".
+- Если "50 кубов" -> пиши "50".
+- Убирай любые слова (кг, тонны, м3, фут).
+
+### ДОПОЛНИТЕЛЬНО (extra_info):
+- Обязательно пиши сюда специфику погрузки: слип-шиты, ручная перегрузка, паллеты, навалом. Это ВАЖНО.
 
 ### ФОРМАТ JSON:
 {{
-  "regions": "Европа",
-  "transport_cat": "Авто",
-  "transport_sub": "Рефрижератор",
-  "route_from": "Вильнюс, Литва", "route_to": "Ташкент, Узбекистан",
-  "cargo_name": null, "cargo_weight": null, "cargo_value": "4000", "cargo_currency": "EUR",
-  "temp_control": "Да", "temp_range": "+15C",
-  "border_crossing_cn": "Терехова",
-  "extra_info": "Затаможка на месте", 
-  "missing_fields": ["Название груза", "Вес"],
+  "regions": "Индия/ЮВА",
+  "transport_cat": "Контейнер",
+  "transport_sub": "20DC",
+  "route_from": "General Santos, Филиппины", "route_to": "Ташкент, Узбекистан",
+  "cargo_name": "Консервированные ананасы", "cargo_weight": "20000", "hs_code": "2008207900",
+  "extra_info": "Погрузка слип-шитами, перегрузка ручная.", 
+  "missing_fields": ["Стоимость"],
   "ready_to_publish": false,
-  "next_question": "Уточните название груза и его вес?"
+  "next_question": "Уточните стоимость груза и валюту?"
 }}
 
 Today's date: {today}
@@ -114,14 +116,26 @@ Today's date: {today}
         lines.append("")
         if draft.get("cargo_weight"):
             w = str(draft.get("cargo_weight"))
-            if "кг" not in w.lower(): w = f"{w} кг"
-            lines.append(f"Вес: <b>{html.escape(w)}</b>")
+            # CLEANUP: Remove any text from weight if it was leaked by AI
+            import re
+            nums = re.findall(r'\d+', w)
+            if nums:
+                val_num = int(nums[0])
+                lines.append(f"Вес: <b>{val_num} кг</b>")
+            else:
+                lines.append(f"Вес: <b>{html.escape(w)}</b>")
+                
         if draft.get("cargo_places"):
             lines.append(f"Мест: <b>{html.escape(str(draft.get('cargo_places')))}</b>")
         if draft.get("cargo_volume"):
             vol = str(draft.get("cargo_volume"))
-            if "м" not in vol.lower() and "m" not in vol.lower(): vol = f"{vol} м³"
-            lines.append(f"Объем: <b>{html.escape(vol)}</b>")
+            import re
+            nums = re.findall(r'\d+', vol)
+            if nums:
+                val_num = int(nums[0])
+                lines.append(f"Объем: <b>{val_num} м³</b>")
+            else:
+                lines.append(f"Объем: <b>{html.escape(vol)}</b>")
             
         lines.append("")
         val = draft.get("cargo_value")

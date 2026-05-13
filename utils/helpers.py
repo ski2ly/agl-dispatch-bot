@@ -121,11 +121,7 @@ def build_card(req: dict) -> str:
     return "\n".join(lines)
 
 def build_bid_card(bid: dict) -> str:
-    """Build a unified, professional card for a bid/rate.
-
-    Uses plain text (no Markdown/HTML markers) so it can be sent with any
-    parse_mode or none at all. The caller can wrap in <b> if needed.
-    """
+    """Build a unified, professional card for a bid/rate."""
     lines = [
         f"НОВАЯ СТАВКА",
         f"По заявке: #{int(bid.get('request_id', 0)):05d}",
@@ -147,150 +143,98 @@ def build_bid_card(bid: dict) -> str:
     return "\n".join(lines)
 
 async def sync_bid_to_discussion(bot, discussion_id, channel_id, channel_msg_id, bid_card_text):
-    """
-    Sends a bid card to the discussion group as a proper comment.
-    Uses get_discussion_message to find the correct thread ID in the group.
-    """
+    """Sends a bid card to the discussion group as a proper comment."""
     import logging
     log = logging.getLogger(__name__)
     from telegram import ReplyParameters
     from telegram.error import BadRequest
     
-    if not channel_id or not channel_msg_id:
-        log.warning(f"Sync failed: channel_id={channel_id}, channel_msg_id={channel_msg_id}")
-        return False
-        
-    try:
-        # Normalize IDs
-        def to_int(val):
-            if val is None: return None
-            try:
-                s = str(val).strip()
-                if not s: return None
-                return int(s)
-            except:
-                return None
-
-        target_chat = to_int(channel_id)
-        target_discussion = to_int(discussion_id)
-
-        # 1. Try to get the discussion message ID in the group
-        target_disc_id = target_discussion
-        target_msg_id = None
-        
+    def to_int(val):
+        if val is None: return None
         try:
-            log.info(f"Querying get_discussion_message: chat={target_chat}, msg={channel_msg_id}")
-            # Use library method if available, otherwise fallback to direct API
-            if hasattr(bot, 'get_discussion_message'):
-                disc_msg = await bot.get_discussion_message(chat_id=target_chat, message_id=int(channel_msg_id))
-                target_disc_id = disc_msg.chat_id
-                target_msg_id = disc_msg.message_id
-            else:
-                import aiohttp
-                api_url = f"https://api.telegram.org/bot{bot.token}/getDiscussionMessage"
-                async with aiohttp.ClientSession() as session:
-                    async with session.post(api_url, json={"chat_id": str(target_chat), "message_id": int(channel_msg_id)}) as resp:
-                        res = await resp.json()
-                        if res.get("ok"):
-                            target_disc_id = res["result"]["chat"]["id"]
-                            target_msg_id = res["result"]["message_id"]
-        except Exception as e:
-            log.warning(f"get_discussion_message failed: {e}")
+            s = str(val).strip()
+            return int(s) if s else None
+        except: return None
 
-        # 2. If we found the message in the group, reply to it
-        if target_msg_id and target_disc_id:
-            log.info(f"Found discussion msg {target_msg_id} in {target_disc_id}. Sending reply.")
-            
-            try:
-                # First attempt: simple reply (works for most groups)
-                await bot.send_message(
-                    chat_id=target_disc_id,
-                    text=bid_card_text,
-                    reply_parameters=ReplyParameters(
-                        message_id=target_msg_id,
-                        allow_sending_without_reply=False
-                    ),
-                    parse_mode="HTML"
-                )
-                return True
-            except BadRequest as e:
-                if "thread not found" in str(e).lower() or "topic" in str(e).lower():
-                    log.info("Regular reply failed, trying with message_thread_id (forum mode)")
-                    try:
-                        await bot.send_message(
-                            chat_id=target_disc_id,
-                            text=bid_card_text,
-                            reply_parameters=ReplyParameters(message_id=target_msg_id),
-                            message_thread_id=target_msg_id,
-                            parse_mode="HTML"
-                        )
-                        return True
-                    except Exception as e2:
-                        log.error(f"Forum reply also failed: {e2}")
-                else:
-                    log.error(f"Failed to send reply to discussion: {e}")
+    target_chat = to_int(channel_id)
+    target_discussion = to_int(discussion_id)
 
-        # 3. Fallback: if we have a known discussion group ID, try sending there
-        if target_discussion:
-            log.info(f"Falling back to top-level message in discussion group {target_discussion}")
+    # Strategy A: Try direct reply
+    if target_discussion and channel_msg_id:
+        try:
             await bot.send_message(
                 chat_id=target_discussion,
                 text=bid_card_text,
+                reply_parameters=ReplyParameters(message_id=int(channel_msg_id)),
                 parse_mode="HTML"
             )
             return True
-            
-        return False
-    except Exception as e:
-        log.error(f"Sync logic critical failure: {e}")
-        return False
+        except Exception: pass
 
+    # Strategy B: Resolve via getDiscussionMessage
+    target_disc_id, target_msg_id = target_discussion, None
+    if target_chat and channel_msg_id:
+        try:
+            if hasattr(bot, 'get_discussion_message'):
+                m = await bot.get_discussion_message(chat_id=target_chat, message_id=int(channel_msg_id))
+                target_disc_id, target_msg_id = m.chat_id, m.message_id
+            else:
+                import aiohttp
+                url = f"https://api.telegram.org/bot{bot.token}/getDiscussionMessage"
+                async with aiohttp.ClientSession() as session:
+                    async with session.post(url, json={"chat_id": str(target_chat), "message_id": int(channel_msg_id)}) as r:
+                        res = await r.json()
+                        if res.get("ok"):
+                            target_disc_id = res["result"]["chat"]["id"]
+                            target_msg_id = res["result"]["message_id"]
+        except Exception as e: log.warning(f"Resolution failed: {e}")
+
+    # Send resolved reply
+    if target_msg_id and target_disc_id:
+        try:
+            await bot.send_message(
+                chat_id=target_disc_id,
+                text=bid_card_text,
+                reply_parameters=ReplyParameters(message_id=target_msg_id, allow_sending_without_reply=False),
+                parse_mode="HTML"
+            )
+            return True
+        except BadRequest as e:
+            if "thread not found" in str(e).lower() or "topic" in str(e).lower():
+                try:
+                    await bot.send_message(
+                        chat_id=target_disc_id,
+                        text=bid_card_text,
+                        reply_parameters=ReplyParameters(message_id=target_msg_id),
+                        message_thread_id=target_msg_id,
+                        parse_mode="HTML"
+                    )
+                    return True
+                except: pass
+
+    # Fallback
+    if target_discussion:
+        try:
+            await bot.send_message(chat_id=target_discussion, text=bid_card_text, parse_mode="HTML")
+            return True
+        except: pass
+    return False
 
 def calculate_deletion_time(now_dt: datetime, duration_hours: int = 2) -> datetime:
-    """Calculates deletion time respecting business hours (09:30 - 19:00).
-    
-    If event happens at night (19:00 - 09:30), the timer starts at 09:30.
-    If event happens late in the day, the remaining time carries over to next morning.
-    """
+    """Calculates deletion time respecting business hours (09:30 - 19:00)."""
     from datetime import timedelta
-    
-    # Ensure UZT
-    if now_dt.tzinfo is None:
-        now_dt = TZ.localize(now_dt)
-    else:
-        now_dt = now_dt.astimezone(TZ)
+    if now_dt.tzinfo is None: now_dt = TZ.localize(now_dt)
+    else: now_dt = now_dt.astimezone(TZ)
     
     def get_bounds(dt):
-        start = dt.replace(hour=9, minute=30, second=0, microsecond=0)
-        end = dt.replace(hour=19, minute=0, second=0, microsecond=0)
-        return start, end
+        return dt.replace(hour=9, minute=30, second=0, microsecond=0), dt.replace(hour=19, minute=0, second=0, microsecond=0)
 
-    current = now_dt
-    remaining_minutes = duration_hours * 60
-    
-    while remaining_minutes > 0:
-        work_start, work_end = get_bounds(current)
-        
-        if current < work_start:
-            # Shift to start of work day
-            current = work_start
-            continue
-            
-        if current >= work_end:
-            # Shift to start of next work day
-            current = work_start + timedelta(days=1)
-            continue
-            
-        # We are inside work hours
-        minutes_till_end = (work_end - current).total_seconds() / 60
-        
-        if minutes_till_end >= remaining_minutes:
-            # We can finish today
-            current += timedelta(minutes=remaining_minutes)
-            remaining_minutes = 0
-        else:
-            # Use up today's time and move to next day
-            remaining_minutes -= minutes_till_end
-            current = work_start + timedelta(days=1)
-            
+    current, rem = now_dt, duration_hours * 60
+    while rem > 0:
+        s, e = get_bounds(current)
+        if current < s: current = s; continue
+        if current >= e: current = s + timedelta(days=1); continue
+        avail = (e - current).total_seconds() / 60
+        if avail >= rem: current += timedelta(minutes=rem); rem = 0
+        else: rem -= avail; current = s + timedelta(days=1)
     return current

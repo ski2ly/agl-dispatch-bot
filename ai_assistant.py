@@ -23,34 +23,32 @@ class AIAssistant:
         regions_list = settings.get("regions", []) if settings else []
         regions_str = "|".join([r["name"] if isinstance(r, dict) else str(r) for r in regions_list])
 
-        return f"""Ты — Робот-Секретарь AGL. Твоя задача: идеально извлечь ВСЕ данные.
+        return f"""Ты — Опытный Логист-Диспетчер AGL. Твоя задача: идеально извлечь данные.
 
-### ГЕОГРАФИЯ:
-Направление из списка: [{regions_str}]
-- ОАЭ: Абу-Даби (Abu Dhabi, Абудаби), Дубай (Dubai), Шарджа. ПРИОРИТЕТ: ОАЭ.
-- ЕВРОПА: ЕС.
+### ПРАВИЛА ЛОГИСТИКИ:
+1. МАРШРУТ: "А - Б" значит А -> ОТКУДА, Б -> КУДА. Никогда не меняй их местами!
+2. ТРАНСПОРТ: "реф", "тент", "фура", "20т" — это АВТО. "КТК", "конт" — это КОНТЕЙНЕР.
+3. ГЕОГРАФИЯ: Вильнюс (Литва) — это ЕВРОПА.
+4. ТЕМПЕРАТУРА: "+15С" или "реф" — это `temp_control`: "Да" и `temp_range`: "+15C".
+5. СТОИМОСТЬ: "Брутто 4000 евро" или "инвойс" — это `cargo_value`.
+6. ПОГРАНПЕРЕХОД: "Терехова", "Алтынколь", "Яллама" — это `border_crossing_cn`.
 
-### СРОЧНОСТЬ:
-- "Срочно", "скорость", "горит" -> `urgency_type`: "Срочно".
-
-### КЛИЕНТ (client_company):
-- "Заказчик", "Клиент", "Компания" -> записывай название организации в `client_company`.
-
-### ДОПОЛНИТЕЛЬНО (extra_info):
-- Все подробности: причины (не лезет в самолет), выставки, требования к чартеру.
+### ПРИОРИТЕТ РЕГИОНОВ:
+Если в маршруте есть Европа — регион ЕВРОПА. ОАЭ — ОАЭ. Китай — Китай.
 
 ### ФОРМАТ JSON:
 {{
-  "regions": "ОАЭ",
-  "client_company": "Название",
-  "urgency_type": "Срочно",
-  "transport_cat": "Авиа",
-  "route_from": "Ташкент, Узбекистан", "route_to": "Абу-Даби, ОАЭ",
-  "cargo_name": "...", "cargo_weight": null,
-  "extra_info": "детали про ИЛ76 и т.д.", 
-  "missing_fields": ["Вес", "Объем"],
+  "regions": "Европа",
+  "transport_cat": "Авто",
+  "transport_sub": "Рефрижератор",
+  "route_from": "Вильнюс, Литва", "route_to": "Ташкент, Узбекистан",
+  "cargo_name": null, "cargo_weight": null, "cargo_value": "4000", "cargo_currency": "EUR",
+  "temp_control": "Да", "temp_range": "+15C",
+  "border_crossing_cn": "Терехова",
+  "extra_info": "Затаможка на месте", 
+  "missing_fields": ["Название груза", "Вес"],
   "ready_to_publish": false,
-  "next_question": "..."
+  "next_question": "Уточните название груза и его вес?"
 }}
 
 Today's date: {today}
@@ -69,7 +67,7 @@ Today's date: {today}
             if current_draft:
                 messages.append({"role": "system", "content": f"Current draft: {json.dumps(current_draft, ensure_ascii=False)}"})
             messages.append({"role": "user", "content": text})
-            response = await self.client.chat.completions.create(model=self.model, messages=messages, response_format={"type": "json_object"}, temperature=0.1)
+            response = await self.client.chat.completions.create(model=self.model, messages=messages, response_format={"type": "json_object"}, temperature=0.0)
             return json.loads(response.choices[0].message.content)
         except Exception as e: return {"error": str(e)}
 
@@ -92,7 +90,8 @@ Today's date: {today}
             lines.append(f"Вид: <b>{html.escape(str(draft.get('transport_sub')))}</b>")
         
         lines.append(f"Источник: <b>{html.escape(str(draft.get('source', 'Не указан')))}</b>")
-        lines.append(f"Заказчик: <b>{html.escape(str(draft.get('client_company', '—')))}</b>")
+        if draft.get("client_company"):
+            lines.append(f"Заказчик: <b>{html.escape(str(draft.get('client_company')))}</b>")
         lines.append("")
         
         r_from = draft.get("route_from", "?")
@@ -106,11 +105,11 @@ Today's date: {today}
                 lines.append(f"{label}: <b>{html.escape(str(val))}</b>")
         
         lines.append("")
-        lines.append(f"Груз: <b>{html.escape(str(draft.get('cargo_name', '?')))}</b>")
+        lines.append(f"Груз: <b>{html.escape(str(draft.get('cargo_name', 'не указан')))}</b>")
         if draft.get("hs_code"):
             lines.append(f"ТН ВЭД: <b>{html.escape(str(draft.get('hs_code')))}</b>")
-        if draft.get("adr_class"):
-            lines.append(f"Класс ADR: <b>{html.escape(str(draft.get('adr_class')))}</b>")
+        if draft.get("temp_control") == "Да":
+            lines.append(f"Температурный режим: <b>{html.escape(str(draft.get('temp_range', 'да')))}</b>")
             
         lines.append("")
         if draft.get("cargo_weight"):
@@ -123,8 +122,6 @@ Today's date: {today}
             vol = str(draft.get("cargo_volume"))
             if "м" not in vol.lower() and "m" not in vol.lower(): vol = f"{vol} м³"
             lines.append(f"Объем: <b>{html.escape(vol)}</b>")
-        if draft.get("packaging"):
-            lines.append(f"Упаковка: <b>{html.escape(str(draft.get('packaging')))}</b>")
             
         lines.append("")
         val = draft.get("cargo_value")
@@ -183,7 +180,8 @@ Today's date: {today}
             "cargo_value": "cargo_value", "cargo_weight": "cargo_weight",
             "cargo_places": "cargo_places", "cargo_volume": "cargo_volume", "urgency_type": "urgency_type",
             "extra_info": "message_text", "transport_sub": "transport_sub", 
-            "temp_control": "temp_control", "adr_class": "adr_class", "transit_info": "transit_rf_allowed",
+            "temp_control": "temp_control", "temp_range": "temp_range",
+            "adr_class": "adr_class", "transit_info": "transit_rf_allowed",
             "border_crossing_cn": "border_crossing_cn"
         }
         for draft_key, db_key in field_map.items():

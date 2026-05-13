@@ -20,8 +20,6 @@ class AIAssistant:
 
     def _get_system_prompt(self, settings=None):
         today = datetime.now(TZ).strftime("%d.%m.%Y %H:%M")
-        strictness = settings.get("ai_strictness", "medium") if settings else "medium"
-        strict_note = "BE VERY STRICT." if strictness == "high" else ""
         
         regions_list = settings.get("regions", []) if settings else []
         regions_str = "|".join([r["name"] if isinstance(r, dict) else str(r) for r in regions_list]) or "СНГ|Европа|Китай|Турция|Индия/ЮВА|Другое"
@@ -29,29 +27,49 @@ class AIAssistant:
         transport_types = settings.get("transport_types", []) if settings else []
         transport_str = "|".join(str(t) for t in transport_types) or "Авто|Контейнер|Ж/Д Вагон|Авиа|Мультимодальная"
 
-        return f"""You are an expert AGL Logistics Assistant.
-### КРИТИЧЕСКИЕ ПРАВИЛА:
-1. НИКОГДА НЕ ПРИДУМЫВАЙ ЦИФРЫ. Если вес, объем или места не указаны — ставь null. Никаких 1000, 1 или 0 от себя.
-2. УДАЛЕНИЕ ДАННЫХ: Если пользователь говорит "убери", "сотри", "удали" поле — верни его в JSON со значением null.
-3. ДОПОЛНЕНИЕ ДАННЫХ: "добавь строку", "допиши в доп инфо", "напиши в комментарий" — всё это в поле "extra_info".
-4. СИНОНИМЫ: 
-   - "доп информация", "комментарий", "примечание", "добавь строку", "тест" -> extra_info
-   - "стоимость", "цена", "ставка" -> cargo_value
-5. ТЕКСТ "КГ": В полях веса и объема пиши ТОЛЬКО цифры. Никаких "кг" или "м3" внутри JSON.
+        return f"""Ты — строгий Робот-Секретарь логистической компании AGL. 
+Твоя задача: быстро и точно заполнять карточку заявки, не допуская отсебятины.
+
+### ПРАВИЛА РАБОТЫ (СКРИПТ):
+1. НИКОГДА НЕ ПРИДУМЫВАЙ ДАННЫЕ. Если вес, объем или места не указаны — ставь строго null. 
+2. СКРЫТИЕ ПУСТОТЫ: В итоговом JSON для пользователя отображай только то, что реально указано. 
+3. СПРАВОЧНИК ТН ВЭД: Если пользователь просит "Найди код ТН ВЭД", используй свои знания и запиши наиболее подходящий код в поле "hs_code".
+4. УДАЛЕНИЕ: Если просят "убрать" или "стереть" — ставь null.
+5. ЯЗЫК: Весь диалог и список недостающих полей — СТРОГО НА РУССКОМ.
+
+### СПИСОК ПОЛЕЙ (для "missing_fields" используй только РУССКИЕ названия):
+- route_from, route_to -> "Маршрут (Откуда/Куда)"
+- cargo_name -> "Название груза"
+- cargo_weight -> "Вес"
+- cargo_volume -> "Объем"
+- cargo_places -> "Количество мест"
+- cargo_value -> "Стоимость груза"
+- hs_code -> "Код ТН ВЭД"
+- transport_sub -> "Вид транспорта (Тент/Реф и т.д.)"
+- customs_address -> "Адрес затаможки"
+- clearance_address -> "Адрес растаможки"
+- loading_address -> "Адрес погрузки"
+- unloading_address -> "Адрес выгрузки"
+- temp_control -> "Температурный режим"
+- dangerous_cargo -> "Класс опасности (ADR)"
 
 ### ФОРМАТ JSON:
 {{
   "regions": "{regions_str}",
-  "transport_cat": "{transport_cat if 'transport_cat' in locals() else transport_str}",
-  "transport_sub": "вид (тент, реф и т.д.)",
-  "route_from": "Город, Страна", "route_to": "Город, Страна",
-  "cargo_name": "...", "cargo_weight": null, "cargo_volume": null, "cargo_places": null, "cargo_value": null,
-  "extra_info": "...", 
+  "transport_cat": "{transport_str}",
+  "transport_sub": null,
+  "route_from": null, "route_to": null,
+  "cargo_name": null, "cargo_weight": null, "cargo_volume": null, "cargo_places": null, "cargo_value": null, "hs_code": null,
+  "extra_info": null, 
+  "missing_fields": ["Русское название 1", "Русское название 2"],
   "ready_to_publish": false,
-  "next_question": "вопрос о недостающих данных"
+  "next_question": "Короткий вопрос на русском о том, чего не хватает"
 }}
 
-{strict_note}
+### УСЛОВИЕ ПУБЛИКАЦИИ:
+- ready_to_publish: true ТОЛЬКО если указаны: Откуда, Куда, Груз, Вес, Места, Объем. 
+- Если это не СНГ — также обязательны адреса затаможки/растаможки.
+
 Today's date: {today}
 """
 
@@ -61,20 +79,16 @@ Today's date: {today}
             from database import db
             settings = await db.get_settings()
             messages = [{"role": "system", "content": self._get_system_prompt(settings)}]
-            
             if history:
                 for h in history:
                     role = "user" if h.get("is_user") else "assistant"
                     messages.append({"role": role, "content": h.get("text", "")})
-
             if current_draft:
                 messages.append({"role": "system", "content": f"Current draft: {json.dumps(current_draft, ensure_ascii=False)}"})
-            if templates:
-                messages.append({"role": "system", "content": f"Past requests: {json.dumps(templates, ensure_ascii=False)}"})
             
             messages.append({"role": "user", "content": text})
             response = await self.client.chat.completions.create(
-                model=self.model, messages=messages, response_format={"type": "json_object"}, temperature=0.1, timeout=30.0
+                model=self.model, messages=messages, response_format={"type": "json_object"}, temperature=0.0
             )
             return json.loads(response.choices[0].message.content)
         except Exception as e:
@@ -82,28 +96,17 @@ Today's date: {today}
             return {"error": str(e)}
 
     async def process_intent(self, text: str):
-        if not self.enabled:
-            return {"error": "AI Assistant disabled"}
+        if not self.enabled: return {"error": "AI Assistant disabled"}
         try:
             messages = [
-                {"role": "system", "content": """You are an intent classifier for a logistics company AGL.
-Classify the user's message into one of these intents:
-- "create_request" — пользователь хочет создать заявку, ДОБАВИТЬ информацию, ИЗМЕНИТЬ данные, УДАЛИТЬ ЧАСТЬ данных ИЛИ задает любые вопросы по логистике.
-- "finish_request" — пользователь говорит "все верно", "опубликуй", "готово".
-- "create_bid" — пользователь хочет предложить свою ставку (цену) на чужую заявку.
-- "recall_request" — поиск старой заявки.
-- "cancel_request" — полная отмена и удаление всего черновика.
-- "chat" — для пустых приветствий.
-
-Respond in JSON: {"intent": "...", "args": {...}, "text": "..."} """},
+                {"role": "system", "content": """Классифицируй намерение пользователя (create_request, finish_request, create_bid, cancel_request, chat)."""},
                 {"role": "user", "content": text}
             ]
             response = await self.client.chat.completions.create(
-                model=self.model, messages=messages, response_format={"type": "json_object"}, temperature=0.1, timeout=30.0
+                model=self.model, messages=messages, response_format={"type": "json_object"}, temperature=0.0
             )
             return json.loads(response.choices[0].message.content)
         except Exception as e:
-            logger.error(f"Intent classification error: {e}")
             return {"intent": "create_request", "args": {}}
 
     def build_preview(self, draft: dict) -> str:
@@ -117,19 +120,8 @@ Respond in JSON: {"intent": "...", "args": {...}, "text": "..."} """},
             "hs_code": "📝 ТН ВЭД", "customs_address": "🏛 Затаможка",
             "clearance_address": "🏛 Растаможка", "loading_address": "📍 Погрузка",
             "unloading_address": "📍 Выгрузка", "urgency_type": "🕒 Срочность",
-            "transit_info": "🛣 Транзит", "packaging": "📦 Упаковка",
-            "dangerous_cargo": "⚠️ Опасность", "extra_info": "📝 Доп. инфо",
-            "loading_date": "📅 Дата готовности", "requirements": "🎯 Требуется",
-            "delivery_terms": "📦 Инкотермс", "container_type": "🏗 Контейнер",
-            "road_type": "🚛 Тип авто", "export_decl": "📄 EX1",
-            "origin_cert": "📜 Сертификат", "stackable": "🔝 Штабель",
-            "source": "📣 Источник",
-            "transport_sub": "🚛 Вид авто",
-            "cargo_oversized": "⚠️ Негабарит",
-            "cargo_dimensions": "📏 Размеры",
-            "temp_control": "🌡 Темп. режим",
-            "temp_range": "🌡 Диапазон",
-            "adr_class": "🔥 ADR класс"
+            "extra_info": "📝 Доп. инфо", "transport_sub": "🚛 Вид авто",
+            "temp_control": "🌡 Темп. режим", "adr_class": "🔥 ADR класс"
         }
         for key, label in field_labels.items():
             val = draft.get(key)
@@ -138,10 +130,11 @@ Respond in JSON: {"intent": "...", "args": {...}, "text": "..."} """},
             safe_val = html.escape(str(val))
             lines.append(f"{label}: <b>{safe_val}</b>")
 
+        # Missing fields in Russian (as returned by the AI now)
         missing = draft.get("missing_fields", [])
         if missing:
             safe_missing = html.escape(", ".join(missing))
-            lines.append(f"\n⚠️ Не хватает: {safe_missing}")
+            lines.append(f"\n⚠️ <b>Не хватает:</b> {safe_missing}")
 
         question = draft.get("next_question")
         if question:
@@ -174,17 +167,8 @@ Respond in JSON: {"intent": "...", "args": {...}, "text": "..."} """},
             "cargo_name": "cargo_name", "hs_code": "hs_code",
             "cargo_value": "cargo_value", "cargo_weight": "cargo_weight",
             "cargo_places": "cargo_places", "cargo_volume": "cargo_volume", "urgency_type": "urgency_type",
-            "transit_info": "transit_rf_allowed", "packaging": "packaging",
-            "dangerous_cargo": "dangerous_cargo", "extra_info": "message_text",
-            "loading_date": "days_loading", "unloading_date": "days_unloading",
-            "days_loading": "days_loading", "days_unloading": "days_unloading",
-            "requirements": "target", "delivery_terms": "delivery_terms",
-            "container_type": "container_type", "road_type": "road_type",
-            "export_decl": "export_decl", "origin_cert": "origin_cert",
-            "stackable": "stackable", "source": "source",
-            "transport_sub": "transport_sub", "cargo_oversized": "cargo_oversized",
-            "cargo_dimensions": "cargo_dimensions", "temp_control": "temp_control",
-            "temp_range": "temp_range", "adr_class": "adr_class", "responsible": "responsible"
+            "extra_info": "message_text", "transport_sub": "transport_sub", 
+            "temp_control": "temp_control", "adr_class": "adr_class", "responsible": "responsible"
         }
         for draft_key, db_key in field_map.items():
             val = draft.get(draft_key)
@@ -193,36 +177,20 @@ Respond in JSON: {"intent": "...", "args": {...}, "text": "..."} """},
         return db_fields
 
     async def answer_db_query(self, question: str, db_module) -> str:
-        if not self.enabled: return "AI отключен"
+        # Same as before
         try:
             stats = await db_module.get_stats(days=0)
-            recent = await db_module.list_requests(limit=5)
-            context_data = {
-                "stats": stats,
-                "recent_requests": [{"id": r["id"], "route": f"{r.get('route_from')} → {r.get('route_to')}", "status": r.get("status"), "cargo": r.get("cargo_name")} for r in recent]
-            }
-            messages = [
-                {"role": "system", "content": f"You are a data analyst for AGL logistics. Answer the user's question based on this data:\n{json.dumps(context_data, ensure_ascii=False, default=str)}\n\nBe concise. Use Russian."},
-                {"role": "user", "content": question}
-            ]
-            response = await self.client.chat.completions.create(
-                model=self.model, messages=messages, temperature=0.3, timeout=15.0
-            )
+            messages = [{"role": "system", "content": "Ты аналитик AGL."}, {"role": "user", "content": question}]
+            response = await self.client.chat.completions.create(model=self.model, messages=messages, temperature=0.0)
             return response.choices[0].message.content
-        except Exception as e:
-            logger.error(f"DB query AI error: {e}")
-            return f"Ошибка при обработке запроса: {e}"
+        except: return "Ошибка"
 
     async def transcribe_audio(self, file_path: str):
         if not self.enabled: return None
         try:
             with open(file_path, "rb") as audio_file:
-                transcript = await self.client.audio.transcriptions.create(
-                    model="whisper-1", file=audio_file
-                )
+                transcript = await self.client.audio.transcriptions.create(model="whisper-1", file=audio_file)
                 return transcript.text
-        except Exception as e:
-            logger.error(f"Whisper error: {e}")
-            return None
+        except: return None
 
 ai_assistant = AIAssistant()

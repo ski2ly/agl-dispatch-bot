@@ -180,6 +180,8 @@ async def sync_bid_to_discussion(bot, discussion_id, channel_id, channel_msg_id,
     target_chat = to_int(channel_id)
     target_discussion = to_int(discussion_id)
     disc_msg_id = to_int(discussion_msg_id)
+    
+    log.info(f"SyncBid: discussion_id={target_discussion}, disc_msg_id={disc_msg_id}, channel_msg_id={channel_msg_id}")
 
     if target_discussion:
         if disc_msg_id:
@@ -187,7 +189,7 @@ async def sync_bid_to_discussion(bot, discussion_id, channel_id, channel_msg_id,
                 await bot.send_message(
                     chat_id=target_discussion,
                     text=bid_card_text,
-                    message_thread_id=disc_msg_id,
+                    reply_parameters=ReplyParameters(message_id=disc_msg_id),
                     parse_mode="HTML"
                 )
                 return True

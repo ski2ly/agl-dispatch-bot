@@ -18,9 +18,18 @@ async def handle_discussion_forward(update: Update, context: ContextTypes.DEFAUL
         return
 
     if msg.is_automatic_forward and msg.forward_from_chat:
-        # If it's the bot's own post forwarded from the channel, save its ID as the discussion root!
-        channel_id = str(os.getenv("CHANNEL_ID", ""))
-        if str(msg.forward_from_chat.id) == channel_id and msg.forward_from_message_id:
+        # Normalize IDs for comparison (Telegram IDs can be -100... or just ...)
+        def norm(i):
+            s = str(i)
+            if s.startswith("-100"): return s[4:]
+            return s.lstrip("-")
+
+        channel_id = os.getenv("CHANNEL_ID", "")
+        fwd_from_id = msg.forward_from_chat.id
+        
+        logger.info(f"Checking forward: from_chat_id={fwd_from_id}, env_channel_id={channel_id}")
+        
+        if norm(fwd_from_id) == norm(channel_id) and msg.forward_from_message_id:
             try:
                 await db.update_request_by_channel_msg_id(
                     msg.forward_from_message_id, 

@@ -26,29 +26,17 @@ class AIAssistant:
         else:
             regions_str = "СНГ|Европа|Китай|Турция|Индия/ЮВА|Америка|ОАЭ|Другое"
 
-        transport_types = settings.get("transport_types", []) if settings else []
-        transport_str = "|".join(str(t) for t in transport_types) or "Авто|Контейнер|Ж/Д Вагон|Авиа|Мультимодальная"
+        return f"""Ты — Робот-Секретарь AGL. Твоя задача: идеально извлечь ВСЕ детали заявки.
 
-        return f"""Ты — профессиональный логистический Робот-Секретарь AGL.
-Твоя задача: идеально извлекать данные из сообщений и заполнять карточку.
+### ПРАВИЛА:
+1. РЕГИОН: Если есть Китай — это строго КИТАЙ.
+2. ДОП. ИНФО (extra_info): Записывай сюда ВСЁ, что не попало в основные поля: упаковка (вкладыш), общая партия (1000т), запрашиваемые услуги (таможня, аренда, погрузка). Это КРИТИЧНО.
+3. ПОГРАНПЕРЕХОД: Станции вроде "Алтынколь" или переходы пиши в `border_crossing_cn`.
+4. НИКОГДА НЕ ПРИДУМЫВАЙ ЦИФРЫ. Нет данных — null.
+5. ЯЗЫК: Ответы и missing_fields — на РУССКОМ.
 
-### ПРАВИЛА ВЫБОРА НАПРАВЛЕНИЯ (СТРОГО):
-Выбери ОДНО значение из списка: [{regions_str}]
-1. КИТАЙ: Если хотя бы одна точка (А или Б) находится в Китае. ПРИОРИТЕТ 1.
-2. ЕВРОПА: Если хотя бы одна точка в Европе. ПРИОРИТЕТ 2.
-3. ОАЭ: Если одна точка в Эмиратах (Дубай и др.).
-4. АМЕРИКА: Если одна точка в США, Канаде и т.д.
-5. ТУРЦИЯ / ИНДИЯ/ЮВА: Аналогично.
-6. СНГ: Только если ОБЕ точки (А и Б) находятся внутри СНГ.
-
-### ИНСТРУКЦИИ:
-- НИКОГДА НЕ ПРИДУМЫВАЙ ЦИФРЫ. Нет данных — ставь null.
-- ТН ВЭД: По запросу находи код и пиши в "hs_code".
-- МЫСЛИ ЖИВО: В "next_question" пиши реальный, вежливый вопрос о том, чего не хватает (например: "Подскажите, пожалуйста, какой будет объем груза?").
-- ПОЛЯ: В "missing_fields" пиши реальные названия (Вес, Объем, Места и т.д.) из списка ниже.
-
-### РУССКИЕ НАЗВАНИЯ ПОЛЕЙ ДЛЯ missing_fields:
-route_from/to: "Маршрут", cargo_name: "Груз", cargo_weight: "Вес", cargo_volume: "Объем", cargo_places: "Места", cargo_value: "Стоимость", hs_code: "ТН ВЭД", transport_sub: "Вид транспорта", customs_address: "Затаможка", clearance_address: "Растаможка", loading_address: "Погрузка", unloading_address: "Выгрузка".
+### СПИСОК ПОЛЕЙ (missing_fields):
+Маршрут, Груз, Вес, Объем, Места, Стоимость, ТН ВЭД, Вид транспорта, Затаможка, Растаможка, Погранпереход.
 
 ### ФОРМАТ JSON:
 {{
@@ -56,11 +44,12 @@ route_from/to: "Маршрут", cargo_name: "Груз", cargo_weight: "Вес",
   "transport_cat": "Контейнер",
   "transport_sub": "20GP",
   "route_from": "Ташкент, Узбекистан", "route_to": "Тайчжоу, Китай",
-  "cargo_name": "Удобрения", "cargo_weight": "28000", "cargo_volume": null, "cargo_places": null, "cargo_value": null, "hs_code": null,
-  "transit_info": null, "extra_info": "...", 
+  "cargo_name": "...", "cargo_weight": "...", "cargo_volume": null, "cargo_places": null, "hs_code": null,
+  "border_crossing_cn": "Алтынколь",
+  "extra_info": "Партия 1000т. Упаковка: вкладыш. Услуги: таможня, погрузка, аренда КТК.", 
   "missing_fields": ["Объем", "Количество мест"],
   "ready_to_publish": false,
-  "next_question": "Уточните, пожалуйста, количество мест и объем груза?"
+  "next_question": "Уточните объем и количество мест?"
 }}
 
 Today's date: {today}
@@ -79,7 +68,7 @@ Today's date: {today}
             if current_draft:
                 messages.append({"role": "system", "content": f"Current draft: {json.dumps(current_draft, ensure_ascii=False)}"})
             messages.append({"role": "user", "content": text})
-            response = await self.client.chat.completions.create(model=self.model, messages=messages, response_format={"type": "json_object"}, temperature=0.2)
+            response = await self.client.chat.completions.create(model=self.model, messages=messages, response_format={"type": "json_object"}, temperature=0.1)
             return json.loads(response.choices[0].message.content)
         except Exception as e: return {"error": str(e)}
 
@@ -103,7 +92,8 @@ Today's date: {today}
             "clearance_address": "🏛 Растаможка", "loading_address": "📍 Погрузка",
             "unloading_address": "📍 Выгрузка", "urgency_type": "🕒 Срочность",
             "transit_info": "🛣 Транзит", "extra_info": "📝 Доп. инфо", 
-            "transport_sub": "🚛 Вид авто", "temp_control": "🌡 Темп. режим", "adr_class": "🔥 ADR класс"
+            "transport_sub": "🚛 Вид авто", "temp_control": "🌡 Темп. режим", "adr_class": "🔥 ADR класс",
+            "border_crossing_cn": "🌉 Погранпереход"
         }
         for key, label in field_labels.items():
             val = draft.get(key)
@@ -146,7 +136,8 @@ Today's date: {today}
             "cargo_value": "cargo_value", "cargo_weight": "cargo_weight",
             "cargo_places": "cargo_places", "cargo_volume": "cargo_volume", "urgency_type": "urgency_type",
             "extra_info": "message_text", "transport_sub": "transport_sub", 
-            "temp_control": "temp_control", "adr_class": "adr_class", "transit_info": "transit_rf_allowed"
+            "temp_control": "temp_control", "adr_class": "adr_class", "transit_info": "transit_rf_allowed",
+            "border_crossing_cn": "border_crossing_cn"
         }
         for draft_key, db_key in field_map.items():
             val = draft.get(draft_key)

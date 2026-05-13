@@ -608,7 +608,9 @@ async def api_submit(request):
             
             fbk = raw_payload.get('feedback')
             if fbk:
-                await db.add_comment(final_id, profile["id"], profile["name"], f"Фидбэк: {fbk}", type="feedback")
+                # Use a safe ID (fallback to telegram_id if DB id is missing)
+                user_db_id = profile.get("id") or profile.get("telegram_id")
+                await db.add_comment(final_id, user_db_id, profile["name"], f"Фидбэк: {fbk}", type="feedback")
             
             # Update main card in channel
             settings = await db.get_settings()
@@ -695,8 +697,9 @@ async def api_submit(request):
             
         return safe_json_response({"ok": True, "id": final_id})
     except Exception as e:
-        logger.error(f"api_submit error: {e}")
-        return safe_json_response({"error": "Internal error"})
+        import traceback
+        logger.error(f"api_submit error: {e}\n{traceback.format_exc()}")
+        return safe_json_response({"error": f"Internal error: {str(e)}"})
 
 ALLOWED_CURRENCIES = {"USD", "EUR", "RUB", "CNY", "UZS", "KZT"}
 

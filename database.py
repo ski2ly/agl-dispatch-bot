@@ -109,6 +109,9 @@ class Database:
             contact_phone TEXT,
             message_text TEXT,
             target TEXT,
+            packing_type TEXT,
+            special_conditions TEXT,
+            via TEXT,
             delivery_terms TEXT,
             delivery_terms_eu TEXT,
             route_type TEXT,
@@ -267,6 +270,9 @@ class Database:
                 ADD COLUMN IF NOT EXISTS discussion_msg_id BIGINT,
                 ADD COLUMN IF NOT EXISTS cargo_readiness TEXT,
                 ADD COLUMN IF NOT EXISTS loading_type TEXT,
+                ADD COLUMN IF NOT EXISTS packing_type TEXT,
+                ADD COLUMN IF NOT EXISTS special_conditions TEXT,
+                ADD COLUMN IF NOT EXISTS via TEXT,
                 ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
                 ALTER TABLE ai_sessions ADD COLUMN IF NOT EXISTS history JSONB DEFAULT '[]';
             """)

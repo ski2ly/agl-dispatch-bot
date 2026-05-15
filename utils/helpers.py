@@ -74,11 +74,20 @@ def build_card(req: dict) -> str:
         if 'кг' not in w.lower(): w = f"{w} кг"
         lines.append(f"Вес: {w}")
     if v('cargo_places'): lines.append(f"Мест: {v('cargo_places')}")
+    
+    if v('packing_type'):
+        lines.append(f"Упаковка: {v('packing_type')}")
+    if v('loading_type'):
+        lines.append(f"Погрузка: {v('loading_type')}")
+    if v('special_conditions'):
+        lines.append(f"⚠️ Особые условия: {v('special_conditions')}")
+    if v('via'):
+        lines.append(f"Маршрут: через {v('via')}")
+
     if v('cargo_volume'):
         vol = v('cargo_volume')
         if 'м' not in vol.lower() and 'm' not in vol.lower(): vol = f"{vol} м³"
         lines.append(f"Объем: {vol}")
-    if v('packaging'): lines.append(f"Упаковка: {v('packaging')}")
     if v('stackable') == 'Да': lines.append("Штабелируемый: Да")
     elif v('stackable') == 'Нет': lines.append("Штабелируемый: Нет")
     
@@ -102,8 +111,6 @@ def build_card(req: dict) -> str:
     if v('cargo_readiness'):
         lines.append(f"Готовность: {v('cargo_readiness')}")
         
-    if v('loading_type'):
-        lines.append(f"Погрузка: {v('loading_type')}")
         
     lines.append(f"Срочность: {v('urgency_type') or v('urgency_days') or 'Стандарт'}")
 

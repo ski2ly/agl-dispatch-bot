@@ -464,7 +464,7 @@
                         <input type="text" id="cargo_volume" placeholder="Объем (м³) *"
                             class="w-full p-4 tg-input text-sm">
                         <div class="grid grid-cols-2 gap-4">
-                            <input type="text" id="packaging" placeholder="Упаковка"
+                            <input type="text" id="packing_type" placeholder="Вид упаковки"
                                 class="w-full p-4 tg-input text-sm">
                             <select id="dangerous_cargo" class="w-full p-4 tg-input text-sm"
                                 onchange="handleDangerousCargo(this)">
@@ -473,6 +473,7 @@
                                 <option value="Другое">Другое...</option>
                             </select>
                         </div>
+                        <input type="hidden" id="packaging">
 
                         <!-- Stackable, Oversized, Temperature -->
                         <div class="grid grid-cols-2 gap-4">
@@ -570,7 +571,10 @@
                                 onchange="handleFileUpload(event)">
                         </div>
 
-                        <textarea id="message_text" placeholder="Комментарии..." class="w-full p-4 tg-input text-sm"
+                        <textarea id="special_conditions" placeholder="Особые условия (Slip-sheets, ручная погрузка...)" class="w-full p-4 tg-input text-sm"
+                            rows="2"></textarea>
+                        <input type="text" id="via" placeholder="Транзит через (страны)" class="w-full p-4 tg-input text-sm">
+                        <textarea id="message_text" placeholder="Общие комментарии..." class="w-full p-4 tg-input text-sm"
                             rows="3"></textarea>
                     </section>
                 </form>
@@ -1616,7 +1620,10 @@
                 temp_control: document.getElementById('temp_control').checked ? 'Да' : 'Нет',
                 temp_range: document.getElementById('temp_range').value,
                 cargo_readiness: document.getElementById('cargo_readiness').value,
-                loading_type: document.getElementById('loading_type') ? document.getElementById('loading_type').value : ''
+                loading_type: document.getElementById('loading_type') ? document.getElementById('loading_type').value : '',
+                packing_type: document.getElementById('packing_type').value,
+                special_conditions: document.getElementById('special_conditions').value,
+                via: document.getElementById('via').value
             };
             ['cargo_currency', 'transport_sub', 'delivery_terms_eu', 'delivery_terms', 'route_type', 'transit_rf_allowed', 'export_decl', 'origin_cert', 'border_crossing_cn', 'road_type_cn', 'container_owner', 'container_type_cn', 'urgency_days', 'days_loading', 'days_unloading', 'glonass_seal', 'ports_list', 'flight_type', 'stackable'].forEach(id => { const el = document.getElementById(id); if (el) payload[id] = el.value; });
 
@@ -1754,7 +1761,7 @@
 
                 document.getElementById('btn-back-step3').textContent = '← База';
                 setupFields(() => {
-                    const fieldIds = ['loading_type', 'cargo_readiness', 'cargo_currency', 'cargo_name', 'cargo_value', 'hs_code', 'route_from', 'route_to', 'loading_address', 'customs_address', 'clearance_address', 'unloading_address', 'client_company', 'responsible', 'target', 'message_text', 'cargo_weight', 'cargo_places', 'cargo_volume', 'packaging', 'dangerous_cargo', 'adr_class', 'urgency_type', 'delivery_terms_eu', 'route_type', 'transit_rf_allowed', 'export_decl', 'origin_cert', 'border_crossing_cn', 'road_type_cn', 'container_owner', 'container_type_cn', 'urgency_days', 'days_loading', 'days_unloading', 'glonass_seal', 'ports_list', 'flight_type', 'stackable', 'source', 'cargo_oversized', 'cargo_dimensions', 'temp_range'];
+                    const fieldIds = ['loading_type', 'packing_type', 'special_conditions', 'via', 'cargo_readiness', 'cargo_currency', 'cargo_name', 'cargo_value', 'hs_code', 'route_from', 'route_to', 'loading_address', 'customs_address', 'clearance_address', 'unloading_address', 'client_company', 'responsible', 'target', 'message_text', 'cargo_weight', 'cargo_places', 'cargo_volume', 'packaging', 'dangerous_cargo', 'adr_class', 'urgency_type', 'delivery_terms_eu', 'route_type', 'transit_rf_allowed', 'export_decl', 'origin_cert', 'border_crossing_cn', 'road_type_cn', 'container_owner', 'container_type_cn', 'urgency_days', 'days_loading', 'days_unloading', 'glonass_seal', 'ports_list', 'flight_type', 'stackable', 'source', 'cargo_oversized', 'cargo_dimensions', 'temp_range'];
 
                     fieldIds.forEach(fid => {
                         const el = document.getElementById(fid);

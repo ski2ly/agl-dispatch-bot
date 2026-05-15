@@ -17,7 +17,7 @@ TZ = pytz.timezone("Asia/Tashkent")
 # from abstract rules.
 # ──────────────────────────────────────────────────────────
 FEW_SHOT = [
-    # 1. Charter to UAE – urgency, client, extra context
+    # 1. Charter to UAE
     {
         "user": (
             "Ташкент - Абудаби\n"
@@ -38,19 +38,32 @@ FEW_SHOT = [
             "delivery_terms": None,
             "route_from": "Ташкент, Узбекистан",
             "route_to": "Абу-Даби, ОАЭ",
+            "via": None,
+            "loading_address": None,
+            "unloading_address": None,
+            "customs_address": None,
+            "clearance_address": None,
             "cargo_name": "Груз для выставки IDEX 2025",
-            "cargo_weight": None, "cargo_volume": None,
-            "cargo_places": None, "hs_code": None, "adr_class": None,
-            "extra_info": (
-                "Дата отгрузки 14-15 мая. "
-                "Раньше возили на собственном ИЛ76, сейчас груз туда не вмещается. "
-                "Вопрос скорости, не денег."
-            ),
+            "hs_code": None,
+            "adr_class": None,
+            "cargo_weight": None,
+            "cargo_volume": None,
+            "cargo_places": None,
+            "cargo_value": None,
+            "cargo_currency": None,
+            "packing_type": None,
+            "loading_type": None,
+            "special_conditions": None,
+            "temp_control": None,
+            "temp_range": None,
+            "cargo_readiness": "14-15 мая",
+            "target": None,
+            "extra_info": "Раньше возили на собственном ИЛ76, сейчас груз туда не вмещается. Вопрос скорости, не денег.",
             "missing_fields": ["Вес", "Объем", "Стоимость", "ТН ВЭД"],
-            "next_question": "Уточните вес и объем груза для подбора чартера?"
+            "next_question": "Уточните вес, объем, стоимость груза и ТН ВЭД?"
         }, ensure_ascii=False),
     },
-    # 2. Philippines container – HS code, slip-sheets, manual reload
+    # 2. Philippines container (Pineapples)
     {
         "user": (
             "Порт General Santos (Филиппины)\n"
@@ -70,19 +83,32 @@ FEW_SHOT = [
             "delivery_terms": None,
             "route_from": "General Santos, Филиппины",
             "route_to": "Ташкент, Узбекистан",
+            "via": None,
+            "loading_address": None,
+            "unloading_address": None,
+            "customs_address": None,
+            "clearance_address": None,
             "cargo_name": "Консервированные ананасы в железных баночках",
-            "cargo_weight": "20000", "cargo_volume": None,
+            "hs_code": "2008207900",
+            "adr_class": None,
+            "cargo_weight": "20000",
+            "cargo_volume": None,
             "cargo_places": None,
-            "hs_code": "2008207900", "adr_class": None,
-            "extra_info": (
-                "Контейнер без режима. "
-                "Грузят мягкими слип-шитами, поэтому перегрузка ручная будет."
-            ),
-            "missing_fields": ["Заказчик", "Стоимость"],
-            "next_question": "Кто заказчик и какова стоимость груза?"
+            "cargo_value": None,
+            "cargo_currency": None,
+            "packing_type": "Железные банки, слип-шиты мягкие",
+            "loading_type": None,
+            "special_conditions": "Ручная перегрузка (погрузка слип-шитами)",
+            "temp_control": None,
+            "temp_range": None,
+            "cargo_readiness": None,
+            "target": None,
+            "extra_info": "Контейнер без температурного режима.",
+            "missing_fields": ["Заказчик", "Стоимость", "Мест", "Готовность"],
+            "next_question": "Уточните заказчика, стоимость груза, количество мест и готовность?"
         }, ensure_ascii=False),
     },
-    # 3. EU road via Turkey – EXW, HS, route info
+    # 3. EU road via Turkey
     {
         "user": (
             "EXW Vilnius - Fergana\n"
@@ -107,21 +133,32 @@ FEW_SHOT = [
             "delivery_terms": "EXW",
             "route_from": "Вильнюс, Литва",
             "route_to": "Фергана, Узбекистан",
+            "via": "Турция",
+            "loading_address": "Lithuania, Vilnius",
+            "unloading_address": "Tashkent",
+            "customs_address": None,
+            "clearance_address": None,
             "cargo_name": "Novoflow 165 (non DG chemicals) liquid",
-            "cargo_weight": "20000", "cargo_volume": None,
+            "hs_code": "3402901000",
+            "adr_class": None,
+            "cargo_weight": "20000",
+            "cargo_volume": None,
             "cargo_places": "20 pcs",
-            "hs_code": "3402901000", "adr_class": None,
-            "extra_info": (
-                "Упаковка: IBC container. Погрузка: Литва, Вильнюс. "
-                "Доставка: Ташкент. Маршрут через Турцию. "
-                "Дата погрузки 22/10/2025. Груз произведен в Нидерландах. "
-                "Нужны: ставка, маршрут, транзитное время, EX1."
-            ),
+            "cargo_value": None,
+            "cargo_currency": None,
+            "packing_type": "ibc container",
+            "loading_type": None,
+            "special_conditions": None,
+            "temp_control": None,
+            "temp_range": None,
+            "cargo_readiness": "22.10.2025",
+            "target": None,
+            "extra_info": "Груз произведен в Нидерландах. Нужно: ставка, маршрут, транзитное время, EX1.",
             "missing_fields": ["Заказчик", "Объем", "Стоимость"],
-            "next_question": "Уточните заказчика и объем груза?"
+            "next_question": "Уточните заказчика, объем и стоимость груза?"
         }, ensure_ascii=False),
     },
-    # 4. China pallets – pallet dimensions, stacking, supplier contact
+    # 4. China pallets
     {
         "user": (
             "Китай, провинция Гуандун, город Дунгуань\n"
@@ -147,22 +184,32 @@ FEW_SHOT = [
             "delivery_terms": None,
             "route_from": "Дунгуань, Китай",
             "route_to": "Ташкент, Узбекистан",
+            "via": None,
+            "loading_address": None,
+            "unloading_address": "ул. Уйсозлар, 41, Ташкент",
+            "customs_address": None,
+            "clearance_address": None,
             "cargo_name": "Бритвы Schick и бритвенные картриджи",
-            "cargo_weight": "3500", "cargo_volume": "86",
+            "hs_code": "8212101000",
+            "adr_class": None,
+            "cargo_weight": "3500",
+            "cargo_volume": "86",
             "cargo_places": "29 паллет",
-            "hs_code": "8212101000", "adr_class": None,
-            "extra_info": (
-                "Адрес доставки: ул. Уйсозлар, 41, Ташкент. "
-                "Размер паллеты 1100x1100x990 мм. "
-                "При штабелировании высота ~2000 мм (15 паллет 1100x1100x2000). "
-                "Необходимо связаться с поставщиками и согласовать дату отгрузки. "
-                "Примерная дата: 25.11."
-            ),
+            "cargo_value": None,
+            "cargo_currency": None,
+            "packing_type": "Паллеты 1100x1100x990 мм",
+            "loading_type": None,
+            "special_conditions": "Штабелирование (15 паллет 1100x1100x2000 мм)",
+            "temp_control": None,
+            "temp_range": None,
+            "cargo_readiness": "25.11",
+            "target": None,
+            "extra_info": "Необходимо напрямую связаться с поставщиками и согласовать дату отгрузки.",
             "missing_fields": ["Заказчик", "Стоимость"],
             "next_question": "Кто заказчик и какова стоимость груза?"
         }, ensure_ascii=False),
     },
-    # 5. CIS road – ADR, tent, ammonium nitrate
+    # 5. CIS road
     {
         "user": (
             "Навои - Клайпеда\n"
@@ -179,14 +226,29 @@ FEW_SHOT = [
             "delivery_terms": None,
             "route_from": "Навои, Узбекистан",
             "route_to": "Клайпеда, Литва",
+            "via": None,
+            "loading_address": None,
+            "unloading_address": None,
+            "customs_address": None,
+            "clearance_address": None,
             "cargo_name": "Аммиачная селитра",
-            "cargo_weight": None, "cargo_volume": "90",
-            "cargo_places": None,
             "hs_code": None,
             "adr_class": "3",
-            "extra_info": "Груз готов к отправке.",
+            "cargo_weight": None,
+            "cargo_volume": "90",
+            "cargo_places": None,
+            "cargo_value": None,
+            "cargo_currency": None,
+            "packing_type": None,
+            "loading_type": None,
+            "special_conditions": None,
+            "temp_control": None,
+            "temp_range": None,
+            "cargo_readiness": "Груз готов",
+            "target": None,
+            "extra_info": None,
             "missing_fields": ["Заказчик", "Вес", "Стоимость", "ТН ВЭД"],
-            "next_question": "Уточните вес груза и ТН ВЭД?"
+            "next_question": "Уточните заказчика, вес и стоимость груза?"
         }, ensure_ascii=False),
     },
     # 6. Reefer – temperature, customs
@@ -205,19 +267,29 @@ FEW_SHOT = [
             "delivery_terms": None,
             "route_from": "Вильнюс, Литва",
             "route_to": "Ташкент, Узбекистан",
+            "via": "Терехова",
+            "loading_address": None,
+            "unloading_address": None,
+            "customs_address": "на месте",
+            "clearance_address": None,
             "cargo_name": "Рефрижераторный груз",
-            "cargo_weight": None, "cargo_volume": None,
+            "hs_code": None,
+            "adr_class": None,
+            "cargo_weight": None,
+            "cargo_volume": None,
             "cargo_places": None,
-            "hs_code": None, "adr_class": None,
-            "temp_control": "Да", "temp_range": "+15С",
-            "extra_info": (
-                "Маршрут через Терехова. "
-                "Затаможка на месте. "
-                "Стоимость груза (брутто): 4000 EUR."
-            ),
-            "cargo_value": "4000", "cargo_currency": "EUR",
-            "missing_fields": ["Заказчик", "Вес", "Объем", "ТН ВЭД"],
-            "next_question": "Уточните вес и объем груза?"
+            "cargo_value": "4000",
+            "cargo_currency": "EUR",
+            "packing_type": None,
+            "loading_type": None,
+            "special_conditions": None,
+            "temp_control": "Да",
+            "temp_range": "+15С",
+            "cargo_readiness": None,
+            "target": None,
+            "extra_info": None,
+            "missing_fields": ["Заказчик", "Вес", "Объем", "ТН ВЭД", "Готовность"],
+            "next_question": "Уточните заказчика, вес, объем и готовность груза?"
         }, ensure_ascii=False),
     },
 ]
@@ -239,35 +311,116 @@ class AIAssistant:
             [r["name"] if isinstance(r, dict) else str(r) for r in regions_list]
         )
 
-        return (
-            "Ты — старший логист-диспетчер AGL.  "
-            "Из текста клиента извлеки ВСЕ данные в JSON.\n\n"
-            "РЕГИОНЫ (выбери один): " + regions_str + "\n"
-            "Определи страну каждого города и сопоставь с регионом.\n\n"
-            "ТРАНСПОРТ:\n"
-            "- Тент/Фура/Мега -> transport_cat: Авто\n"
-            "- Чартер/Борт/Самолет -> transport_cat: Авиа\n"
-            "- Контейнер (20/40 фут) -> transport_cat: Контейнер\n"
-            "- Реф -> transport_cat: Авто, transport_sub: Реф\n\n"
-            "ОБЪЕМ по умолчанию: Тент=90, Мега=110 (только если объем НЕ указан явно).\n\n"
-            "ПРАВИЛО ПЫЛЕСОСА (КРИТИЧНО):\n"
-            "Всё, что не попало в конкретное поле (размеры паллет, инструкции "
-            "связаться с поставщиком, даты погрузки, причины срочности, описание "
-            "упаковки, слип-шиты, штабелирование) — ОБЯЗАТЕЛЬНО пиши в extra_info. "
-            "Ничего не выбрасывай.\n\n"
-            "ЧИСЛА:\n"
-            "- cargo_weight: только число в кг (20 тонн -> 20000)\n"
-            "- cargo_volume: только число в м3\n"
-            "- cargo_places: текст (29 паллет, 20 pcs)\n"
-            "- target: целевая ставка, если указана (например, \"$1500\" или \"1200 USD\")\n"
-            "- cargo_readiness: готовность груза (например, \"Груз готов\", \"Запрос ставки\" или конкретная дата \"15.05.2026\")\n"
-            "- loading_type: тип погрузки (например, \"Верхняя, Боковая\", \"Задняя\", \"Полная растентовка\")\n\n"
-            "СРОЧНОСТЬ: Стандарт. Ставь Срочно только если прямо написано "
-            "\"срочно\", \"вопрос скорости\", \"горит\".\n\n"
-            "missing_fields: список НА РУССКОМ из: Заказчик, Вес, Объем, "
-            "Стоимость, ТН ВЭД, Мест, Таргет, Готовность.\n\n"
-            "Сегодня: " + today
-        )
+        return f"""Ты — старший логист-диспетчер AGL. Твоя задача: из текста клиента собрать
+МАКСИМАЛЬНО ПОЛНУЮ карточку заявки в JSON. Ни одно слово клиента не должно
+быть потеряно.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ШАГ 1 — ПРАВИЛО «ПЫЛЕСОСА» (ВЫПОЛНЯЙ ПЕРВЫМ)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Прочитай весь текст клиента. Мысленно пройдись по КАЖДОМУ предложению
+и спроси: «Эта информация поможет агенту быстрее и точнее дать цену?»
+Если ДА — она ОБЯЗАНА попасть в карточку: либо в конкретное поле,
+либо в extra_info. Выбрасывать нельзя ничего.
+
+Примеры деталей которые ОБЯЗАТЕЛЬНО сохранять:
+- тип упаковки: паллеты, слип-шиты, IBC, железные банки, пачки
+- условия погрузки/выгрузки: ручная перегрузка, слип-шиты → ручная перегрузка
+- хрупкость, штабелирование, спецтребования к машине
+- маршрутные особенности: через какую страну, пограничный переход
+- причина срочности
+- контакт с поставщиком нужен или нет
+- что нужно от перевозчика (ставка, маршрут, транзитное время, EX1 и т.д.)
+- дата погрузки / готовность груза
+- страна производства груза
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ШАГ 2 — ЗАПОЛНИ ПОЛЯ JSON
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Верни ТОЛЬКО валидный JSON, без пояснений, без markdown-блоков.
+
+{{
+  "regions":             // Один из: Европа, СНГ, Китай, Индия/ЮВА, ОАЭ, Другое
+  "client_company":      // Название компании-заказчика или null
+  "urgency_type":        // "Стандарт" или "Срочно"
+                         // Срочно — ТОЛЬКО если клиент написал "срочно", "горит",
+                         // "вопрос скорости", "срочная" или аналог
+
+  "transport_cat":       // "Авто" | "Авиа" | "Контейнер" | "Море" | "ЖД"
+  "transport_sub":       // "Тент" | "Реф" | "Мега" | "Чартер" | "20 фут" | "40 фут" | null
+
+  "delivery_terms":      // EXW / FOB / CIF и т.д. или null
+  "route_from":          // Город, Страна (полностью)
+  "route_to":            // Город, Страна (полностью)
+  "via":                 // Маршрут через: страна/переход, или null
+
+  "loading_address":     // Точный адрес погрузки если указан, или null
+  "unloading_address":   // Точный адрес выгрузки если указан, или null
+  "customs_address":     // Место затаможки если указано, или null
+  "clearance_address":   // Место растаможки если указано, или null
+
+  "cargo_name":          // Полное название груза
+  "hs_code":             // ТН ВЭД / HS code или null
+  "adr_class":           // Класс опасности ADR или null
+
+  "cargo_weight":        // Только число в кг (20 тонн → "20000") или null
+  "cargo_volume":        // Только число в м³ или null
+                         // АВТОЗАПОЛНЕНИЕ: Тент=90, Мега=110 — ТОЛЬКО если объём
+                         // не указан явно И тип транспорта известен
+  "cargo_places":        // Текстом: "29 паллет", "20 pcs", "15 мест" или null
+  "cargo_value":         // Число (стоимость груза) или null
+  "cargo_currency":      // "USD" / "EUR" / "UZS" и т.д. или null
+
+  "packing_type":        // Тип упаковки: "паллеты", "IBC", "слип-шиты", "пачки",
+                         // "железные банки", "мешки" и т.д. или null
+
+  "loading_type":        // Вид погрузки: "Задняя", "Боковая", "Верхняя",
+                         // "Полная растентовка" — через запятую если несколько, или null
+
+  "special_conditions":  // Особые условия перевозки одной строкой:
+                         // "Ручная перегрузка", "Хрупкий", "Штабелирование 2 яруса",
+                         // "Не кантовать" и т.д. или null
+                         // ← ИМЕННО СЮДА идут слип-шиты → ручная перегрузка
+
+  "temp_control":        // "Да" если реф/температурный режим, иначе null
+  "temp_range":          // "+15С", "-18С", "от 0 до +5С" и т.д. или null
+
+  "cargo_readiness":     // "Груз готов" / "Запрос ставки" / конкретная дата "15.05.2026"
+  "target":              // Целевая ставка если указана: "$1500", "1200 USD" или null
+
+  "extra_info":          // ВСЁ что не вошло в поля выше, одним абзацем.
+                         // Размеры паллет, инструкции по контакту с поставщиком,
+                         // что нужно от перевозчика (ставка/маршрут/транзитное время),
+                         // страна производства, причина срочности, любые детали.
+                         // Если нечего писать — null.
+
+  "missing_fields":      // Список на русском из того что НЕ указано клиентом:
+                         // ["Заказчик", "Вес", "Объем", "Стоимость", "ТН ВЭД",
+                         //  "Мест", "Таргет", "Готовность"]
+                         // Вес и Объем — обязательные поля для авто/контейнер.
+                         // Стоимость — обязательное поле всегда.
+
+  "next_question":       // Один вопрос со списком ВСЕГО недостающего сразу.
+                         // Пример: "Уточните заказчика, вес груза и стоимость?"
+                         // Не задавай вопрос если missing_fields пустой.
+}}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ШАГ 3 — ПРОВЕРКА ПЕРЕД ОТПРАВКОЙ
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Перечитай исходный текст клиента ещё раз.
+Найди любое предложение которое НЕ отражено в JSON.
+Если нашёл — добавь в extra_info или в нужное поле.
+Только после этого верни ответ.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ПРАВИЛА
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+• Числа: только цифры без единиц (кг, м³ писать нельзя в числовых полях)
+• Null вместо пустой строки, "None", "-"
+• Регион: определи страну каждого города и сопоставь с регионом
+• Сегодня: {today}
+• Регионы системы: {regions_str}"""
 
     def _build_messages(self, text, settings, current_draft, history):
         """Build the full message list: system + few-shot + context + user."""
@@ -385,12 +538,19 @@ class AIAssistant:
             "border_crossing_cn": "border_crossing_cn",
             "target": "target",
             "cargo_readiness": "cargo_readiness",
+            "packing_type": "packing_type",
             "loading_type": "loading_type",
+            "special_conditions": "special_conditions",
+            "via": "via",
         }
         for draft_key, db_key in field_map.items():
             val = draft.get(draft_key)
             if val and str(val).strip() not in ("", "-", "None", "null"):
                 db_fields[db_key] = str(val).strip()
+        
+        if db_fields.get("adr_class"):
+            db_fields["dangerous_cargo"] = "Да"
+            
         return db_fields
 
     async def answer_db_query(self, question: str, db_module) -> str:

@@ -388,8 +388,8 @@ async def api_update_status(request):
                 try:
                     text = build_card(updated_req)
                     if updated_req['status'] != 'Открыта':
-                        status_emoji = "✅" if "Успешно" in updated_req['status'] else "❌"
-                        text = f"{status_emoji} СТАТУС: {updated_req['status'].upper()}\n\n" + text
+                        status_text = "ЗАКРЫТА" if "Успешно" in updated_req['status'] else "ОТМЕНЕНА"
+                        text = f"СТАТУС: {status_text}\n\n" + text
                     
                     msg_id = updated_req.get("channel_msg_id")
                     if msg_id:
@@ -629,8 +629,8 @@ async def api_submit(request):
                     req_to_post = await db.get_request(final_id)
                     text = build_card(req_to_post)
                     if req_to_post['status'] != 'Открыта':
-                        status_emoji = "✅" if "Успешно" in req_to_post['status'] else "❌"
-                        text = f"{status_emoji} СТАТУС: {req_to_post['status'].upper()}\n\n" + text
+                        status_text = "ЗАКРЫТА" if "Успешно" in req_to_post['status'] else "ОТМЕНЕНА"
+                        text = f"СТАТУС: {status_text}\n\n" + text
                     
                     msg_id = req_to_post.get("channel_msg_id")
                     if msg_id:

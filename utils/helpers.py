@@ -80,7 +80,7 @@ def build_card(req: dict) -> str:
     if v('loading_type'):
         lines.append(f"Погрузка: {v('loading_type')}")
     if v('special_conditions'):
-        lines.append(f"⚠️ Особые условия: {v('special_conditions')}")
+        lines.append(f"Особые условия: {v('special_conditions')}")
     if v('via'):
         lines.append(f"Маршрут: через {v('via')}")
 

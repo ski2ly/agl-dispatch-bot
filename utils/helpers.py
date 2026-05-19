@@ -191,39 +191,20 @@ async def sync_bid_to_discussion(bot, discussion_id, channel_id, channel_msg_id,
     log.info(f"SyncBid: discussion_id={target_discussion}, disc_msg_id={disc_msg_id}, channel_msg_id={channel_msg_id}")
 
     if target_discussion:
-        if disc_msg_id:
+        if channel_msg_id:
             try:
-                # To post a native comment, we reply to the forwarded message in the group.
-                # If the group is a Forum, message_thread_id is required to place it in the right thread.
+                # To post a native comment, we use the channel_msg_id as message_thread_id in the discussion group.
                 sent_msg = await bot.send_message(
                     chat_id=target_discussion,
                     text=bid_card_text,
-                    message_thread_id=disc_msg_id,
-                    reply_parameters=ReplyParameters(message_id=disc_msg_id),
+                    message_thread_id=int(channel_msg_id),
                     parse_mode="HTML"
                 )
-                log.info(f"✅ Posted native comment to thread {disc_msg_id}")
+                log.info(f"✅ Posted native comment to thread (channel_msg_id={channel_msg_id})")
                 return sent_msg.message_id
             except Exception as e:
                 log.warning(f"Failed to sync bid via message_thread_id: {e}")
 
-        if channel_msg_id:
-            try:
-                # Fallback: cross-chat reply. Note: this results in a "quote + link" behavior in Telegram.
-                # This is used only if disc_msg_id is unknown.
-                sent_msg = await bot.send_message(
-                    chat_id=target_discussion,
-                    text=bid_card_text,
-                    reply_parameters=ReplyParameters(message_id=int(channel_msg_id), chat_id=target_chat),
-                    parse_mode="HTML"
-                )
-                log.info(f"🔗 Posted cross-chat link for channel_msg_id {channel_msg_id}")
-                return sent_msg.message_id
-            except Exception as e:
-                log.warning(f"Failed to sync bid via ReplyParameters fallback: {e}")
-
-    # Fallback
-    if target_discussion:
         try:
             msg = await bot.send_message(chat_id=target_discussion, text=bid_card_text, parse_mode="HTML")
             return msg.message_id
